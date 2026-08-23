@@ -1,6 +1,8 @@
 import os
+import threading
 from django.conf import settings
 from django.utils import timezone
+from django.core.management import call_command
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -241,3 +243,22 @@ class LeagueStandingsAPIView(APIView):
             team['rank'] = i + 1
 
         return Response(sorted_standings)
+
+class CronTriggerAPIView(APIView):
+    def get(self, request):
+        token = request.query_params.get('token')
+        secret = os.environ.get('CRON_SECRET_KEY')
+        
+        if not secret or token != secret:
+            return Response({"error": "Akses Ditolak. Token tidak valid atau belum diatur."}, status=status.HTTP_403_FORBIDDEN)
+            
+        def run_jobs():
+            try:
+                call_command('fetch_history')
+                call_command('fetch_fixture')
+            except Exception as e:
+                print(f"Cron Job Error: {str(e)}")
+                
+        threading.Thread(target=run_jobs).start()
+        
+        return Response({"message": "Cron jobs untuk History dan Fixture sedang dijalankan di latar belakang."}, status=status.HTTP_200_OK)

@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (LeagueViewSet, TeamViewSet, MatchHistoryViewSet, 
                     UpcomingFixtureViewSet, ParlayTicketViewSet, 
                     DatasetPreviewView, DatasetConfirmSaveView, 
-                    PerformanceMetricsAPIView, LeagueStandingsAPIView)
+                    PerformanceMetricsAPIView, LeagueStandingsAPIView,
+                    CronTriggerAPIView)
 from .auth_views import SyncUserView, CheckStaffView
 
 router = DefaultRouter()
@@ -21,4 +22,5 @@ urlpatterns = [
     path('standings/', LeagueStandingsAPIView.as_view(), name='league-standings'),
     path('sync-user/', SyncUserView.as_view(), name='sync-user'),
     path('check-staff/', CheckStaffView.as_view(), name='check-staff'),
+    path('cron-trigger/', CronTriggerAPIView.as_view(), name='cron-trigger'),
 ]

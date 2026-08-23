@@ -17,14 +17,12 @@ class Command(BaseCommand):
         file_path = os.path.join(settings.BASE_DIR, 'data', 'database_backup_lengkap.csv')
         
         if not os.path.exists(file_path):
-            self.stdout.write(self.style.ERROR(f"File backup {file_path} tidak ditemukan! Harap jalankan export_db dulu."))
+            self.stdout.write(self.style.ERROR(f"File backup {file_path} tidak ditemukan! Harap pastikan file ada di folder data."))
             return
             
         self.stdout.write(self.style.WARNING("Membaca file backup CSV secara memori injeksi..."))
-        # keep_default_na=False agar Pandas tidak mengubah string JSON kosong menjadi NaN
         df = pd.read_csv(file_path, keep_default_na=False) 
         
-        # Susun ulang fondasi Liga dan Tim
         league_objs = {code: League.objects.get_or_create(code=code, defaults={'name': name, 'country': 'Eropa'})[0] for code, name in LEAGUE_NAMES.items()}
         all_teams = set(df['home_team'].unique()) | set(df['away_team'].unique())
         team_objs = {name: Team.objects.get_or_create(name=name, defaults={'league': list(league_objs.values())[0]})[0] for name in all_teams if name}
@@ -56,7 +54,6 @@ class Command(BaseCommand):
             return None
             
         def parse_ext(val):
-            # Membaca kembali teks dari CSV menjadi format JSON/Dictionary utuh
             if not val or val == '' or pd.isna(val): return {}
             try:
                 return json.loads(str(val))
@@ -110,7 +107,6 @@ class Command(BaseCommand):
             else:
                 fixture_inserts.append(UpcomingFixture(is_processed=True, **common_kwargs))
         
-        # bulk_create menghemat ribuan Query DB sehingga selesai seketika
         MatchHistory.objects.bulk_create(history_inserts, batch_size=1000)
         UpcomingFixture.objects.bulk_create(fixture_inserts, batch_size=1000)
         
@@ -125,6 +121,8 @@ class Command(BaseCommand):
             
             for _, r in group.iterrows():
                 pick = r['rl_pick_ftr']
+                # PERBAIKAN: Sisipkan format tanggal ISO yang benar
+                date_str = parse_datetime(r['date_iso']).isoformat() if r['date_iso'] else None
                 
                 if to_float(r['rl_stake_ftr']) > 0 and (to_float(r['rl_stake_ou']) == 0 or pick):
                     if pick == 'H': leg_odd, leg_prob = to_float(r['avg_h']), to_float(r['prob_ftr_h'])
@@ -140,7 +138,15 @@ class Command(BaseCommand):
                 legs_odds.append(leg_odd)
                 legs_prob.append(leg_prob)
                 legs_won.append(won_status)
-                legs_details.append({"match": f"{r['home_team']} vs {r['away_team']}", "pick": pick, "odds": leg_odd})
+                
+                # PERBAIKAN: Menambahkan kunci date dan is_won agar frontend bisa merender status dengan benar
+                legs_details.append({
+                    "match": f"{r['home_team']} vs {r['away_team']}", 
+                    "pick": pick, 
+                    "odds": leg_odd,
+                    "date": date_str,
+                    "is_won": won_status
+                })
             
             ticket_won = None
             if is_historical:
