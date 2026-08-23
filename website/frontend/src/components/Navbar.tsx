@@ -132,7 +132,7 @@ export default function Navbar() {
           </Link>
 
           {isAdmin && (
-            <Link href="/upload" onClick={() => setIsMobileMenuOpen(false)} className="block mt-4 bg-blue-600/20 text-blue-400 px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2">
+            <Link href="/upload" onClick={() => setIsMobileMenuOpen(false)} className="mt-4 bg-blue-600/20 text-blue-400 px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-2">
               <Upload size={16} /> Admin Upload Data
             </Link>
           )}
