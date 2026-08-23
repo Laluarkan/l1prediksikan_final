@@ -21,7 +21,6 @@ temp_*.pkl
 data/
 website/backend/data/
 
-# Modul Frontend
+# Modul Frontend (Hanya memblokir modul berat Next.js, Kodenya tetap dikirim)
 node_modules/
 .next/
-website/frontend/
