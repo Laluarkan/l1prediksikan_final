@@ -11,6 +11,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "L1 Prediksi-Kan",
   description: "Platform Analitik Sepak Bola Kuantitatif",
+  icons: {
+    icon: '/logo.svg',
+  },
 };
 
 export default function RootLayout({
