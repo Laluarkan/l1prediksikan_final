@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import Providers from '@/components/Providers';
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
@@ -13,6 +17,9 @@ export const metadata: Metadata = {
   keywords: ['prediksi bola', 'value bet bola', 'analitik sepak bola', 'AI bola', 'prediksi parlay', 'jadwal bola', 'statistik bola akurat', 'prediksi liga inggris'],
   authors: [{ name: 'Lalu Naufal Arkan' }],
   creator: 'Lalu Naufal Arkan',
+  icons: {
+    icon: '/logo.svg',
+  },
   openGraph: {
     type: 'website',
     locale: 'id_ID',
@@ -41,12 +48,22 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="id">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} bg-slate-900 flex flex-col min-h-screen`}>
+        <Providers>
+          <Navbar />
+          
+          <main className="flex-grow">
+            {children}
+          </main>
+
+          <Footer />
+        </Providers>
+      </body>
     </html>
   );
 }
