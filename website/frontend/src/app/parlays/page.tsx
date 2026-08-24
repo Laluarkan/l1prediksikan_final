@@ -33,7 +33,7 @@ export default function ParlaysPage() {
   const [tickets, setTickets] = useState<ParlayTicket[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [ticketStake, setTicketStake] = useState<number>(50000); 
+  const [ticketStake, setTicketStake] = useState<number>(10000); 
   const [searchTerm, setSearchTerm] = useState('');
   const [triggerFetch, setTriggerFetch] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -162,7 +162,7 @@ export default function ParlaysPage() {
                 onClick={applyFilters}
                 className="w-full mt-4 bg-slate-700 hover:bg-blue-600 text-white text-xs font-semibold py-2.5 rounded-md transition-colors"
               >
-                Terapkan Pencarian API
+                Terapkan Pencarian
               </button>
             </div>
           </div>

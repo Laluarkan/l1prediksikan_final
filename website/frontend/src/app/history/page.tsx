@@ -49,7 +49,7 @@ export default function HistoryPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [bankroll, setBankroll] = useState<number>(1000000);
+  const [bankroll, setBankroll] = useState<number>(100000);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeague, setSelectedLeague] = useState('');
   const [filterFtr, setFilterFtr] = useState(false);
@@ -255,7 +255,7 @@ export default function HistoryPage() {
                 onClick={applyFilters}
                 className="w-full mt-4 bg-slate-700 hover:bg-blue-600 text-white text-xs font-semibold py-2.5 rounded-md transition-colors"
               >
-                Terapkan Pencarian API
+                Terapkan Pencarian
               </button>
             </div>
           </div>

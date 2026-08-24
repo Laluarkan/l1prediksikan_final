@@ -19,6 +19,7 @@ temp_*.pkl
 # Mencegah file Dataset/CSV besar masuk ke GitHub (Penyebab Error)
 *.csv
 data/
+local_data/
 website/backend/data/
 
 # Modul Frontend (Hanya memblokir modul berat Next.js, Kodenya tetap dikirim)
