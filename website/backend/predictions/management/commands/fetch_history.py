@@ -8,6 +8,7 @@ import urllib3
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.db import connection, close_old_connections
 from predictions.services import process_and_append_fetched_data
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -90,6 +91,12 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING(f"\nTotal {len(combined_df)} baris data history digabungkan. Memulai Pipeline AI (History Mode)..."))
         
         try:
+            close_old_connections()
+            
+            # Mematikan stopwatch Supabase
+            with connection.cursor() as cursor:
+                cursor.execute("SET statement_timeout = 0;")
+            
             hist_count, _ = process_and_append_fetched_data(combined_df, upload_type='history')
             
             if hist_count == 0:

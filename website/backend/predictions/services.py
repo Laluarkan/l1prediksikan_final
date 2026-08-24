@@ -7,10 +7,10 @@ import sys
 import time
 import warnings
 import uuid
+import pytz
 from pathlib import Path
 from django.conf import settings
 from django.db import transaction, models
-from django.db.models import Max
 from django.utils import timezone
 from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
 
@@ -38,9 +38,14 @@ LEAGUE_NAMES = {
 def make_aware_dt(dt_val):
     if pd.isnull(dt_val):
         return None
-    dt = dt_val.to_pydatetime()
+    if isinstance(dt_val, pd.Timestamp):
+        dt = dt_val.to_pydatetime()
+    else:
+        dt = dt_val
+        
     if dt.tzinfo is None:
-        return timezone.make_aware(dt)
+        from datetime import timezone as dt_timezone
+        return dt.replace(tzinfo=dt_timezone.utc)
     return dt
 
 def parse_csv_datetime(df):
@@ -55,21 +60,19 @@ def parse_csv_datetime(df):
             parsed_times = parsed_times.replace('', '00:00')
             combined_str = parsed_dates + ' ' + parsed_times
             
-            # 1. Baca sebagai waktu mentah
             naive_dt = pd.to_datetime(combined_str, errors='coerce')
-            # 2. Lokalisasi cerdas ke zona waktu Inggris (Menangani pergeseran DST/BST musim panas)
-            london_dt = naive_dt.dt.tz_localize('Europe/London', ambiguous='NaT', nonexistent='NaT')
-            # 3. Ubah ke UTC murni
+            london_tz = pytz.timezone('Europe/London')
+            london_dt = naive_dt.dt.tz_localize(london_tz, ambiguous='NaT', nonexistent='NaT')
             utc_dt = london_dt.dt.tz_convert('UTC')
             
-            # 4. KUNCI PERBAIKAN: Buang metadata timezone di Pandas agar tidak bertabrakan dengan data historis
-            df['Date'] = utc_dt.dt.tz_localize(None)
+            df['Date'] = utc_dt
         else:
             naive_dt = pd.to_datetime(df['Date'], errors='coerce')
             if naive_dt.dt.tz is not None:
-                df['Date'] = naive_dt.dt.tz_convert('UTC').dt.tz_localize(None)
+                df['Date'] = naive_dt.dt.tz_convert('UTC')
             else:
-                df['Date'] = naive_dt
+                london_tz = pytz.timezone('Europe/London')
+                df['Date'] = naive_dt.dt.tz_localize(london_tz, ambiguous='NaT', nonexistent='NaT').dt.tz_convert('UTC')
             
     return df
 
@@ -108,26 +111,16 @@ def run_feature_engineering_pipeline(df: pd.DataFrame, upload_type: str = 'mixed
     df = df.sort_values('Date').reset_index(drop=True)
     df = _harmonize(df, div='MIXED', season='MIXED')
     df = build_standings_features(df)
-    print(f"   [-] Harmonize & Standings selesai: {time.time() - t_start:.2f} dtk")
     
     if not skip_weather:
-        t_weather = time.time()
         df = build_weather_features(df)
-        print(f"   [-] Weather Features selesai: {time.time() - t_weather:.2f} dtk")
-    else:
-        print(f"   [-] Weather Features dilewati (Akan dihitung pada Delta).")
         
-    t_elo = time.time()
     df = build_elo_features(df)
-    print(f"   [-] ELO Features selesai: {time.time() - t_elo:.2f} dtk")
-    
-    t_feat = time.time()
     feature_result = build_features(df)
     df = feature_result[0] if isinstance(feature_result, tuple) else feature_result
     
     rolling_result = build_rolling_features(df)
     df = rolling_result[0] if isinstance(rolling_result, tuple) else rolling_result
-    print(f"   [-] Core & Rolling Features selesai: {time.time() - t_feat:.2f} dtk")
     df = df.copy()
     
     if upload_type == 'history':
@@ -151,7 +144,6 @@ def run_feature_engineering_pipeline(df: pd.DataFrame, upload_type: str = 'mixed
     
     if '_source' in df_history.columns: df_history.drop(columns=['_source'], inplace=True)
     if '_source' in df_fixture.columns: df_fixture.drop(columns=['_source'], inplace=True)
-    print(f"   [-] Total Feature Engineering Pipeline: {time.time() - t_start:.2f} dtk")
     return df_history, df_fixture
 
 def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=False):
@@ -276,21 +268,15 @@ def run_ml_predictions_for_preview(df_history, df_fixture):
     if not (model_dir / 'lgbm_global_FTR.pkl').exists():
         model_dir = PROJECT_ROOT / 'models'
     try:
-        t_ml = time.time()
         lgbm_ftr = joblib.load(model_dir / 'lgbm_global_FTR.pkl')
         lgbm_ou = joblib.load(model_dir / 'lgbm_global_OU25.pkl')
         agent = joblib.load(model_dir / 'rl_agent_FTR_OU.pkl')
-        print(f"   [-] Load Model ML selesai: {time.time() - t_ml:.2f} dtk")
         
         if not df_history.empty:
-            t_pred_hist = time.time()
             df_history = apply_ai_predictions(df_history, lgbm_ftr, lgbm_ou, agent, is_hist=True)
-            print(f"   [-] Apply Prediksi History selesai: {time.time() - t_pred_hist:.2f} dtk")
             
         if not df_fixture.empty:
-            t_pred_fix = time.time()
             df_fixture = apply_ai_predictions(df_fixture, lgbm_ftr, lgbm_ou, agent, is_hist=False)
-            print(f"   [-] Apply Prediksi Fixture selesai: {time.time() - t_pred_fix:.2f} dtk")
             
     except Exception as e:
         print(f"[Peringatan Server] Gagal memuat/memprediksi model ML: {e}")
@@ -298,12 +284,7 @@ def run_ml_predictions_for_preview(df_history, df_fixture):
     return df_history, df_fixture
 
 def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
-    print(f"\n[DEBUG] === MEMULAI PROSES PREVIEW ({upload_type.upper()}) ===")
-    t_start_total = time.time()
-    
-    t0 = time.time()
     df_csv = pd.read_csv(file_path, low_memory=False)
-    print(f"[1] Membaca CSV selesai ({len(df_csv)} baris): {time.time() - t0:.2f} dtk")
     
     if 'Div' in df_csv.columns:
         valid_leagues = list(LEAGUE_NAMES.keys())
@@ -311,15 +292,13 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
         
     if league_code and league_code != 'ALL' and 'Div' in df_csv.columns:
         df_csv = df_csv[df_csv['Div'] == league_code].copy()
-        print(f"    -> Filter Liga {league_code} menyisakan {len(df_csv)} baris murni CSV.")
         
     if df_csv.empty:
-        return {"upload_type": upload_type, "preview_data": [], "total_rows": 0, "message": "File CSV tidak mengandung data yang valid (Liga tidak didukung atau kosong)."}
+        return {"upload_type": upload_type, "preview_data": [], "total_rows": 0, "message": "File CSV tidak mengandung data yang valid."}
         
     df_csv = parse_csv_datetime(df_csv)
     df_csv['_source'] = 'csv'
     
-    t_sync_db = time.time()
     db_records = []
     teams_in_csv = set(df_csv['HomeTeam'].unique()) | set(df_csv['AwayTeam'].unique())
     
@@ -334,19 +313,12 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
         
     df_db = pd.DataFrame(db_records)
     if not df_db.empty:
-        df_db['Date'] = pd.to_datetime(df_db['Date']).dt.tz_localize(None)
+        df_db['Date'] = pd.to_datetime(df_db['Date'], utc=True)
         df_combined = pd.concat([df_db, df_csv]).drop_duplicates(subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last').reset_index(drop=True)
-        print(f"[2] Sinkronisasi pondasi historis DB selesai ({len(df_combined)} baris gabungan): {time.time() - t_sync_db:.2f} dtk")
     else:
         df_combined = df_csv.copy()
-        print(f"[2] Tidak ada data DB sebelumnya. Menggunakan murni CSV: {time.time() - t_sync_db:.2f} dtk")
         
-    print(f"[3] Menjalankan Feature Engineering Pipeline (Tanpa Cuaca)...")
-    t2 = time.time()
     df_hist, df_fix = run_feature_engineering_pipeline(df_combined, upload_type=upload_type, skip_weather=True)
-    print(f"[3] Feature Engineering selesai keseluruhan: {time.time() - t2:.2f} dtk")
-    
-    t3 = time.time()
     
     if league_code and league_code != 'ALL':
         db_hist_qs = MatchHistory.objects.filter(league__code=league_code)
@@ -370,25 +342,13 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
         df_fix = df_fix[new_fix_mask].copy().reset_index(drop=True)
         df_fix.drop(columns=['match_key'], inplace=True)
     
-    print(f"[4] Pemotongan Baris Duplikat (Row-by-Row Delta) selesai: {time.time() - t3:.2f} dtk")
-    print(f"    -> Baris murni baru untuk diprediksi (API Cuaca akan ditarik HANYA untuk ini): {len(df_hist)} Histori, {len(df_fix)} Fixture")
-    
     if df_hist.empty and df_fix.empty:
         return {"upload_type": upload_type, "preview_data": [], "total_rows": 0, "message": "Seluruh baris pertandingan valid dari CSV ini sudah tersimpan di database."}
         
-    print(f"[5] Menarik Data Cuaca (Weather API) KHUSUS untuk data baru...")
-    t_weather_api = time.time()
     if not df_hist.empty: df_hist = build_weather_features(df_hist)
     if not df_fix.empty: df_fix = build_weather_features(df_fix)
-    print(f"[5] Weather API selesai: {time.time() - t_weather_api:.2f} dtk")
     
-    print(f"[6] Menjalankan Machine Learning Predictions...")
-    t4 = time.time()
     df_hist, df_fix = run_ml_predictions_for_preview(df_hist, df_fix)
-    print(f"[6] ML Predictions selesai: {time.time() - t4:.2f} dtk")
-    
-    print(f"[7] Melakukan Sinkronisasi Data Fixture yang Migrasi ke History...")
-    t_sync = time.time()
     
     if upload_type == 'history' and not df_hist.empty:
         df_hist['synced_ext_features'] = None
@@ -402,24 +362,19 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
             for f in fixture_qs
         }
         
-        sync_count = 0
         for idx, row in df_hist.iterrows():
             m_key = f"{row['Date'].strftime('%Y-%m-%d')}_{row['HomeTeam']}_{row['AwayTeam']}"
             if m_key in fixture_map:
                 f_obj = fixture_map[m_key]
-                sync_count += 1
-                
                 df_hist.at[idx, 'prob_FTR_H'] = f_obj.prob_ftr_h
                 df_hist.at[idx, 'prob_FTR_D'] = f_obj.prob_ftr_d
                 df_hist.at[idx, 'prob_FTR_A'] = f_obj.prob_ftr_a
                 df_hist.at[idx, 'prob_OU25_Yes'] = f_obj.prob_ou25_over
-                
                 df_hist.at[idx, 'AvgH'] = f_obj.avg_h
                 df_hist.at[idx, 'AvgD'] = f_obj.avg_d
                 df_hist.at[idx, 'AvgA'] = f_obj.avg_a
                 df_hist.at[idx, 'Avg>2.5'] = f_obj.avg_over_25
                 df_hist.at[idx, 'Avg<2.5'] = f_obj.avg_under_25
-                
                 df_hist.at[idx, 'has_value_bet'] = f_obj.has_value_bet
                 df_hist.at[idx, 'rl_pick_ftr'] = f_obj.rl_pick_ftr
                 df_hist.at[idx, 'rl_action_ftr'] = f_obj.rl_action_ftr
@@ -447,13 +402,9 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
                 ext['FTAG'] = row.get('FTAG')
                 ext['FTR'] = row.get('FTR')
                 df_hist.at[idx, 'synced_ext_features'] = ext
-                
-        print(f"   [-] Ditemukan dan Disinkronisasi {sync_count} match dari Fixture. Waktu: {time.time() - t_sync:.2f} dtk")
     
-    t6 = time.time()
     df_hist.to_pickle(os.path.join(settings.BASE_DIR, 'temp_hist_processed.pkl'))
     df_fix.to_pickle(os.path.join(settings.BASE_DIR, 'temp_fix_processed.pkl'))
-    print(f"[8] Pickling ke disk selesai: {time.time() - t6:.2f} dtk")
     
     target_df = df_hist if upload_type == 'history' else df_fix
     
@@ -470,8 +421,6 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
                 "Pick_OU": str(row.get('rl_pick_ou', '-')),
                 "Action_OU": str(row.get('rl_action_ou', '-')),
             })
-            
-    print(f"[DEBUG] === PROSES PREVIEW SELESAI ({time.time() - t_start_total:.2f} dtk TOTAL) ===\n")
             
     return {"upload_type": upload_type, "preview_data": preview_data, "total_rows": len(target_df), "message": "Sukses"}
 
@@ -619,7 +568,7 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
         
     df_db = pd.DataFrame(db_records)
     if not df_db.empty:
-        df_db['Date'] = pd.to_datetime(df_db['Date']).dt.tz_localize(None)
+        df_db['Date'] = pd.to_datetime(df_db['Date'], utc=True)
         df_combined = pd.concat([df_db, df_csv]).drop_duplicates(subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last').reset_index(drop=True)
     else:
         df_combined = df_csv.copy()

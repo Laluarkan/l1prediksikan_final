@@ -58,8 +58,6 @@ export default function HistoryPage() {
   const [triggerFetch, setTriggerFetch] = useState(0);
   
   const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  // State untuk Paginasi
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -74,7 +72,7 @@ export default function HistoryPage() {
     const params: Record<string, any> = {};
     if (searchTerm) params.search = searchTerm;
     if (selectedLeague) params.league__code = selectedLeague;
-
+    
     api.get('/history/', { params })
       .then((res) => {
         if (res.data && res.data.results) {
@@ -93,7 +91,7 @@ export default function HistoryPage() {
   const applyFilters = () => {
     setTriggerFetch((prev) => prev + 1);
     setExpandedId(null);
-    setCurrentPage(1); // Reset ke halaman pertama setiap memfilter
+    setCurrentPage(1); 
   };
 
   const toggleMatch = (id: number) => {
@@ -104,32 +102,28 @@ export default function HistoryPage() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
   };
 
-  // Pastikan data terurut dari yang PALING BARU ke yang terlama
   const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+  
   const displayedHistory = sortedHistory.filter(h => {
-    // LOGIKA MUSIM INI (Mulai dari 1 Juli tahun bersangkutan)
     const matchDate = new Date(h.date).getTime();
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0 = Jan, 6 = Jul
+    const currentMonth = now.getMonth(); 
     
-    // Jika bulan saat ini Juli ke atas, maka musim dimulai tahun ini. Jika sebelum Juli, musim dimulai tahun lalu.
     const seasonStartYear = currentMonth >= 6 ? currentYear : currentYear - 1;
-    const seasonStartDate = new Date(seasonStartYear, 6, 1).getTime(); // 1 Juli Musim Ini
-
-    if (matchDate < seasonStartDate) return false; // Buang data musim lalu
-
+    const seasonStartDate = new Date(seasonStartYear, 6, 1).getTime(); 
+    if (matchDate < seasonStartDate) return false; 
+    
     if (filterFtr && (!h.rl_stake_ftr || h.rl_stake_ftr <= 0)) return false;
     if (filterOu && (!h.rl_stake_ou || h.rl_stake_ou <= 0)) return false;
-
+    
     if (filterResult !== 'ALL') {
       const ftrValid = h.rl_stake_ftr > 0;
       const ouValid = h.rl_stake_ou > 0;
       
       let isWon = false;
       let isLost = false;
-
+      
       if (ftrValid) {
         if (h.is_won_ftr === true) isWon = true;
         if (h.is_won_ftr === false) isLost = true;
@@ -138,15 +132,13 @@ export default function HistoryPage() {
         if (h.is_won_ou === true) isWon = true;
         if (h.is_won_ou === false) isLost = true;
       }
-
+      
       if (filterResult === 'WON' && !isWon) return false;
       if (filterResult === 'LOST' && !isLost) return false;
     }
-
     return true;
   });
 
-  // Logika Pemotongan Data untuk Paginasi
   const totalPages = Math.ceil(displayedHistory.length / itemsPerPage);
   const currentHistory = displayedHistory.slice(
     (currentPage - 1) * itemsPerPage,
@@ -155,16 +147,13 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-7xl mx-auto pt-6 pb-12 px-4">
-      
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white tracking-wide">Match History</h1>
         <p className="text-slate-400 text-sm mt-1">Evaluasi performa taruhan dan hasil pertandingan <span className="text-blue-400 font-semibold">Musim Ini</span> yang telah diproses oleh sistem.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        
         <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
-          
           <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
             <h2 className="text-sm font-bold text-white mb-4">Pengaturan Modal</h2>
             <div>
@@ -184,7 +173,6 @@ export default function HistoryPage() {
           <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
             <h2 className="text-sm font-bold text-white mb-4">Filter Data</h2>
             <div className="space-y-4">
-              
               <div>
                 <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cari Tim</label>
                 <input
@@ -259,7 +247,6 @@ export default function HistoryPage() {
               </button>
             </div>
           </div>
-
         </div>
 
         <div className="flex-1 space-y-4">
@@ -303,19 +290,18 @@ export default function HistoryPage() {
                 let ftrResultAmount = null;
                 if (match.is_won_ftr === true) ftrResultAmount = stakeFtrAmount * ftrOdds;
                 else if (match.is_won_ftr === false) ftrResultAmount = -stakeFtrAmount;
-
+                
                 const stakeOuAmount = match.rl_stake_ou * bankroll;
                 const ouOdds = match.rl_pick_ou === 'Over 2.5' ? match.avg_over_25 : match.avg_under_25;
                 let ouResultAmount = null;
                 if (match.is_won_ou === true) ouResultAmount = stakeOuAmount * ouOdds;
                 else if (match.is_won_ou === false) ouResultAmount = -stakeOuAmount;
-
+                
                 const isExpanded = expandedId === match.id;
                 const ext = match.extended_features || {};
 
                 return (
                   <div key={match.id} className={`bg-slate-800 border ${isExpanded ? 'border-blue-500/50' : 'border-slate-700'} rounded-xl overflow-hidden shadow-sm transition-colors`}>
-                    
                     <div 
                       onClick={() => toggleMatch(match.id)}
                       className="bg-slate-800/60 px-5 py-2.5 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer hover:bg-slate-700/50 transition-colors"
@@ -335,7 +321,6 @@ export default function HistoryPage() {
                     </div>
 
                     <div className="p-5 grid grid-cols-1 lg:grid-cols-[1.5fr_2fr_1.5fr] gap-6 items-center">
-                      
                       <div className="space-y-1">
                         <div className="text-base font-bold text-white flex flex-col space-y-2">
                           <div className="flex justify-between items-center pr-4">
@@ -442,10 +427,8 @@ export default function HistoryPage() {
                           <div className="text-[10px] text-slate-600 italic">Skip O/U</div>
                         )}
                       </div>
-
                     </div>
 
-                    {/* Dropdown Statistik Lengkap Tim */}
                     {isExpanded && (
                       <div className="bg-slate-900/80 border-t border-slate-700 p-5">
                         <div className="flex items-center gap-2 mb-4">
@@ -554,7 +537,6 @@ export default function HistoryPage() {
                         </div>
                       </div>
                     )}
-
                   </div>
                 );
               })}

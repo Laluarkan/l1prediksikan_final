@@ -51,7 +51,6 @@ export default function FixturesPage() {
   const [filterOu, setFilterOu] = useState(false);
   const [minOdds, setMinOdds] = useState<number>(1.0);
   const [triggerFetch, setTriggerFetch] = useState(0);
-
   const [expandedId, setExpandedId] = useState<number | null>(null);
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,7 +69,6 @@ export default function FixturesPage() {
     };
     if (searchTerm) params.search = searchTerm;
     if (selectedLeague) params.league__code = selectedLeague;
-
     api.get('/fixtures/', { params })
       .then((res) => {
         if (res.data && res.data.results) {
@@ -124,7 +122,6 @@ export default function FixturesPage() {
     } else if (filterOu) {
       if (!ouValid) return false;
     }
-
     return true;
   });
 
@@ -136,14 +133,12 @@ export default function FixturesPage() {
 
   return (
     <div className="max-w-7xl mx-auto pt-6 pb-12 px-4">
-      
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white tracking-wide">Upcoming Fixtures</h1>
         <p className="text-slate-400 text-sm mt-1">Jadwal pertandingan mendatang beserta analisis value bet dan rekomendasi ukuran taruhan agen RL.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        
         <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
           <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
             <h2 className="text-sm font-bold text-white mb-4">Pengaturan Modal</h2>
@@ -174,6 +169,7 @@ export default function FixturesPage() {
                   placeholder="Ketik nama tim..."
                 />
               </div>
+
               <div>
                 <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Liga</label>
                 <select
@@ -187,6 +183,7 @@ export default function FixturesPage() {
                   ))}
                 </select>
               </div>
+
               <div>
                 <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Minimum Odds Rekomendasi</label>
                 <input
@@ -198,6 +195,7 @@ export default function FixturesPage() {
                   className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
+
               <div className="space-y-2.5 pt-2 border-t border-slate-700/50">
                 <label className="flex items-center gap-2.5 cursor-pointer group">
                   <div className="relative flex items-center">
@@ -211,6 +209,7 @@ export default function FixturesPage() {
                   </div>
                   <span className="text-xs text-slate-300 group-hover:text-white transition-colors">Harus ada Value Bet FTR</span>
                 </label>
+
                 <label className="flex items-center gap-2.5 cursor-pointer group">
                   <div className="relative flex items-center">
                     <input 
@@ -224,6 +223,7 @@ export default function FixturesPage() {
                   <span className="text-xs text-slate-300 group-hover:text-white transition-colors">Harus ada Value Bet O/U</span>
                 </label>
               </div>
+
               <button 
                 onClick={applyFilters}
                 className="w-full mt-4 bg-slate-700 hover:bg-blue-600 text-white text-xs font-semibold py-2.5 rounded-md transition-colors"
@@ -277,7 +277,6 @@ export default function FixturesPage() {
 
                 return (
                   <div key={fixture.id} className={`bg-slate-800 border ${isExpanded ? 'border-blue-500/50' : 'border-slate-700'} rounded-xl overflow-hidden shadow-sm transition-colors`}>
-                    
                     <div 
                       onClick={() => toggleMatch(fixture.id)}
                       className="bg-slate-800/60 px-5 py-2.5 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer hover:bg-slate-700/50 transition-colors"
@@ -302,7 +301,6 @@ export default function FixturesPage() {
                     </div>
 
                     <div className="p-5 grid grid-cols-1 lg:grid-cols-[1.5fr_2fr_1.5fr] gap-6 items-center">
-                      
                       <div className="space-y-1">
                         <div className="text-base font-bold text-white flex flex-col space-y-0.5">
                           <span>{fixture.home_team_name}</span>
@@ -376,7 +374,6 @@ export default function FixturesPage() {
                           <div className="text-[10px] text-slate-600 italic">Tidak ada rekomendasi bet untuk pasar O/U.</div>
                         )}
                       </div>
-
                     </div>
 
                     {isExpanded && (
@@ -487,7 +484,6 @@ export default function FixturesPage() {
                         </div>
                       </div>
                     )}
-
                   </div>
                 );
               })}

@@ -7,6 +7,7 @@ from curl_cffi import requests
 import urllib3
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.db import connection, close_old_connections
 from predictions.services import process_and_append_fetched_data
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -65,6 +66,12 @@ class Command(BaseCommand):
         self.stdout.write(self.style.WARNING("\nMemulai Pipeline AI untuk Fixture (Fixture Mode)..."))
         
         try:
+            close_old_connections()
+            
+            # Mematikan stopwatch Supabase agar tidak memotong koneksi saat AI bekerja lama
+            with connection.cursor() as cursor:
+                cursor.execute("SET statement_timeout = 0;")
+            
             _, fix_count = process_and_append_fetched_data(df, upload_type='fixture')
             
             if fix_count == 0:
