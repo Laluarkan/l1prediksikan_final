@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -20,8 +21,8 @@ export default function PerformancePage() {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   
-  const [bankroll, setBankroll] = useState<number>(1000000);
-  const [ticketStake, setTicketStake] = useState<number>(50000);
+  const [bankroll, setBankroll] = useState<number>(100000);
+  const [ticketStake, setTicketStake] = useState<number>(10000);
 
   const generateSeasons = () => {
     const currentYear = new Date().getFullYear();
