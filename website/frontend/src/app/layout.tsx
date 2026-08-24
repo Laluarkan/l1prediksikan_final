@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 
 import Navbar from '@/components/Navbar';
@@ -53,6 +54,24 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
+      <head>
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-SJ5L2P8WQN"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-SJ5L2P8WQN');
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.className} bg-slate-900 flex flex-col min-h-screen`}>
         <Providers>
           <Navbar />
