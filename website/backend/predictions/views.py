@@ -1,5 +1,6 @@
 import os
 import threading
+import datetime
 from django.conf import settings
 from django.utils import timezone
 from django.core.management import call_command
@@ -122,8 +123,9 @@ class PerformanceMetricsAPIView(APIView):
                 y1, y2 = season.split('/')
                 start_year = 2000 + int(y1)
                 end_year = 2000 + int(y2)
-                start_date = f"{start_year}-07-01"
-                end_date = f"{end_year}-06-30"
+                # Perbaikan Warning Timezone
+                start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
+                end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
                 history_qs = history_qs.filter(date__gte=start_date, date__lte=end_date)
                 parlay_qs = parlay_qs.filter(date__gte=start_date, date__lte=end_date)
             except Exception:
@@ -135,39 +137,47 @@ class PerformanceMetricsAPIView(APIView):
         ou_wins = ou_losses = 0
         ou_unit_profit = ou_unit_stake = 0.0
 
-        for match in history_qs:
-            if match.rl_stake_ftr and match.rl_stake_ftr > 0:
-                stake = float(match.rl_stake_ftr)
+        # OPTIMASI RAM: Menggunakan iterator & values untuk mengambil dict ringan alih-alih objek Django
+        hist_data = history_qs.values(
+            'rl_stake_ftr', 'is_won_ftr', 'rl_pick_ftr', 'avg_h', 'avg_d', 'avg_a',
+            'rl_stake_ou', 'is_won_ou', 'rl_pick_ou', 'avg_over_25', 'avg_under_25'
+        ).iterator(chunk_size=2000)
+
+        for match in hist_data:
+            if match['rl_stake_ftr'] and match['rl_stake_ftr'] > 0:
+                stake = float(match['rl_stake_ftr'])
                 ftr_unit_stake += stake
-                if match.is_won_ftr is True:
+                if match['is_won_ftr'] is True:
                     ftr_wins += 1
-                    odds = match.avg_h if match.rl_pick_ftr == 'H' else (match.avg_d if match.rl_pick_ftr == 'D' else match.avg_a)
+                    odds = match['avg_h'] if match['rl_pick_ftr'] == 'H' else (match['avg_d'] if match['rl_pick_ftr'] == 'D' else match['avg_a'])
                     ftr_unit_profit += (stake * float(odds or 1)) - stake
-                elif match.is_won_ftr is False:
+                elif match['is_won_ftr'] is False:
                     ftr_losses += 1
                     ftr_unit_profit -= stake
             
-            if match.rl_stake_ou and match.rl_stake_ou > 0:
-                stake = float(match.rl_stake_ou)
+            if match['rl_stake_ou'] and match['rl_stake_ou'] > 0:
+                stake = float(match['rl_stake_ou'])
                 ou_unit_stake += stake
-                if match.is_won_ou is True:
+                if match['is_won_ou'] is True:
                     ou_wins += 1
-                    odds = match.avg_over_25 if match.rl_pick_ou == 'Over 2.5' else match.avg_under_25
+                    odds = match['avg_over_25'] if match['rl_pick_ou'] == 'Over 2.5' else match['avg_under_25']
                     ou_unit_profit += (stake * float(odds or 1)) - stake
-                elif match.is_won_ou is False:
+                elif match['is_won_ou'] is False:
                     ou_losses += 1
                     ou_unit_profit -= stake
 
         parlay_wins = parlay_losses = 0
         parlay_unit_profit = parlay_unit_stake = 0.0
         
-        for ticket in parlay_qs:
+        parlay_data = parlay_qs.values('is_won', 'total_odds').iterator(chunk_size=1000)
+        
+        for ticket in parlay_data:
             stake = 1.0 
             parlay_unit_stake += stake
-            if ticket.is_won is True:
+            if ticket['is_won'] is True:
                 parlay_wins += 1
-                parlay_unit_profit += (stake * float(ticket.total_odds or 1)) - stake
-            elif ticket.is_won is False:
+                parlay_unit_profit += (stake * float(ticket['total_odds'] or 1)) - stake
+            elif ticket['is_won'] is False:
                 parlay_losses += 1
                 parlay_unit_profit -= stake
 
@@ -198,29 +208,30 @@ class LeagueStandingsAPIView(APIView):
             y1, y2 = season.split('/')
             start_year = 2000 + int(y1)
             end_year = 2000 + int(y2)
-            start_date = f"{start_year}-07-01"
-            end_date = f"{end_year}-06-30"
+            start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
+            end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
         except Exception:
             return Response([])
 
+        # OPTIMASI RAM
         matches = MatchHistory.objects.filter(
             league__code=league_code,
             date__gte=start_date,
             date__lte=end_date
-        )
+        ).values('home_team__name', 'away_team__name', 'fthg', 'ftag')
 
         standings = {}
         for m in matches:
-            home = m.home_team.name
-            away = m.away_team.name
+            home = m['home_team__name']
+            away = m['away_team__name']
 
             if home not in standings:
                 standings[home] = {'team': home, 'p': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
             if away not in standings:
                 standings[away] = {'team': away, 'p': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
 
-            hg = m.fthg if m.fthg is not None else 0
-            ag = m.ftag if m.ftag is not None else 0
+            hg = m['fthg'] if m['fthg'] is not None else 0
+            ag = m['ftag'] if m['ftag'] is not None else 0
 
             standings[home]['p'] += 1
             standings[home]['gf'] += hg
