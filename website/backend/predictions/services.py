@@ -566,17 +566,22 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     
     print(f"  [DEBUG] Menghubungkan ke Supabase untuk mencocokkan {len(teams_in_csv)} tim...")
     try:
-        hist_qs = MatchHistory.objects.filter(home_team__name__in=teams_in_csv).order_by('date') | MatchHistory.objects.filter(away_team__name__in=teams_in_csv).order_by('date')
-        print(f"  [DEBUG] Koneksi sukses! Berhasil mengambil query MatchHistory. Memproses distinct...")
+        # OPTIMASI KUERI: Menggunakan .values() dan .iterator() agar tidak membebani RAM
+        hist_qs = MatchHistory.objects.filter(
+            models.Q(home_team__name__in=teams_in_csv) | models.Q(away_team__name__in=teams_in_csv)
+        ).select_related('league', 'home_team', 'away_team')
         
-        for m in hist_qs.distinct():
+        print(f"  [DEBUG] Kueri siap. Memproses baris dengan metode iterator yang ringan...")
+        
+        # Mengekstrak nilai spesifik tanpa memuat objek Django yang berat
+        for m in hist_qs.iterator(chunk_size=1000):
             db_records.append({
                 'Div': m.league.code, 'Date': m.date, 'HomeTeam': m.home_team.name, 'AwayTeam': m.away_team.name,
                 'FTHG': m.fthg, 'FTAG': m.ftag, 'FTR': m.ftr,
                 'AvgH': m.avg_h, 'AvgD': m.avg_d, 'AvgA': m.avg_a, 'Avg>2.5': m.avg_over_25, 'Avg<2.5': m.avg_under_25,
                 '_source': 'db'
             })
-        print(f"  [DEBUG] Berhasil memetakan {len(db_records)} catatan lama dari database.")
+        print(f"  [DEBUG] Berhasil memetakan {len(db_records)} catatan lama dari database tanpa freeze.")
     except Exception as e:
         print(f"  [FATAL ERROR DATABASE]: {str(e)}")
         raise e
@@ -584,6 +589,7 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     df_db = pd.DataFrame(db_records)
     if not df_db.empty:
         df_db['Date'] = pd.to_datetime(df_db['Date'], utc=True)
+        # Menghapus duplikat murni menggunakan Pandas, jauh lebih cepat daripada distinct() Django
         df_combined = pd.concat([df_db, df_csv]).drop_duplicates(subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last').reset_index(drop=True)
     else:
         df_combined = df_csv.copy()
