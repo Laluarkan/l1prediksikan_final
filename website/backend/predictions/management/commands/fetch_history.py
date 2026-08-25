@@ -24,30 +24,30 @@ class Command(BaseCommand):
     help = 'Mengunduh data History secara dinamis (Online -> Lokal)'
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.WARNING("Memulai proses penarikan data HISTORY..."))
-        
+        self.stdout.write(self.style.WARNING("\n[1/4] Memulai proses penarikan data HISTORY dari server sumber..."))
+
         now = timezone.now()
         start_year = now.year if now.month >= 7 else now.year - 1
         season_str = f"{str(start_year)[-2:]}{str(start_year + 1)[-2:]}"
-        
+
         base_url = f"https://www.football-data.co.uk/mmz4281/{season_str}/"
         local_dir = os.path.join(settings.BASE_DIR, 'local_data')
-        
+
         if not os.path.exists(local_dir):
             os.makedirs(local_dir)
-            
+
         frames = []
         max_retries = 3
-        
+
         for code, name in LEAGUE_NAMES.items():
             csv_url = f"{base_url}{code}.csv"
             local_path = os.path.join(local_dir, f"{code}.csv")
-            
-            self.stdout.write(f"\nMemproses data {name} ({code}) musim {season_str}...")
-            
+
+            self.stdout.write(f"  -> Memproses data {name} ({code}) musim {season_str}...")
+
             df = None
             source = None
-            
+
             for attempt in range(1, max_retries + 1):
                 try:
                     res = requests.get(csv_url, impersonate="chrome120", timeout=20, verify=False)
@@ -64,7 +64,7 @@ class Command(BaseCommand):
                     time.sleep(random.randint(1, 3))
                 except Exception:
                     time.sleep(random.randint(1, 3))
-                    
+
             if source != "ONLINE":
                 if os.path.exists(local_path):
                     try:
@@ -77,31 +77,33 @@ class Command(BaseCommand):
 
             if df is not None and not df.empty:
                 frames.append(df)
-                self.stdout.write(self.style.SUCCESS(f"  -> Sukses mendapatkan {len(df)} baris (Sumber: {source})."))
+                self.stdout.write(self.style.SUCCESS(f"     ✅ Sukses: {len(df)} baris didapat (Sumber: {source})."))
             else:
-                self.stdout.write(self.style.ERROR(f"  -> Gagal memproses {code} (Online & Lokal kosong/tidak ada)."))
-            
+                self.stdout.write(self.style.ERROR(f"     ❌ Gagal: Data {code} tidak ditemukan (Online & Lokal kosong)."))
+
             time.sleep(1)
 
         if not frames:
-            self.stdout.write(self.style.ERROR("\nTidak ada satupun data history yang berhasil didapatkan. Proses dibatalkan."))
+            self.stdout.write(self.style.ERROR("\n[FATAL] Tidak ada satupun data history yang didapatkan. Proses dibatalkan."))
             return
 
         combined_df = pd.concat(frames, ignore_index=True)
-        self.stdout.write(self.style.WARNING(f"\nTotal {len(combined_df)} baris data history digabungkan. Memulai Pipeline AI (History Mode)..."))
-        
+        self.stdout.write(self.style.WARNING(f"\n[2/4] Penggabungan selesai. Total {len(combined_df)} baris data history siap diproses."))
+
         try:
+            self.stdout.write(self.style.WARNING("[3/4] Menyiapkan koneksi Supabase & mematikan batas waktu eksekusi (timeout)..."))
             close_old_connections()
-            
-            # Mematikan stopwatch Supabase
             with connection.cursor() as cursor:
                 cursor.execute("SET statement_timeout = 0;")
+
+            self.stdout.write(self.style.WARNING("[4/4] Mengirim data ke Pipeline AI (Fitur Cuaca, Prediksi Model, & Simpan DB)..."))
+            self.stdout.write(self.style.WARNING("      (Perhatikan log [DEBUG] selanjutnya di bawah ini untuk pantauan cuaca)"))
             
             hist_count, _ = process_and_append_fetched_data(combined_df, upload_type='history')
-            
+
             if hist_count == 0:
-                self.stdout.write(self.style.SUCCESS("\n[SELESAI] Data historis di database sudah mutakhir."))
+                self.stdout.write(self.style.SUCCESS("\n[SELESAI] Sinkronisasi tuntas! Seluruh data historis di database sudah mutakhir."))
             else:
-                self.stdout.write(self.style.SUCCESS(f"\n[SELESAI] Pipeline tuntas! {hist_count} data History baru berhasil ditambahkan."))
+                self.stdout.write(self.style.SUCCESS(f"\n[SELESAI] Pipeline berhasil! Menambahkan {hist_count} data History baru ke pangkalan data."))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"\n[FATAL] Terjadi kesalahan saat memproses data di pipeline: {str(e)}"))
