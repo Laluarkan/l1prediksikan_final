@@ -35,7 +35,6 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['date']
 
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = UpcomingFixture.objects.all() 
     serializer_class = UpcomingFixtureSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_processed']
@@ -47,12 +46,21 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
         return UpcomingFixture.objects.filter(date__gte=now).order_by('date')
 
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['is_won', 'is_historical']
     search_fields = ['ticket_id']
     ordering_fields = ['date', 'total_odds', 'total_prob']
+
+    def get_queryset(self):
+        queryset = ParlayTicket.objects.all()
+        is_historical_param = self.request.query_params.get('is_historical')
+        
+        if is_historical_param and is_historical_param.lower() in ['false', '0']:
+            now_date = timezone.now().date()
+            queryset = queryset.filter(date__gte=now_date)
+            
+        return queryset
 
 class DatasetPreviewView(APIView):
     parser_classes = (MultiPartParser, FormParser)
