@@ -563,15 +563,23 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     
     db_records = []
     teams_in_csv = set(df_csv['HomeTeam'].unique()) | set(df_csv['AwayTeam'].unique())
-    hist_qs = MatchHistory.objects.filter(home_team__name__in=teams_in_csv).order_by('date') | MatchHistory.objects.filter(away_team__name__in=teams_in_csv).order_by('date')
     
-    for m in hist_qs.distinct():
-        db_records.append({
-            'Div': m.league.code, 'Date': m.date, 'HomeTeam': m.home_team.name, 'AwayTeam': m.away_team.name,
-            'FTHG': m.fthg, 'FTAG': m.ftag, 'FTR': m.ftr,
-            'AvgH': m.avg_h, 'AvgD': m.avg_d, 'AvgA': m.avg_a, 'Avg>2.5': m.avg_over_25, 'Avg<2.5': m.avg_under_25,
-            '_source': 'db'
-        })
+    print(f"  [DEBUG] Menghubungkan ke Supabase untuk mencocokkan {len(teams_in_csv)} tim...")
+    try:
+        hist_qs = MatchHistory.objects.filter(home_team__name__in=teams_in_csv).order_by('date') | MatchHistory.objects.filter(away_team__name__in=teams_in_csv).order_by('date')
+        print(f"  [DEBUG] Koneksi sukses! Berhasil mengambil query MatchHistory. Memproses distinct...")
+        
+        for m in hist_qs.distinct():
+            db_records.append({
+                'Div': m.league.code, 'Date': m.date, 'HomeTeam': m.home_team.name, 'AwayTeam': m.away_team.name,
+                'FTHG': m.fthg, 'FTAG': m.ftag, 'FTR': m.ftr,
+                'AvgH': m.avg_h, 'AvgD': m.avg_d, 'AvgA': m.avg_a, 'Avg>2.5': m.avg_over_25, 'Avg<2.5': m.avg_under_25,
+                '_source': 'db'
+            })
+        print(f"  [DEBUG] Berhasil memetakan {len(db_records)} catatan lama dari database.")
+    except Exception as e:
+        print(f"  [FATAL ERROR DATABASE]: {str(e)}")
+        raise e
         
     df_db = pd.DataFrame(db_records)
     if not df_db.empty:
