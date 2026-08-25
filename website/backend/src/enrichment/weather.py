@@ -46,6 +46,7 @@ def _fetch_open_meteo(lat: float, lon: float, date_str: str, hour: int = 15) -> 
 
 
 def build_weather_features(df: pd.DataFrame, delay: float = 0.3) -> pd.DataFrame:
+    print("  [DEBUG] Memulai pengambilan data cuaca dari Open-Meteo...")
     df = df.copy()
     df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
 
@@ -80,10 +81,11 @@ def build_weather_features(df: pd.DataFrame, delay: float = 0.3) -> pd.DataFrame
         df.at[idx, 'weather_is_rain'] = int(w['precipitation'] > 1.0) if not np.isnan(w['precipitation']) else np.nan
         df.at[idx, 'weather_is_cold'] = int(w['temperature'] < 5.0)   if not np.isnan(w['temperature'])   else np.nan
 
-        if (idx + 1) % 500 == 0:
+        if (idx + 1) % 10 == 0:
             print(f"  Weather: {idx+1}/{total} ({(idx+1)/total*100:.1f}%)")
 
     print(f"  Weather: {total}/{total} selesai. Cache hits: {total - len(cache)}")
+    print("  [DEBUG] Pengambilan data cuaca selesai. Beralih ke proses selanjutnya...")
     return df
 
 
