@@ -426,6 +426,7 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
 
 @transaction.atomic
 def commit_uploaded_data(upload_type):
+    print("  [DEBUG] Memulai proses unggah data ke Supabase...")
     hist_path = os.path.join(settings.BASE_DIR, 'temp_hist_processed.pkl')
     fix_path = os.path.join(settings.BASE_DIR, 'temp_fix_processed.pkl')
     
@@ -438,6 +439,7 @@ def commit_uploaded_data(upload_type):
     if not df_fixture.empty: all_teams |= set(df_fixture['HomeTeam'].unique()) | set(df_fixture['AwayTeam'].unique())
     team_objs = {name: Team.objects.get_or_create(name=name, defaults={'league': list(league_objs.values())[0]})[0] for name in all_teams if isinstance(name, str)}
     
+    print(f"  [DEBUG] Memproses tiket Parlay (History: {not df_history.empty}, Fixture: {not df_fixture.empty})...")
     if not df_history.empty:
         for _, row in df_history.iterrows():
             UpcomingFixture.objects.filter(date__date=row['Date'].date(), home_team__name=row['HomeTeam'], away_team__name=row['AwayTeam']).delete()
@@ -524,6 +526,8 @@ def commit_uploaded_data(upload_type):
             has_value_bet_ou=row.get('has_value_bet_ou', False), rl_pick_ou=row.get('rl_pick_ou'), rl_action_ou=row.get('rl_action_ou', 'Skip'), rl_stake_ou=row.get('rl_stake_ou', 0.0), is_won_ou=row.get('is_won_ou'),
             part_of_parlay=row.get('part_of_parlay', False), parlay_ticket_info=row.get('parlay_ticket_info'), extended_features=ext_feat
         ))
+    
+    print(f"  [DEBUG] Menyiapkan Bulk Insert untuk {len(history_inserts)} baris MatchHistory...")
     MatchHistory.objects.bulk_create(history_inserts, batch_size=1000)
     
     fixture_inserts = []
@@ -538,13 +542,16 @@ def commit_uploaded_data(upload_type):
             has_value_bet_ou=row.get('has_value_bet_ou', False), rl_pick_ou=row.get('rl_pick_ou'), rl_action_ou=row.get('rl_action_ou', 'Skip'), rl_stake_ou=row.get('rl_stake_ou', 0.0), is_won_ou=row.get('is_won_ou'),
             part_of_parlay=row.get('part_of_parlay', False), parlay_ticket_info=row.get('parlay_ticket_info'), extended_features=clean_json_dict(row.to_dict()), is_processed=True
         ))
+    
+    print(f"  [DEBUG] Menyiapkan Bulk Insert untuk {len(fixture_inserts)} baris UpcomingFixture...")
     UpcomingFixture.objects.bulk_create(fixture_inserts, batch_size=500)
     
+    print("  [DEBUG] Proses unggah ke Database selesai!")
     return len(history_inserts), len(fixture_inserts)
 
 @transaction.atomic
 def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'history'):
-    """(Khusus untuk Cronjob: Menyaring Delta, Anti-Duplikat)"""
+    print("  [DEBUG] Memulai penyaringan tanggal, liga, dan validasi duplikat...")
     df_csv = parse_csv_datetime(df)
     if 'Div' in df_csv.columns:
         valid_leagues = list(LEAGUE_NAMES.keys())
@@ -573,6 +580,7 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     else:
         df_combined = df_csv.copy()
         
+    print("  [DEBUG] Menjalankan Pipeline Feature Engineering (Klasemen & ELO)...")
     df_hist, df_fix = run_feature_engineering_pipeline(df_combined, upload_type=upload_type, skip_weather=True)
     
     db_hist_qs = MatchHistory.objects.all()
@@ -594,14 +602,17 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
         df_fix.drop(columns=['match_key'], inplace=True)
         
     if df_hist.empty and df_fix.empty:
+        print("  [DEBUG] Semua data sudah mutakhir di Database. Tidak ada yang perlu diproses.")
         return 0, 0
         
     if not df_hist.empty: df_hist = build_weather_features(df_hist)
     if not df_fix.empty: df_fix = build_weather_features(df_fix)
     
+    print("  [DEBUG] Memulai Prediksi AI (LightGBM & Agen Reinforcement Learning)...")
     df_hist, df_fix = run_ml_predictions_for_preview(df_hist, df_fix)
     
     if upload_type == 'history' and not df_hist.empty:
+        print("  [DEBUG] Menyinkronkan fitur ekstensif dengan data yang sudah ada...")
         df_hist['synced_ext_features'] = None
         df_hist['synced_ext_features'] = df_hist['synced_ext_features'].astype(object)
         hist_dates = df_hist['Date'].dt.date.tolist()
@@ -652,6 +663,7 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     df_hist.to_pickle(os.path.join(settings.BASE_DIR, 'temp_hist_processed.pkl'))
     df_fix.to_pickle(os.path.join(settings.BASE_DIR, 'temp_fix_processed.pkl'))
     
+    print("  [DEBUG] Sinkronisasi ML selesai, meneruskan ke proses Database...")
     return commit_uploaded_data(upload_type)
 
 @transaction.atomic
