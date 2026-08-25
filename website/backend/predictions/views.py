@@ -35,6 +35,7 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['date']
 
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_processed']
@@ -46,6 +47,7 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
         return UpcomingFixture.objects.filter(date__gte=now).order_by('date')
 
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['is_won', 'is_historical']
