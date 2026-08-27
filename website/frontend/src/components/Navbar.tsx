@@ -84,7 +84,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-3">
                 {isAdmin && (
-                  <Link href="/upload" className="hidden md:flex bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg items-center gap-2 transition-colors shadow-sm">
+                  <Link href="admin/upload" className="hidden md:flex bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg items-center gap-2 transition-colors shadow-sm">
                     <Upload size={14} /> Upload Data
                   </Link>
                 )}
