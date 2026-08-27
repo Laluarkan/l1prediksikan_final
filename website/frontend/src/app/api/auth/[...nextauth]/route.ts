@@ -4,7 +4,8 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-const DJANGO_SECRET = process.env.DJANGO_SECRET_KEY || "django-insecure-56xg@@)_@rl#torw#(2m2(=q7g8q-_@q%td6#5we49yihp$q%v";
+// Kunci sinkronisasi yang sama dengan di Django
+const SYNC_SECRET = process.env.SYNC_SECRET_KEY || "l1prediksikan-sync-rahasia-2026";
 
 const handler = NextAuth({
   providers: [
@@ -21,7 +22,7 @@ const handler = NextAuth({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Server-Secret": DJANGO_SECRET,
+            "X-Sync-Secret": SYNC_SECRET,
           },
           body: JSON.stringify({
             email: user.email,
@@ -44,7 +45,7 @@ const handler = NextAuth({
         try {
           const res = await fetch(`${BACKEND_URL}/check-staff/?email=${user.email}`, {
             headers: {
-              "X-Server-Secret": DJANGO_SECRET,
+              "X-Sync-Secret": SYNC_SECRET,
             }
           });
           if (res.ok) {

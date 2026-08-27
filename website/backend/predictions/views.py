@@ -13,6 +13,8 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import get_user_model
 
 from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
@@ -20,7 +22,76 @@ from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializ
 from .services import preview_uploaded_data, commit_uploaded_data
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
+# ==========================================
+# FUNGSI GEMBOK SERVER-TO-SERVER BARU
+# ==========================================
+def is_valid_server_request(request):
+    client_secret = request.headers.get('X-Sync-Secret', '')
+    expected_secret = os.environ.get('SYNC_SECRET_KEY', 'l1prediksikan-sync-rahasia-2026')
+    return hmac.compare_digest(client_secret, expected_secret)
+
+class SyncUserView(APIView):
+    permission_classes = [] 
+    authentication_classes = []
+
+    def post(self, request):
+        if not is_valid_server_request(request):
+            logger.warning("Akses SyncUserView ditolak: Kunci Sinkronisasi tidak cocok.")
+            return Response({'error': 'Akses Ditolak. Endpoint ini khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+
+        email = request.data.get('email')
+        name = request.data.get('name')
+        
+        if not email:
+            return Response({'error': 'Email wajib disertakan'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        username_base = email.split('@')[0]
+        
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': username_base,
+                'first_name': name or '',
+                'is_active': True
+            }
+        )
+        
+        if created:
+            user.save()
+            
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'message': 'User berhasil disinkronisasi', 
+            'user_id': user.id,
+            'is_staff': user.is_staff,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+class CheckStaffView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        if not is_valid_server_request(request):
+            return Response({'error': 'Akses Ditolak. Endpoint ini khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+
+        email = request.query_params.get('email')
+        if not email:
+            return Response({'is_staff': False})
+            
+        try:
+            user = User.objects.get(email=email)
+            return Response({'is_staff': user.is_staff})
+        except User.DoesNotExist:
+            return Response({'is_staff': False})
+
+# ==========================================
+# VIEWSET DAN API STANDAR
+# ==========================================
 class LeagueViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = League.objects.all().order_by('name')
     serializer_class = LeagueSerializer
