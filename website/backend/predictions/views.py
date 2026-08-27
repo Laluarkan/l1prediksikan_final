@@ -1,12 +1,15 @@
 import os
 import threading
 import datetime
+import hmac
+import logging
 from django.conf import settings
 from django.utils import timezone
 from django.core.management import call_command
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -15,6 +18,8 @@ from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
                           UpcomingFixtureSerializer, ParlayTicketSerializer)
 from .services import preview_uploaded_data, commit_uploaded_data
+
+logger = logging.getLogger(__name__)
 
 class LeagueViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = League.objects.all().order_by('name')
@@ -66,6 +71,7 @@ class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
 class DatasetPreviewView(APIView):
+    permission_classes = [IsAdminUser]
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
@@ -74,10 +80,22 @@ class DatasetPreviewView(APIView):
         league_code = request.data.get('league', 'ALL') 
         
         if not file_obj:
+            logger.warning("Upload ditolak: Tidak ada file yang disisipkan.")
             return Response({"error": "Tidak ada file yang diunggah."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not file_obj.name.endswith('.csv'):
+            logger.warning(f"Upload ditolak: Format tidak valid ({file_obj.name}).")
             return Response({"error": "Format file tidak valid. Harap unggah file CSV."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if file_obj.size > settings.DATA_UPLOAD_MAX_MEMORY_SIZE:
+            logger.warning(f"Upload ditolak: Ukuran melebihi batas ({file_obj.size} bytes).")
+            return Response({"error": "Ukuran file terlalu besar (Maksimal 5MB)."}, status=status.HTTP_400_BAD_REQUEST)
+
+        header_chunk = file_obj.read(1024).decode('utf-8', errors='ignore')
+        file_obj.seek(0)
+        if 'Date' not in header_chunk and 'Div' not in header_chunk:
+            logger.warning("Upload ditolak: Header kolom CSV tidak dikenali.")
+            return Response({"error": "File CSV tidak valid, kolom Date/Div tidak ditemukan."}, status=status.HTTP_400_BAD_REQUEST)
 
         temp_path = os.path.join(settings.BASE_DIR, 'temp_upload.csv')
         
@@ -86,6 +104,7 @@ class DatasetPreviewView(APIView):
                 for chunk in file_obj.chunks():
                     destination.write(chunk)
 
+            logger.info(f"Admin memproses preview CSV: {file_obj.name} (Tipe: {upload_type})")
             result = preview_uploaded_data(temp_path, upload_type, league_code)
             
             if os.path.exists(temp_path):
@@ -94,21 +113,27 @@ class DatasetPreviewView(APIView):
             return Response(result, status=status.HTTP_200_OK)
             
         except Exception as e:
+            logger.error(f"Error proses preview ML: {str(e)}", exc_info=True)
             if os.path.exists(temp_path):
                 os.remove(temp_path)
             return Response({"error": f"Terjadi kesalahan saat memproses data ML: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class DatasetConfirmSaveView(APIView):
+    permission_classes = [IsAdminUser]
+
     def post(self, request, *args, **kwargs):
         upload_type = request.data.get('upload_type', 'history')
         try:
+            logger.info(f"Admin memulai proses penyimpanan dataset {upload_type} ke database.")
             hist_count, fix_count = commit_uploaded_data(upload_type)
+            logger.info(f"Simpan sukses: {hist_count} History, {fix_count} Fixture.")
             return Response({
                 "message": f"Dataset {upload_type} berhasil disimpan ke database.",
                 "history_saved": hist_count,
                 "fixtures_saved": fix_count
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            logger.error(f"Gagal menyimpan data konfirmasi: {str(e)}", exc_info=True)
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PerformanceMetricsAPIView(APIView):
@@ -123,7 +148,6 @@ class PerformanceMetricsAPIView(APIView):
                 y1, y2 = season.split('/')
                 start_year = 2000 + int(y1)
                 end_year = 2000 + int(y2)
-                # Perbaikan Warning Timezone
                 start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
                 end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
                 history_qs = history_qs.filter(date__gte=start_date, date__lte=end_date)
@@ -137,7 +161,6 @@ class PerformanceMetricsAPIView(APIView):
         ou_wins = ou_losses = 0
         ou_unit_profit = ou_unit_stake = 0.0
 
-        # OPTIMASI RAM: Menggunakan iterator & values untuk mengambil dict ringan alih-alih objek Django
         hist_data = history_qs.values(
             'rl_stake_ftr', 'is_won_ftr', 'rl_pick_ftr', 'avg_h', 'avg_d', 'avg_a',
             'rl_stake_ou', 'is_won_ou', 'rl_pick_ou', 'avg_over_25', 'avg_under_25'
@@ -213,7 +236,6 @@ class LeagueStandingsAPIView(APIView):
         except Exception:
             return Response([])
 
-        # OPTIMASI RAM
         matches = MatchHistory.objects.filter(
             league__code=league_code,
             date__gte=start_date,
@@ -266,19 +288,26 @@ class LeagueStandingsAPIView(APIView):
         return Response(sorted_standings)
 
 class CronTriggerAPIView(APIView):
+    permission_classes = [] 
+    authentication_classes = []
+
     def get(self, request):
-        token = request.query_params.get('token')
+        auth_header = request.headers.get('Authorization', '')
+        token = auth_header.replace('Bearer ', '').strip()
         secret = os.environ.get('CRON_SECRET_KEY')
         
-        if not secret or token != secret:
+        if not secret or not token or not hmac.compare_digest(token, secret):
+            logger.warning("Upaya akses ilegal ke CronTriggerAPIView terdeteksi.")
             return Response({"error": "Akses Ditolak. Token tidak valid atau belum diatur."}, status=status.HTTP_403_FORBIDDEN)
             
         def run_jobs():
             try:
+                logger.info("Memulai eksekusi Cron Job dari trigger API...")
                 call_command('fetch_history')
                 call_command('fetch_fixture')
+                logger.info("Cron Job selesai dieksekusi.")
             except Exception as e:
-                print(f"Cron Job Error: {str(e)}")
+                logger.error(f"Cron Job Error: {str(e)}", exc_info=True)
                 
         threading.Thread(target=run_jobs).start()
         

@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { UploadCloud, CheckCircle, Database } from 'lucide-react';
+import { useSession } from 'next-auth/react'; 
+import { useRouter } from 'next/navigation'; 
 
 interface League {
   id: number;
@@ -29,6 +31,9 @@ interface PreviewResponse {
 }
 
 export default function AdminUploadPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
   const [file, setFile] = useState<File | null>(null);
   const [uploadType, setUploadType] = useState<string>('history');
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -40,14 +45,35 @@ export default function AdminUploadPage() {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' } | null>(null);
 
   const [loadingStep, setLoadingStep] = useState<string>('');
+  
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+    } else if (status === 'authenticated' && !(session?.user as any)?.is_staff) {
+      router.push('/');
+    }
+  }, [status, session, router]);
 
   useEffect(() => {
-    api.get('/leagues/')
-      .then((res) => {
-        setLeagues(res.data.results || res.data);
-      })
-      .catch((err) => console.error("Gagal memuat liga:", err));
-  }, []);
+    // Pastikan API memuat liga hanya jika user adalah admin
+    if (status === 'authenticated' && (session?.user as any)?.is_staff) {
+      api.get('/leagues/')
+        .then((res) => {
+          setLeagues(res.data.results || res.data);
+        })
+        .catch((err) => console.error("Gagal memuat liga:", err));
+    }
+  }, [status, session]);
+  
+  if (status === 'loading' || !session || !(session?.user as any)?.is_staff) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-white text-lg animate-pulse font-semibold">
+          Memverifikasi Otorisasi Keamanan...
+        </div>
+      </div>
+    );
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

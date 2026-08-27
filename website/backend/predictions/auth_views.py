@@ -2,16 +2,23 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from django.conf import settings
+from rest_framework_simplejwt.tokens import RefreshToken
 
-# Memanggil CustomUser yang sudah Anda buat sebelumnya
 User = get_user_model()
 
+def is_valid_server_request(request):
+    client_secret = request.headers.get('X-Server-Secret')
+    return client_secret == getattr(settings, 'SECRET_KEY', '')
+
 class SyncUserView(APIView):
-    # Dimatikan sementara pengamanan tokennya agar Next.js bisa masuk dengan bebas
     permission_classes = [] 
     authentication_classes = []
 
     def post(self, request):
+        if not is_valid_server_request(request):
+            return Response({'error': 'Akses Ditolak. Endpoint ini khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+
         email = request.data.get('email')
         name = request.data.get('name')
         
@@ -20,7 +27,6 @@ class SyncUserView(APIView):
             
         username_base = email.split('@')[0]
         
-        # Logika cerdas: Ambil datanya kalau sudah ada, Buat baru kalau belum ada
         user, created = User.objects.get_or_create(
             email=email,
             defaults={
@@ -32,15 +38,25 @@ class SyncUserView(APIView):
         
         if created:
             user.save()
-            return Response({'message': 'User baru berhasil didaftarkan di database Django', 'user_id': user.id}, status=status.HTTP_201_CREATED)
             
-        return Response({'message': 'User sudah terdaftar sebelumnya', 'user_id': user.id}, status=status.HTTP_200_OK)
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'message': 'User berhasil disinkronisasi', 
+            'user_id': user.id,
+            'is_staff': user.is_staff,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 class CheckStaffView(APIView):
     permission_classes = []
     authentication_classes = []
 
     def get(self, request):
+        if not is_valid_server_request(request):
+            return Response({'error': 'Akses Ditolak. Endpoint ini khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+
         email = request.query_params.get('email')
         if not email:
             return Response({'is_staff': False})
