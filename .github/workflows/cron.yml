@@ -1,22 +1,18 @@
-name: L1 Prediksi-Kan Automated Cron
+name: AI Prediction Cronjob
 
 on:
   schedule:
-    # Mengeksekusi data Tengah Pekan (Setiap Selasa pukul 14:00 UTC / 22:00 WITA)
-    - cron: '0 14 * * 2'
+    # Mengeksekusi setiap hari pada pukul 18:00 UTC (02:00 WITA)
+    - cron: '0 18 * * *'
     
-    # Mengeksekusi data Akhir Pekan (Setiap Jumat pukul 18:00 UTC / Sabtu 02:00 WITA)
-    - cron: '0 18 * * 5'
-    
-  # Memungkinkan Anda menekan tombol "Run workflow" secara manual di menu GitHub Actions
   workflow_dispatch: 
 
 jobs:
-  trigger-fetch-data:
+  trigger_celery_tasks:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Trigger Django API Cron Endpoint
+      - name: Trigger Render API Endpoint
         run: |
           curl -X GET "https://l1prediksi-api.onrender.com/api/cron-trigger/" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET_KEY }}"
