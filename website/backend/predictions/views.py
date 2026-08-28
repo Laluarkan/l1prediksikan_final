@@ -16,6 +16,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema
 
 from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
@@ -34,6 +35,7 @@ class SyncUserView(APIView):
     permission_classes = [] 
     authentication_classes = []
 
+    @extend_schema(exclude=True)
     def post(self, request):
         if not is_valid_server_request(request):
             logger.warning("Akses SyncUserView ditolak: Kunci Sinkronisasi tidak cocok.")
@@ -73,6 +75,7 @@ class CheckStaffView(APIView):
     permission_classes = []
     authentication_classes = []
 
+    @extend_schema(exclude=True)
     def get(self, request):
         if not is_valid_server_request(request):
             return Response({'error': 'Akses Ditolak. Endpoint khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
@@ -140,6 +143,7 @@ class DatasetPreviewView(APIView):
     permission_classes = [IsAdminUser]
     parser_classes = (MultiPartParser, FormParser)
 
+    @extend_schema(exclude=True)
     def post(self, request, *args, **kwargs):
         file_obj = request.FILES.get('file')
         upload_type = request.data.get('upload_type', 'history')
@@ -187,6 +191,7 @@ class DatasetPreviewView(APIView):
 class DatasetConfirmSaveView(APIView):
     permission_classes = [IsAdminUser]
 
+    @extend_schema(exclude=True)
     def post(self, request, *args, **kwargs):
         upload_type = request.data.get('upload_type', 'history')
         try:
@@ -203,6 +208,7 @@ class DatasetConfirmSaveView(APIView):
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PerformanceMetricsAPIView(APIView):
+    @extend_schema(exclude=True)
     @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         season = request.query_params.get('season', 'ALL')
@@ -287,6 +293,7 @@ class PerformanceMetricsAPIView(APIView):
         })
 
 class LeagueStandingsAPIView(APIView):
+    @extend_schema(exclude=True)
     @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         league_code = request.query_params.get('league')
@@ -359,6 +366,7 @@ class CronTriggerAPIView(APIView):
     permission_classes = [] 
     authentication_classes = []
 
+    @extend_schema(exclude=True)
     def get(self, request):
         auth_header = request.headers.get('Authorization', '')
         token = auth_header.replace('Bearer ', '').strip()
