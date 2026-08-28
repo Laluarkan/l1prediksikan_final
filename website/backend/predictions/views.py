@@ -1,11 +1,12 @@
 import os
-import threading
 import datetime
 import hmac
 import logging
 from django.conf import settings
 from django.utils import timezone
 from django.core.management import call_command
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -24,9 +25,6 @@ from .services import preview_uploaded_data, commit_uploaded_data
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
-# ==========================================
-# FUNGSI GEMBOK SERVER-TO-SERVER BARU
-# ==========================================
 def is_valid_server_request(request):
     client_secret = request.headers.get('X-Sync-Secret', '')
     expected_secret = os.environ.get('SYNC_SECRET_KEY', 'l1prediksikan-sync-rahasia-2026')
@@ -39,7 +37,7 @@ class SyncUserView(APIView):
     def post(self, request):
         if not is_valid_server_request(request):
             logger.warning("Akses SyncUserView ditolak: Kunci Sinkronisasi tidak cocok.")
-            return Response({'error': 'Akses Ditolak. Endpoint ini khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Akses Ditolak. Endpoint khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
 
         email = request.data.get('email')
         name = request.data.get('name')
@@ -77,7 +75,7 @@ class CheckStaffView(APIView):
 
     def get(self, request):
         if not is_valid_server_request(request):
-            return Response({'error': 'Akses Ditolak. Endpoint ini khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Akses Ditolak. Endpoint khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
 
         email = request.query_params.get('email')
         if not email:
@@ -89,22 +87,19 @@ class CheckStaffView(APIView):
         except User.DoesNotExist:
             return Response({'is_staff': False})
 
-# ==========================================
-# VIEWSET DAN API STANDAR
-# ==========================================
 class LeagueViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = League.objects.all().order_by('name')
     serializer_class = LeagueSerializer
 
 class TeamViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Team.objects.all().order_by('name')
+    queryset = Team.objects.select_related('league').order_by('name')
     serializer_class = TeamSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['league__code']
     search_fields = ['name']
 
 class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = MatchHistory.objects.all()
+    queryset = MatchHistory.objects.select_related('league', 'home_team', 'away_team').all()
     serializer_class = MatchHistorySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_won_ftr', 'is_won_ou']
@@ -112,7 +107,6 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['date']
 
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_processed']
@@ -121,10 +115,9 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         now = timezone.now()
-        return UpcomingFixture.objects.filter(date__gte=now).order_by('date')
+        return UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
 
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['is_won', 'is_historical']
@@ -208,6 +201,8 @@ class DatasetConfirmSaveView(APIView):
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PerformanceMetricsAPIView(APIView):
+    # CACHING: Simpan hasil komputasi berat ini selama 2 Jam di Redis
+    @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         season = request.query_params.get('season', 'ALL')
         
@@ -291,6 +286,8 @@ class PerformanceMetricsAPIView(APIView):
         })
 
 class LeagueStandingsAPIView(APIView):
+    # CACHING: Simpan hasil komputasi berat ini selama 2 Jam di Redis
+    @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         league_code = request.query_params.get('league')
         season = request.query_params.get('season')
@@ -371,15 +368,8 @@ class CronTriggerAPIView(APIView):
             logger.warning("Upaya akses ilegal ke CronTriggerAPIView terdeteksi.")
             return Response({"error": "Akses Ditolak. Token tidak valid atau belum diatur."}, status=status.HTTP_403_FORBIDDEN)
             
-        def run_jobs():
-            try:
-                logger.info("Memulai eksekusi Cron Job dari trigger API...")
-                call_command('fetch_history')
-                call_command('fetch_fixture')
-                logger.info("Cron Job selesai dieksekusi.")
-            except Exception as e:
-                logger.error(f"Cron Job Error: {str(e)}", exc_info=True)
-                
-        threading.Thread(target=run_jobs).start()
+        # CELERY: Melempar tugas berat ke background worker (Queue) dengan aman!
+        from .tasks import run_fetch_jobs_task
+        run_fetch_jobs_task.delay()
         
-        return Response({"message": "Cron jobs untuk History dan Fixture sedang dijalankan di latar belakang."}, status=status.HTTP_200_OK)
+        return Response({"message": "Cron jobs telah berhasil dimasukkan ke dalam antrean Celery (Job Queue)."}, status=status.HTTP_200_OK)
