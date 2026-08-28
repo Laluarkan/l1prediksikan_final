@@ -1,8 +1,11 @@
-from pathlib import Path
 import os
+from pathlib import Path
+from dotenv import load_dotenv
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 
@@ -102,7 +105,7 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '30/min', # Pengunjung web normal tidak akan klik 30 kali dalam 1 menit
+        'anon': '30/min', 
         'user': '100/min' 
     }
 }
