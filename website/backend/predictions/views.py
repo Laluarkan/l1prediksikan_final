@@ -28,7 +28,7 @@ User = get_user_model()
 
 def is_valid_server_request(request):
     client_secret = request.headers.get('X-Sync-Secret', '')
-    expected_secret = os.environ.get('SYNC_SECRET_KEY', 'l1prediksikan-sync-rahasia-2026')
+    expected_secret = os.environ['SYNC_SECRET_KEY']
     return hmac.compare_digest(client_secret, expected_secret)
 
 class SyncUserView(APIView):

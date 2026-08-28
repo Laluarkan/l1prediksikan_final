@@ -5,7 +5,7 @@ import GoogleProvider from "next-auth/providers/google";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
 // Kunci sinkronisasi yang sama dengan di Django
-const SYNC_SECRET = process.env.SYNC_SECRET_KEY || "l1prediksikan-sync-rahasia-2026";
+const SYNC_SECRET = process.env.SYNC_SECRET_KEY as string;
 
 const handler = NextAuth({
   providers: [

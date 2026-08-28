@@ -7,7 +7,9 @@ def health_check(request):
     return JsonResponse({"status": "healthy", "message": "API L1 Prediksi-Kan berjalan optimal."})
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Jalur admin diubah dari 'admin/' menjadi jalur rahasia untuk menghindari serangan bot
+    path('rahasia-dapur-l1/', admin.site.urls),
+    
     path('api/', include('predictions.urls')),
     
     path('health/', health_check, name='health-check'),
