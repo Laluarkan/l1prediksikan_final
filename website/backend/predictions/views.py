@@ -107,6 +107,7 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['date']
 
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_processed']
@@ -118,6 +119,7 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
         return UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
 
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['is_won', 'is_historical']
@@ -201,7 +203,6 @@ class DatasetConfirmSaveView(APIView):
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PerformanceMetricsAPIView(APIView):
-    # CACHING: Simpan hasil komputasi berat ini selama 2 Jam di Redis
     @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         season = request.query_params.get('season', 'ALL')
@@ -286,7 +287,6 @@ class PerformanceMetricsAPIView(APIView):
         })
 
 class LeagueStandingsAPIView(APIView):
-    # CACHING: Simpan hasil komputasi berat ini selama 2 Jam di Redis
     @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         league_code = request.query_params.get('league')
@@ -368,7 +368,6 @@ class CronTriggerAPIView(APIView):
             logger.warning("Upaya akses ilegal ke CronTriggerAPIView terdeteksi.")
             return Response({"error": "Akses Ditolak. Token tidak valid atau belum diatur."}, status=status.HTTP_403_FORBIDDEN)
             
-        # CELERY: Melempar tugas berat ke background worker (Queue) dengan aman!
         from .tasks import run_fetch_jobs_task
         run_fetch_jobs_task.delay()
         
