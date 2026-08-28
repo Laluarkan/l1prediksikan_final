@@ -162,9 +162,10 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
     probs_ftr = lgbm_ftr.predict_proba(X)
     probs_ou = lgbm_ou.predict_proba(X)
     
-    df['prob_FTR_H'] = probs_ftr[:, 0]
+    # PERBAIKAN: Mengembalikan kabel prediksi ke urutan alfabetis (A, D, H)
+    df['prob_FTR_A'] = probs_ftr[:, 0]
     df['prob_FTR_D'] = probs_ftr[:, 1]
-    df['prob_FTR_A'] = probs_ftr[:, 2]
+    df['prob_FTR_H'] = probs_ftr[:, 2]
     
     df['prob_OU25_Yes'] = probs_ou[:, 1]
     
