@@ -6,7 +6,6 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.management import call_command
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -209,7 +208,6 @@ class DatasetConfirmSaveView(APIView):
 
 class PerformanceMetricsAPIView(APIView):
     @extend_schema(exclude=True)
-    @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         season = request.query_params.get('season', 'ALL')
         
@@ -294,7 +292,6 @@ class PerformanceMetricsAPIView(APIView):
 
 class LeagueStandingsAPIView(APIView):
     @extend_schema(exclude=True)
-    @method_decorator(cache_page(60 * 60 * 2))
     def get(self, request):
         league_code = request.query_params.get('league')
         season = request.query_params.get('season')
