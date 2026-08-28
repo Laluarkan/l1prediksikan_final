@@ -155,16 +155,17 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
     
     missing_cols = set(feat_cols) - set(df.columns)
     for c in missing_cols:
-        df[c] = 0.0
+        df[c] = np.nan
         
-    X = df.reindex(columns=feat_cols, fill_value=0)
+    X = df.reindex(columns=feat_cols, fill_value=np.nan)
     
     probs_ftr = lgbm_ftr.predict_proba(X)
     probs_ou = lgbm_ou.predict_proba(X)
     
-    df['prob_FTR_A'] = probs_ftr[:, 0]
+    df['prob_FTR_H'] = probs_ftr[:, 0]
     df['prob_FTR_D'] = probs_ftr[:, 1]
-    df['prob_FTR_H'] = probs_ftr[:, 2]
+    df['prob_FTR_A'] = probs_ftr[:, 2]
+    
     df['prob_OU25_Yes'] = probs_ou[:, 1]
     
     data_res = {
@@ -566,14 +567,12 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     
     print(f"  [DEBUG] Menghubungkan ke Supabase untuk mencocokkan {len(teams_in_csv)} tim...")
     try:
-        # OPTIMASI KUERI: Menggunakan .values() dan .iterator() agar tidak membebani RAM
         hist_qs = MatchHistory.objects.filter(
             models.Q(home_team__name__in=teams_in_csv) | models.Q(away_team__name__in=teams_in_csv)
         ).select_related('league', 'home_team', 'away_team')
         
         print(f"  [DEBUG] Kueri siap. Memproses baris dengan metode iterator yang ringan...")
         
-        # Mengekstrak nilai spesifik tanpa memuat objek Django yang berat
         for m in hist_qs.iterator(chunk_size=1000):
             db_records.append({
                 'Div': m.league.code, 'Date': m.date, 'HomeTeam': m.home_team.name, 'AwayTeam': m.away_team.name,
@@ -589,7 +588,6 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     df_db = pd.DataFrame(db_records)
     if not df_db.empty:
         df_db['Date'] = pd.to_datetime(df_db['Date'], utc=True)
-        # Menghapus duplikat murni menggunakan Pandas, jauh lebih cepat daripada distinct() Django
         df_combined = pd.concat([df_db, df_csv]).drop_duplicates(subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last').reset_index(drop=True)
     else:
         df_combined = df_csv.copy()
@@ -682,7 +680,6 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
 
 @transaction.atomic
 def process_and_save_data(df: pd.DataFrame, skip_weather: bool = False):
-    """(Khusus untuk seed_raw: Reset DB)"""
     df = parse_csv_datetime(df)
     df_history, df_fixture = run_feature_engineering_pipeline(df, upload_type='mixed', skip_weather=skip_weather)
     return save_to_db(df_history, df_fixture)
