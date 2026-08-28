@@ -22,7 +22,7 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',
-    'drf_spectacular', # API Documentation
+    'drf_spectacular',
     'predictions',
 ]
 
@@ -102,8 +102,8 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/day',
-        'user': '1000/day'
+        'anon': '30/min', # Pengunjung web normal tidak akan klik 30 kali dalam 1 menit
+        'user': '100/min' 
     }
 }
 
@@ -117,9 +117,6 @@ if not DEBUG:
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880 
 
-# ==========================================
-# KONFIGURASI SKALA PRODUKSI (REDIS & CELERY)
-# ==========================================
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/1')
 
 CACHES = {
@@ -163,3 +160,16 @@ LOGGING = {
         },
     },
 }
+
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=0.2,
+        send_default_pii=True,
+    )
