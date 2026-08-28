@@ -83,7 +83,7 @@ def build_elo_features(df: pd.DataFrame) -> pd.DataFrame:
     K = 20.0
     HOME_ADV = 100.0
     INIT_ELO = 1500.0
-    DECAY = 0.70
+    DECAY = 0.90 # Diperbarui dari 0.70 agar tim raksasa tetap dominan di awal musim
 
     for idx, row in df.iterrows():
         home = row['HomeTeam']
@@ -311,7 +311,16 @@ def build_rolling_features(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     def get_stats(team, n=window):
         hist = team_history.get(team, [])
         if not hist:
-            return {}
+            # Penanganan Cold-Start (Tim Promosi / Histori Kosong)
+            return {
+                'avg_scored': 1.0,
+                'avg_conceded': 1.5,
+                'win_rate': 0.25,
+                'over_rate': 0.50,
+                'btts_rate': 0.50,
+                'clean_sheet_rate': 0.20,
+                'failed_to_score_rate': 0.30,
+            }
         r = hist[-n:]
         return {
             'avg_scored':          np.mean([h['scored'] for h in r]),
@@ -333,7 +342,7 @@ def build_rolling_features(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
         hs = get_stats(home)
         as_ = get_stats(away)
 
-        df.at[idx,'home_avg_scored']          = hs.get('avg_scored', np.nan)
+        df.at[idx,'home_avg_scored']           = hs.get('avg_scored', np.nan)
         df.at[idx,'home_avg_conceded']         = hs.get('avg_conceded', np.nan)
         df.at[idx,'home_win_rate']             = hs.get('win_rate', np.nan)
         df.at[idx,'home_over_rate']            = hs.get('over_rate', np.nan)
@@ -350,11 +359,18 @@ def build_rolling_features(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
 
         pair = frozenset([home, away])
         h2h  = h2h_history.get(pair, [])
+        
+        # Penanganan Cold-Start untuk rekor H2H
         if h2h:
             df.at[idx,'h2h_home_wins']  = sum(1 for g in h2h if g['winner'] == home)
             df.at[idx,'h2h_away_wins']  = sum(1 for g in h2h if g['winner'] == away)
             df.at[idx,'h2h_draws']      = sum(1 for g in h2h if g['winner'] == 'D')
             df.at[idx,'h2h_avg_goals']  = np.mean([g['total'] for g in h2h])
+        else:
+            df.at[idx,'h2h_home_wins']  = 0
+            df.at[idx,'h2h_away_wins']  = 0
+            df.at[idx,'h2h_draws']      = 0
+            df.at[idx,'h2h_avg_goals']  = 2.5 
 
         if pd.notna(fthg) and pd.notna(ftag):
             ftr     = str(row.get('FTR', ''))
