@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Activity } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -30,10 +29,10 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Informasi</h3>
             <ul className="space-y-3 text-sm text-slate-400">
-              <li><Link href="#" className="hover:text-blue-400 transition-colors">Tentang Sistem API</Link></li>
-              <li><Link href="#" className="hover:text-blue-400 transition-colors">Metodologi Algoritma</Link></li>
-              <li><Link href="#" className="hover:text-blue-400 transition-colors">Manajemen Risiko (Kelly)</Link></li>
-              <li><Link href="#" className="hover:text-blue-400 transition-colors">Disclaimer Tanggung Jawab</Link></li>
+              <li><Link href="/about-api" className="hover:text-blue-400 transition-colors">Tentang Sistem API</Link></li>
+              <li><Link href="/methodology" className="hover:text-blue-400 transition-colors">Metodologi Algoritma</Link></li>
+              <li><Link href="/risk-management" className="hover:text-blue-400 transition-colors">Manajemen Risiko (Kelly)</Link></li>
+              <li><Link href="/legal" className="hover:text-blue-400 transition-colors">Legal & Disclaimer</Link></li>
             </ul>
           </div>
         </div>
