@@ -2,7 +2,6 @@ name: AI Prediction Cronjob
 
 on:
   schedule:
-    # Mengeksekusi setiap hari pada pukul 18:00 UTC (02:00 WITA)
     - cron: '0 18 * * *'
   workflow_dispatch:
 
@@ -29,13 +28,12 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        # Hanya menginstal pustaka yang dibutuhkan untuk scraping dan ML
         pip install -r website/backend/requirements.txt
-
-    - name: Eksekusi Fetch History (Sinkronisasi Masa Lalu)
-      working-directory: ./website/backend
-      run: python manage.py fetch_history
 
     - name: Eksekusi Fetch Fixture (Prediksi Masa Depan)
       working-directory: ./website/backend
       run: python manage.py fetch_fixture
+
+    - name: Eksekusi Fetch History (Sinkronisasi Masa Lalu)
+      working-directory: ./website/backend
+      run: python manage.py fetch_history
