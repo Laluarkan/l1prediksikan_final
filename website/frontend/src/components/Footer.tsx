@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import packageJson from '../../package.json';
 
 export default function Footer() {
   return (
@@ -42,7 +43,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} L1 Prediksi-Kan. Hak Cipta Dilindungi.
           </p>
           <div className="flex gap-4 text-xs text-slate-500 font-mono">
-            <span>Versi 1.0.0</span>
+            <span>Versi {packageJson.version}</span>
             <span>|</span>
             <span>Data by API Eksternal</span>
           </div>
