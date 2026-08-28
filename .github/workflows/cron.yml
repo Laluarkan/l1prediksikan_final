@@ -14,5 +14,6 @@ jobs:
     steps:
       - name: Trigger Render API Endpoint
         run: |
-          curl -X GET "https://l1prediksi-api.onrender.com/api/cron-trigger/" \
+          echo "Mengetuk peladen Render..."
+          curl -sSL --retry 3 --retry-delay 10 -w "\nHTTP_STATUS:%{http_code}\n" -X GET "https://l1prediksi-api.onrender.com/api/cron-trigger/" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET_KEY }}"
