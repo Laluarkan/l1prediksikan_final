@@ -253,7 +253,7 @@ export default function Home() {
                   </h2>
                   <p className="text-slate-400 text-[10px] md:text-sm">Transparansi penuh dari hasil prediksi model AI terhadap hasil nyata di lapangan.</p>
                 </div>
-                <Link href="/model-performance" className="bg-slate-700 hover:bg-slate-600 text-white text-[10px] md:text-sm px-4 md:px-6 py-2 md:py-2.5 rounded-lg transition-colors whitespace-nowrap w-full md:w-auto text-center">
+                <Link href="/performance" className="bg-slate-700 hover:bg-slate-600 text-white text-[10px] md:text-sm px-4 md:px-6 py-2 md:py-2.5 rounded-lg transition-colors whitespace-nowrap w-full md:w-auto text-center">
                   Lihat Metrik Lengkap
                 </Link>
               </div>
