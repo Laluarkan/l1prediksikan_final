@@ -1,8 +1,22 @@
+import os
+import sys
+from pathlib import Path
+
+# -- PATH INJECTION: Mencegah ModuleNotFoundError --
+CURRENT_DIR = Path(__file__).resolve().parent
+SRC_DIR = CURRENT_DIR.parent
+BACKEND_DIR = SRC_DIR.parent
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+# --------------------------------------------------
+
 import re
 import pandas as pd
 import numpy as np
 import joblib
-from pathlib import Path
 from lightgbm import LGBMClassifier
 from sklearn.metrics import classification_report, roc_auc_score, accuracy_score
 import warnings
@@ -20,7 +34,10 @@ def prepare_data(df_path):
     df['target_OU25'] = ((df['FTHG'] + df['FTAG']) > 2.5).astype(int)
     df['target_BTTS'] = ((df['FTHG'] > 0) & (df['FTAG'] > 0)).astype(int)
     
-    drop_cols = ['Date', 'HomeTeam', 'AwayTeam', 'FTR', 'FTHG', 'FTAG', 'HTHG', 'HTAG', 'HTR', 'Referee', 'Season', 'Div']
+    drop_cols = [
+        'Date', 'HomeTeam', 'AwayTeam', 'FTR', 'FTHG', 'FTAG', 'HTHG', 'HTAG', 'HTR', 'Referee', 'Season', 'Div',
+        'HS', 'AS', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR'
+    ]
     raw_odds = [c for c in df.columns if c in ['B365H','B365D','B365A','BWH','BWD','BWA','PSH','PSD','PSA','MaxH','MaxD','MaxA','AvgH','AvgD','AvgA']]
     drop_cols.extend(raw_odds)
     
@@ -151,8 +168,8 @@ def evaluate_and_finetune(train, val, test, features, target_name, global_model,
         joblib.dump(model, model_path)
 
 def main():
-    data_path = "./data/enriched/final_training_dataset.csv"
-    if not Path(data_path).exists():
+    data_path = BACKEND_DIR / "data" / "enriched" / "final_training_dataset.csv"
+    if not data_path.exists():
         print(f"Error: Dataset {data_path} tidak ditemukan.")
         return
         
