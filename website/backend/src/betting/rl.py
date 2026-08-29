@@ -4,6 +4,9 @@ import joblib
 from pathlib import Path
 from config import MODELS_DIR
 
+# --- ATURAN REALISTIS BANDAR ---
+MIN_BET_AMOUNT = 10000.0
+
 class BettingState:
     N_EDGE_BINS    = 5
     N_EV_BINS      = 5
@@ -28,15 +31,17 @@ class BettingState:
         return (BettingState.N_EDGE_BINS * BettingState.N_EV_BINS *
                 BettingState.N_KELLY_BINS * BettingState.N_BANKROLL_BINS)
 
+# Mengembalikan opsi fraksi, membiarkan Log-Utility menghukum aksi yang berbahaya
 ACTIONS = {
-    0: 0.00,
-    1: 0.10,
-    2: 0.25,
-    3: 0.50,
+    0: 0.00,  # Skip
+    1: 0.25,  # 25% Kelly
+    2: 0.50,  # 50% Kelly (Half-Kelly)
+    3: 0.75,  # 75% Kelly
+    4: 1.00,  # Full Kelly
 }
 
 class QLearningAgent:
-    def __init__(self, alpha=0.1, gamma=0.90, epsilon=0.5,
+    def __init__(self, alpha=0.1, gamma=0.95, epsilon=0.5,
                  epsilon_decay=0.998, epsilon_min=0.01):
         self.alpha         = alpha
         self.gamma         = gamma
@@ -81,7 +86,7 @@ def _build_bet_sequence(df_bets: pd.DataFrame) -> list:
         })
     return sequence
 
-def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 2000,
+def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 3000,
                    init_bankroll: float = 50000.0) -> QLearningAgent:
     
     agent    = QLearningAgent()
@@ -89,7 +94,7 @@ def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 2000,
     if not sequence:
         return agent
 
-    n_episodes = 2000
+    n_episodes = 3000
 
     for episode in range(n_episodes):
         bankroll = init_bankroll
@@ -102,20 +107,24 @@ def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 2000,
             state  = BettingState.discretize(edge, ev, kelly_f, br_ratio)
             action = agent.choose_action(state)
             frac   = ACTIONS[action] * kelly_f
+            
+            raw_stake = bankroll * frac
 
-            if action == 0:
+            # JIKA SKIP ATAU TARUHAN DI BAWAH BATAS MINIMAL -> BATALKAN
+            if action == 0 or raw_stake < MIN_BET_AMOUNT:
                 profit = 0.0
-                reward = 0.0
+                reward = 0.0  # Netral sempurna, tidak ada reward/hukuman buatan
             else:
-                stake = bankroll * frac
                 if bet['won']:
-                    profit  = stake * (bet['odds'] - 1.0)
-                    reward  = (profit / bankroll) * 1.2
+                    profit  = raw_stake * (bet['odds'] - 1.0)
                 else:
-                    profit  = -stake
-                    reward  = (profit / bankroll) * 1.0
+                    profit  = -raw_stake
+                
+                # LOG UTILITY MURNI: Evaluasi berdasarkan riil pertumbuhan aset
+                ratio = (bankroll + profit) / bankroll
+                reward = np.log(max(0.0001, ratio)) * 100.0
 
-            bankroll = max(50.0, bankroll + profit) 
+            bankroll = max(100.0, bankroll + profit) 
             new_ratio= bankroll / init_bankroll
             new_state= BettingState.discretize(edge, ev, kelly_f, new_ratio)
             agent.update(state, action, reward, new_state)
@@ -139,12 +148,21 @@ def rl_recommend(agent: QLearningAgent, bets: list,
         
         stake  = current_bankroll * frac
         
+        # FILTER FINAL SAAT REKOMENDASI LIVE
+        if stake < MIN_BET_AMOUNT and action > 0:
+            action = 0
+            stake = 0.0
+            frac = 0.0
+            desc = "Skip (Modal/Kelly di bawah minimal Rp 10.000)"
+        else:
+            desc = f"Bet {int(ACTIONS[action]*100)}% of Kelly = Rp {stake:,.2f}" if action > 0 else "Bet 0% (Skip)"
+            
         recommendations.append({
             **bet,
             'rl_action':      action,
             'rl_kelly_frac':  round(frac, 4),
             'rl_stake':       round(stake, 2),
-            'rl_description': f"Bet {int(ACTIONS[action]*100)}% of Kelly = Rp {stake:,.2f}",
+            'rl_description': desc,
         })
         
         if action > 0:
@@ -152,7 +170,7 @@ def rl_recommend(agent: QLearningAgent, bets: list,
                 current_bankroll += stake * (bet.get('bookie_odds', 2.0) - 1.0)
             else:
                 current_bankroll -= stake
-            current_bankroll = max(50.0, current_bankroll)
+            current_bankroll = max(100.0, current_bankroll)
 
     return recommendations
 
