@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 from pathlib import Path
 
 # -- PATH INJECTION: Mencegah ModuleNotFoundError --
@@ -13,7 +14,6 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 # --------------------------------------------------
 
-import re
 import pandas as pd
 import numpy as np
 import joblib
@@ -35,11 +35,36 @@ def prepare_data(df_path):
     df['target_BTTS'] = ((df['FTHG'] > 0) & (df['FTAG'] > 0)).astype(int)
     
     drop_cols = [
-        'Date', 'HomeTeam', 'AwayTeam', 'FTR', 'FTHG', 'FTAG', 'HTHG', 'HTAG', 'HTR', 'Referee', 'Season', 'Div',
+        'Date', 'Time', 'HomeTeam', 'AwayTeam', 'FTR', 'FTHG', 'FTAG', 
+        'HTHG', 'HTAG', 'HTR', 'Referee', 'Season', 'Div',
         'HS', 'AS', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR'
     ]
-    raw_odds = [c for c in df.columns if c in ['B365H','B365D','B365A','BWH','BWD','BWA','PSH','PSD','PSA','MaxH','MaxD','MaxA','AvgH','AvgD','AvgA']]
-    drop_cols.extend(raw_odds)
+    
+    # 2. PEMBERSIHAN DINAMIS: Sapu Bersih Semua Fitur Bandar Berdasarkan Pola Kata
+    def is_odds_feature(col_name):
+        c = str(col_name)
+        bookie_prefixes = ('B365', 'BW', 'IW', 'PS', 'WH', 'VC', 'Max', 'Avg', '1X', 'BF', 'SK', 'GB', 'BS', 'LB', 'SJ', 'AH', 'PA', 'PP', 'L', 'S', 'V')
+        
+        # Jika depannya nama bandar
+        if c.startswith(bookie_prefixes): return True
+        # Jika mengandung simbol/huruf spesifik odds penutupan
+        if 'CH' in c or 'CD' in c or 'CA' in c or '>' in c or '<' in c: return True
+        
+        # Jika mengandung kata kunci fitur turunan yang dibuat di features.py
+        odds_keywords = [
+            'ip_', 'norm_', 'margin_', 'consensus_', 'market_uncertainty',
+            'home_dominance', 'home_away_ratio', 'draw_tendency', 'max_team_prob',
+            'prob_spread', 'ou_drift', 'ou_opening', 'ou_market', 'closing_consensus',
+            'ah_line', 'home_stronger', 'closing_ah', 'drift_', 'btts_ou', 'btts_draw_proxy',
+            'btts_closing', 'team_prob_product'
+        ]
+        if any(kw in c for kw in odds_keywords): return True
+        
+        return False
+
+    # Deteksi dan buang
+    odds_cols_to_drop = [c for c in df.columns if is_odds_feature(c)]
+    drop_cols.extend(odds_cols_to_drop)
     
     def clean_col_name(col):
         c = str(col).replace('>', '_over_').replace('<', '_under_')
@@ -48,9 +73,10 @@ def prepare_data(df_path):
         
     df = df.rename(columns=clean_col_name)
     df = df.loc[:, ~df.columns.duplicated()]
-    drop_cols = [clean_col_name(c) for c in drop_cols]
     
-    candidate_features = [c for c in df.columns if c not in drop_cols and not c.startswith('target_')]
+    drop_cols_cleaned = [clean_col_name(c) for c in drop_cols]
+    
+    candidate_features = [c for c in df.columns if c not in drop_cols_cleaned and not c.startswith('target_')]
     features = df[candidate_features].select_dtypes(include=['number', 'bool']).columns.tolist()
             
     train_idx = int(len(df) * SPLIT_RATIOS['train'])
@@ -59,6 +85,8 @@ def prepare_data(df_path):
     train = df.iloc[:train_idx]
     val = df.iloc[train_idx:val_idx]
     test = df.iloc[val_idx:]
+    
+    print(f"\n[*] Total fitur MURNI STATISTIK yang digunakan model: {len(features)} fitur.")
     
     return train, val, test, features
 

@@ -168,18 +168,29 @@ def main():
     plt.savefig(chart_path)
     plt.close()
 
+    # --- PENGHITUNGAN RASIO EKSEKUSI TARUHAN ---
+    executed_bets = df_recoms[df_recoms['rl_stake'] > 0]
+    n_total = len(df_recoms)
+    n_exec = len(executed_bets)
+    exec_rate = (n_exec / n_total) * 100 if n_total > 0 else 0
+
     print(f"Simulasi Bankroll Awal  : Rp {MODAL_AWAL:,.2f}")
     print(f"Simulasi Bankroll Akhir : Rp {sim_bankroll:,.2f}")
     print(f"Total Keuntungan (ROI)  : {((sim_bankroll - MODAL_AWAL) / MODAL_AWAL) * 100:.2f}%\n")
+    
+    print(f"-> Total Taruhan Dieksekusi : {n_exec} dari {n_total} Value Bets ({exec_rate:.1f}%)")
     print(f"-> Histori taruhan disimpan di: {csv_path}")
     print(f"-> Grafik bankroll disimpan di: {chart_path}\n")
 
-    print("Contoh 5 Rekomendasi Taruhan Teratas dari Agent:")
-    top_bets = df_recoms.sort_values(by='edge', ascending=False).head(5)
-    for idx, row in top_bets.iterrows():
-        print(f"- Match : {row['match']} ({row['date'].strftime('%Y-%m-%d')})")
-        print(f"  Pick  : {row['outcome']} | Odds: {row['bookie_odds']} | Edge: {row['edge']*100:.2f}%")
-        print(f"  Action: {row['rl_description']}")
+    print("Contoh 5 Rekomendasi Taruhan AKTIF Teratas dari Agent:")
+    if not executed_bets.empty:
+        top_bets = executed_bets.sort_values(by='edge', ascending=False).head(5)
+        for idx, row in top_bets.iterrows():
+            print(f"- Match : {row['match']} ({row['date'].strftime('%Y-%m-%d')})")
+            print(f"  Pick  : {row['outcome']} | Odds: {row['bookie_odds']} | Edge: {row['edge']*100:.2f}%")
+            print(f"  Action: {row['rl_description']}")
+    else:
+        print("  (Tidak ada taruhan yang dieksekusi oleh Agent pada simulasi ini)")
 
 if __name__ == "__main__":
     main()
