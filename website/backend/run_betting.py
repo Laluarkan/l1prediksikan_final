@@ -3,7 +3,6 @@ import sys
 import re
 from pathlib import Path
 
-# -- PATH INJECTION: Mencegah ModuleNotFoundError --
 BACKEND_DIR = Path(__file__).resolve().parent
 SRC_DIR = BACKEND_DIR / "src"
 
@@ -11,7 +10,6 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
-# --------------------------------------------------
 
 import pandas as pd
 import numpy as np
@@ -27,7 +25,6 @@ from src.betting.rl import train_rl_agent, save_agent, rl_recommend
 def main():
     print("=== TAHAP 1: MEMUAT DATA ODDS & MODEL AI TERBARU ===")
     
-    # Menggunakan BACKEND_DIR agar path selalu absolut dan anti-error
     dataset_path = BACKEND_DIR / "data" / "enriched" / "final_training_dataset.csv"
     
     if not dataset_path.exists():
@@ -48,12 +45,11 @@ def main():
         lgbm_ftr = joblib.load(model_dir / 'lgbm_global_FTR.pkl')
         lgbm_ou = joblib.load(model_dir / 'lgbm_global_OU25.pkl')
     except Exception as e:
-        print(f"❌ Error: Gagal memuat file .pkl model. Pastikan train_global.py sudah sukses. Detail: {e}")
+        print(f"❌ Error: Gagal memuat file .pkl model. Detail: {e}")
         return
 
     print("\n=== TAHAP 2: PREDIKSI & DETEKSI VALUE BETS PADA DATA TEST ===")
     
-    # Fungsi pembersih nama kolom untuk mencegah Data Leakage
     def clean_col_name(col):
         c = str(col).replace('>', '_over_').replace('<', '_under_')
         c = re.sub(r'[^\w]', '_', c)
@@ -61,14 +57,12 @@ def main():
         
     X_predict = test_df.rename(columns=clean_col_name)
     
-    # Memastikan urutan fitur sesuai dengan yang diminta model FTR
     feat_cols_ftr = lgbm_ftr.feature_name_
     missing_ftr = set(feat_cols_ftr) - set(X_predict.columns)
     for c in missing_ftr: X_predict[c] = np.nan
     X_ftr = X_predict.reindex(columns=feat_cols_ftr, fill_value=np.nan)
     probs_ftr_all = lgbm_ftr.predict_proba(X_ftr)
 
-    # Memastikan urutan fitur sesuai dengan yang diminta model OU25
     feat_cols_ou = lgbm_ou.feature_name_
     missing_ou = set(feat_cols_ou) - set(X_predict.columns)
     for c in missing_ou: X_predict[c] = np.nan
@@ -78,17 +72,15 @@ def main():
     all_bets = []
     
     for idx, row in test_df.iterrows():
-        # 1. Evaluasi FTR
         odds_dict_ftr = {
             'H': row.get('AvgH', np.nan),
             'D': row.get('AvgD', np.nan),
             'A': row.get('AvgA', np.nan)
         }
-        # INGAT: Model FTR dilatih dengan kelas [0=A, 1=D, 2=H]
         model_probs_ftr = np.array([
-            probs_ftr_all[idx, 2], # H (indeks 2)
-            probs_ftr_all[idx, 1], # D (indeks 1)
-            probs_ftr_all[idx, 0]  # A (indeks 0)
+            probs_ftr_all[idx, 2], 
+            probs_ftr_all[idx, 1], 
+            probs_ftr_all[idx, 0]  
         ])
 
         bets_ftr = detect_value_bets(model_probs_ftr, odds_dict_ftr, label_names=['H', 'D', 'A'])
@@ -98,7 +90,6 @@ def main():
             b['won'] = (b['outcome'] == row['FTR'])
             all_bets.append(b)
 
-        # 2. Evaluasi OU25
         odds_dict_ou = {
             'Over 2.5': row.get('Avg>2.5', np.nan),
             'Under 2.5': row.get('Avg<2.5', np.nan)
@@ -126,10 +117,11 @@ def main():
     print(f"Total Expected Value (EV)  : {summary['total_ev']}")
     print(f"Rata-rata Edge Pasar       : {summary['avg_edge'] * 100:.2f}%")
 
-    MODAL_AWAL = 50000.0
+    # --- SUNTIKAN MODAL AGAR AGEN BISA BERNAPAS DENGAN MINIMAL BET 10.000 ---
+    MODAL_AWAL = 200000.0
 
     print("\n=== TAHAP 3: MELATIH RL AGENT DENGAN HISTORI BETTING ===")
-    agent = train_rl_agent(df_bets, n_episodes=2000, init_bankroll=MODAL_AWAL)
+    agent = train_rl_agent(df_bets, n_episodes=3000, init_bankroll=MODAL_AWAL)
     save_agent(agent, 'rl_agent_FTR_OU')
 
     print("\n=== TAHAP 4: HASIL REKOMENDASI & SIMULASI RL AGENT ===")
@@ -151,7 +143,6 @@ def main():
 
     df_recoms = pd.DataFrame(recoms)
     
-    # Memastikan folder reports dan charts tersedia
     csv_path = Path(REPORTS_DIR) / "single_bets_history.csv"
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     df_recoms.to_csv(csv_path, index=False)
@@ -168,7 +159,6 @@ def main():
     plt.savefig(chart_path)
     plt.close()
 
-    # --- PENGHITUNGAN RASIO EKSEKUSI TARUHAN ---
     executed_bets = df_recoms[df_recoms['rl_stake'] > 0]
     n_total = len(df_recoms)
     n_exec = len(executed_bets)
