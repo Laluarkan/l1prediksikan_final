@@ -40,30 +40,30 @@ def prepare_data(df_path):
         'HS', 'AS', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR'
     ]
     
-    # 2. PEMBERSIHAN DINAMIS: Sapu Bersih Semua Fitur Bandar Berdasarkan Pola Kata
-    def is_odds_feature(col_name):
+    # 2. PEMBERSIHAN YANG DIKOMPROMIKAN (MENGIZINKAN Avg OPENING ODDS)
+    def is_bad_odds_feature(col_name):
         c = str(col_name)
-        bookie_prefixes = ('B365', 'BW', 'IW', 'PS', 'WH', 'VC', 'Max', 'Avg', '1X', 'BF', 'SK', 'GB', 'BS', 'LB', 'SJ', 'AH', 'PA', 'PP', 'L', 'S', 'V')
         
-        # Jika depannya nama bandar
-        if c.startswith(bookie_prefixes): return True
-        # Jika mengandung simbol/huruf spesifik odds penutupan
-        if 'CH' in c or 'CD' in c or 'CA' in c or '>' in c or '<' in c: return True
-        
-        # Jika mengandung kata kunci fitur turunan yang dibuat di features.py
-        odds_keywords = [
+        # BUANG Closing Odds (Ada huruf 'C' sebelum H/D/A atau >/<)
+        if 'CH' in c or 'CD' in c or 'CA' in c or 'C>' in c or 'C<' in c: 
+            return True
+            
+        # BUANG Fitur Turunan yang di-generate oleh features.py (ip_, margin_, norm_, dll)
+        # Kita hanya ingin algoritma melihat angka asli (misal: 1.50), bukan perhitungan kita
+        derived_keywords = [
             'ip_', 'norm_', 'margin_', 'consensus_', 'market_uncertainty',
             'home_dominance', 'home_away_ratio', 'draw_tendency', 'max_team_prob',
             'prob_spread', 'ou_drift', 'ou_opening', 'ou_market', 'closing_consensus',
             'ah_line', 'home_stronger', 'closing_ah', 'drift_', 'btts_ou', 'btts_draw_proxy',
             'btts_closing', 'team_prob_product'
         ]
-        if any(kw in c for kw in odds_keywords): return True
-        
+        if any(kw in c for kw in derived_keywords): 
+            return True
+            
+        # KITA IZINKAN: AvgH, AvgD, AvgA, Avg>2.5, Avg<2.5, B365, dll selama bukan fitur turunan/closing
         return False
 
-    # Deteksi dan buang
-    odds_cols_to_drop = [c for c in df.columns if is_odds_feature(c)]
+    odds_cols_to_drop = [c for c in df.columns if is_bad_odds_feature(c)]
     drop_cols.extend(odds_cols_to_drop)
     
     def clean_col_name(col):
@@ -86,7 +86,8 @@ def prepare_data(df_path):
     val = df.iloc[train_idx:val_idx]
     test = df.iloc[val_idx:]
     
-    print(f"\n[*] Total fitur MURNI STATISTIK yang digunakan model: {len(features)} fitur.")
+    print(f"\n[*] Total fitur yang digunakan model: {len(features)} fitur.")
+    print("[*] Catatan: Model SEKARANG MENGGUNAKAN Opening Odds (Avg, B365, dll) sebagai bantuan.")
     
     return train, val, test, features
 

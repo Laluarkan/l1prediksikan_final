@@ -15,7 +15,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("🩺 DIAGNOSTIK ML END-TO-END (SISTEM L1 PREDIKSI-KAN) 🩺"))
         self.stdout.write(self.style.WARNING("="*70))
 
-        model_dir = os.path.join(settings.BASE_DIR, 'models')
+        model_dir = os.path.join(settings.BASE_DIR, 'models/global/')
         if not os.path.exists(model_dir):
             model_dir = os.path.join(settings.BASE_DIR, 'models')
 
