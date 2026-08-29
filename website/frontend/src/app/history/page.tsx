@@ -300,6 +300,20 @@ export default function HistoryPage() {
                 const isExpanded = expandedId === match.id;
                 const ext = match.extended_features || {};
 
+                // --- ML Pure Picks Logic ---
+                const ftrProbs = [
+                  { label: 'Home', value: match.prob_ftr_h },
+                  { label: 'Draw', value: match.prob_ftr_d },
+                  { label: 'Away', value: match.prob_ftr_a }
+                ];
+                const mlFtrPick = ftrProbs.reduce((max, p) => p.value > max.value ? p : max, ftrProbs[0]);
+
+                const ouProbs = [
+                  { label: 'Over 2.5', value: match.prob_ou25_over },
+                  { label: 'Under 2.5', value: match.prob_ou25_under }
+                ];
+                const mlOuPick = ouProbs.reduce((max, p) => p.value > max.value ? p : max, ouProbs[0]);
+
                 return (
                   <div key={match.id} className={`bg-slate-800 border ${isExpanded ? 'border-blue-500/50' : 'border-slate-700'} rounded-xl overflow-hidden shadow-sm transition-colors`}>
                     <div 
@@ -395,7 +409,16 @@ export default function HistoryPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-[10px] text-slate-600 italic pb-2 border-b border-slate-700/50">Skip FTR</div>
+                          <div className="flex justify-between items-center pb-2 border-b border-slate-700/50">
+                            <div>
+                              <span className="block text-[10px] text-slate-400">Prediksi ML Murni (FTR)</span>
+                              <span className="text-xs text-slate-300 font-medium">{mlFtrPick.label} <span className="text-blue-400">({(mlFtrPick.value * 100).toFixed(1)}%)</span></span>
+                            </div>
+                            <div className="text-right">
+                              <span className="block text-[10px] text-slate-500">Saran RL</span>
+                              <span className="text-[10px] text-slate-600 italic">Skip Bet</span>
+                            </div>
+                          </div>
                         )}
 
                         {match.rl_stake_ou > 0 ? (
@@ -424,7 +447,16 @@ export default function HistoryPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-[10px] text-slate-600 italic">Skip O/U</div>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="block text-[10px] text-slate-400">Prediksi ML Murni (O/U)</span>
+                              <span className="text-xs text-slate-300 font-medium">{mlOuPick.label} <span className="text-purple-400">({(mlOuPick.value * 100).toFixed(1)}%)</span></span>
+                            </div>
+                            <div className="text-right">
+                              <span className="block text-[10px] text-slate-500">Saran RL</span>
+                              <span className="text-[10px] text-slate-600 italic">Skip Bet</span>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
