@@ -1,4 +1,5 @@
 import os
+import re
 import pandas as pd
 import numpy as np
 import math
@@ -151,18 +152,30 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
         return df
     
     df = df.copy()
-    feat_cols = lgbm_ftr.feature_name_
     
-    missing_cols = set(feat_cols) - set(df.columns)
-    for c in missing_cols:
-        df[c] = np.nan
+    def clean_col_name(col):
+        c = str(col).replace('>', '_over_').replace('<', '_under_')
+        c = re.sub(r'[^\w]', '_', c)
+        return re.sub(r'_+', '_', c).strip('_')
         
-    X = df.reindex(columns=feat_cols, fill_value=np.nan)
+    X_predict = df.rename(columns=clean_col_name)
     
-    probs_ftr = lgbm_ftr.predict_proba(X)
-    probs_ou = lgbm_ou.predict_proba(X)
+    feat_cols_ftr = lgbm_ftr.feature_name_
+    missing_cols_ftr = set(feat_cols_ftr) - set(X_predict.columns)
+    for c in missing_cols_ftr:
+        X_predict[c] = np.nan
+        
+    X_ftr = X_predict.reindex(columns=feat_cols_ftr, fill_value=np.nan)
+    probs_ftr = lgbm_ftr.predict_proba(X_ftr)
     
-    # PERBAIKAN: Mengembalikan kabel prediksi ke urutan alfabetis (A, D, H)
+    feat_cols_ou = lgbm_ou.feature_name_
+    missing_cols_ou = set(feat_cols_ou) - set(X_predict.columns)
+    for c in missing_cols_ou:
+        X_predict[c] = np.nan
+        
+    X_ou = X_predict.reindex(columns=feat_cols_ou, fill_value=np.nan)
+    probs_ou = lgbm_ou.predict_proba(X_ou)
+    
     df['prob_FTR_A'] = probs_ftr[:, 0]
     df['prob_FTR_D'] = probs_ftr[:, 1]
     df['prob_FTR_H'] = probs_ftr[:, 2]
