@@ -61,8 +61,8 @@ MIN_FINETUNE_IMPROVEMENT = 0.005
 N_OPTUNA_TRIALS_GLOBAL   = 50
 N_OPTUNA_TRIALS_FINETUNE = 40
 
-# --- UBAH BAGIAN BAWAH config.py MENJADI INI ---
-KELLY_FRACTION     = 0.50  # Diubah dari 0.25 (Lebih agresif dalam mengelola modal)
-MIN_EDGE_THRESHOLD = 0.02  # Diubah dari 0.03 (Menerima Edge 2% sebagai Value Bet)
-MIN_ODDS           = 1.20  # Diubah dari 1.30 (Menerima tim favorit yang sangat kuat)
-MAX_ODDS           = 15.0  # Diubah dari 10.0 (Membuka ruang untuk odds tinggi jika Edge sangat bagus)
+# --- PENGATURAN MANAJEMEN MODAL & RISIKO (DIOPTIMASI) ---
+KELLY_FRACTION     = 0.35  # Sabuk pengaman yang lebih masuk akal
+MIN_EDGE_THRESHOLD = 0.035 # Hindari margin bandar palsu (wajib Edge > 3.5%)
+MIN_ODDS           = 1.30  
+MAX_ODDS           = 6.50  # Batasi Underdog ekstrem agar tidak merusak Bankroll

@@ -2,18 +2,18 @@ import numpy as np
 import pandas as pd
 import joblib
 from pathlib import Path
-from config import MODELS_DIR, KELLY_FRACTION
+from config import MODELS_DIR
 
 class BettingState:
     N_EDGE_BINS    = 5
-    N_EV_BINS      = 4
+    N_EV_BINS      = 5
     N_KELLY_BINS   = 4
     N_BANKROLL_BINS= 4
 
-    EDGE_BINS    = [0.03, 0.06, 0.10, 0.15]
-    EV_BINS      = [0.0,  0.05, 0.10, 0.20]
-    KELLY_BINS   = [0.02, 0.05, 0.10, 0.20]
-    BANKROLL_BINS= [0.5,  0.75, 1.0,  1.5 ]
+    EDGE_BINS    = [0.05, 0.10, 0.15, 0.25]
+    EV_BINS      = [0.05, 0.10, 0.20, 0.30]
+    KELLY_BINS   = [0.05, 0.10, 0.20, 0.30]
+    BANKROLL_BINS= [0.5,  0.8,  1.0,  1.2 ]
 
     @staticmethod
     def discretize(edge, ev, kelly, bankroll_ratio):
@@ -28,19 +28,16 @@ class BettingState:
         return (BettingState.N_EDGE_BINS * BettingState.N_EV_BINS *
                 BettingState.N_KELLY_BINS * BettingState.N_BANKROLL_BINS)
 
-# --- REVISI KELAS AKSI ---
-# Membatasi keserakahan. 100% Kelly sangat berbahaya, maksimal 80%.
 ACTIONS = {
-    0: 0.00,  # Skip
-    1: 0.10,  # 10% Kelly (Sangat Aman)
-    2: 0.25,  # 25% Kelly (Aman)
-    3: 0.50,  # Half Kelly (Agresif Terukur)
-    4: 0.80,  # 80% Kelly (Maksimal)
+    0: 0.00,
+    1: 0.10,
+    2: 0.25,
+    3: 0.50,
 }
 
 class QLearningAgent:
-    def __init__(self, alpha=0.1, gamma=0.95, epsilon=0.3,
-                 epsilon_decay=0.995, epsilon_min=0.05):
+    def __init__(self, alpha=0.1, gamma=0.90, epsilon=0.5,
+                 epsilon_decay=0.998, epsilon_min=0.01):
         self.alpha         = alpha
         self.gamma         = gamma
         self.epsilon       = epsilon
@@ -52,8 +49,7 @@ class QLearningAgent:
         return state
 
     def get_q(self, state, action):
-        # Optimisme ringan agar berani mencoba, tapi tidak over-pede
-        return self.q_table.get((self._key(state), action), 0.01)
+        return self.q_table.get((self._key(state), action), 0.0)
 
     def best_action(self, state):
         qs = {a: self.get_q(state, a) for a in ACTIONS}
@@ -73,7 +69,7 @@ class QLearningAgent:
     def decay_epsilon(self):
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
-def _build_bet_sequence(df_bets: pd.DataFrame, init_bankroll: float = 50000.0) -> list:
+def _build_bet_sequence(df_bets: pd.DataFrame) -> list:
     sequence = []
     for _, row in df_bets.iterrows():
         sequence.append({
@@ -87,11 +83,13 @@ def _build_bet_sequence(df_bets: pd.DataFrame, init_bankroll: float = 50000.0) -
 
 def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 2000,
                    init_bankroll: float = 50000.0) -> QLearningAgent:
+    
     agent    = QLearningAgent()
-    sequence = _build_bet_sequence(df_bets, init_bankroll)
+    sequence = _build_bet_sequence(df_bets)
     if not sequence:
-        print("Tidak ada data bet untuk training RL agent")
         return agent
+
+    n_episodes = 2000
 
     for episode in range(n_episodes):
         bankroll = init_bankroll
@@ -105,31 +103,25 @@ def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 2000,
             action = agent.choose_action(state)
             frac   = ACTIONS[action] * kelly_f
 
-            # --- BALANCED REWARD SYSTEM ---
             if action == 0:
                 profit = 0.0
-                if bet['won']:
-                    # Hukuman ringan karena melewatkan tiket profit
-                    reward = -0.01 
-                else:
-                    # Penghargaan kecil karena berhasil menghindari kekalahan
-                    reward = 0.01 
+                reward = 0.0
             else:
                 stake = bankroll * frac
                 if bet['won']:
                     profit  = stake * (bet['odds'] - 1.0)
-                    reward  = profit / init_bankroll  # Proporsional murni dengan profit
+                    reward  = (profit / bankroll) * 1.2
                 else:
                     profit  = -stake
-                    reward  = profit / init_bankroll  # Proporsional murni dengan loss (minus)
+                    reward  = (profit / bankroll) * 1.0
 
-            bankroll = max(1.0, bankroll + profit)
+            bankroll = max(50.0, bankroll + profit) 
             new_ratio= bankroll / init_bankroll
             new_state= BettingState.discretize(edge, ev, kelly_f, new_ratio)
             agent.update(state, action, reward, new_state)
 
         agent.decay_epsilon()
-        if (episode + 1) % 200 == 0:
+        if (episode + 1) % 500 == 0:
             print(f"  Episode {episode+1}/{n_episodes}  ε={agent.epsilon:.3f}")
 
     return agent
@@ -137,12 +129,16 @@ def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 2000,
 def rl_recommend(agent: QLearningAgent, bets: list,
                  bankroll: float, init_bankroll: float = 50000.0) -> list:
     recommendations = []
+    current_bankroll = bankroll 
+    
     for bet in bets:
         state  = BettingState.discretize(
-            bet['edge'], bet['ev'], bet['kelly_frac'], bankroll / init_bankroll)
+            bet['edge'], bet['ev'], bet['kelly_frac'], current_bankroll / init_bankroll)
         action = agent.best_action(state)
         frac   = ACTIONS[action] * bet['kelly_frac']
-        stake  = bankroll * frac
+        
+        stake  = current_bankroll * frac
+        
         recommendations.append({
             **bet,
             'rl_action':      action,
@@ -150,6 +146,14 @@ def rl_recommend(agent: QLearningAgent, bets: list,
             'rl_stake':       round(stake, 2),
             'rl_description': f"Bet {int(ACTIONS[action]*100)}% of Kelly = Rp {stake:,.2f}",
         })
+        
+        if action > 0:
+            if bet.get('won', False):
+                current_bankroll += stake * (bet.get('bookie_odds', 2.0) - 1.0)
+            else:
+                current_bankroll -= stake
+            current_bankroll = max(50.0, current_bankroll)
+
     return recommendations
 
 def save_agent(agent: QLearningAgent, name: str = 'rl_agent'):
