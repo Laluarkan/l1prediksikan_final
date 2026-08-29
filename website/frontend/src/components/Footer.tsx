@@ -4,7 +4,7 @@ import packageJson from '../../package.json';
 export default function Footer() {
   return (
     <footer className="bg-slate-900 border-t border-slate-800 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="w-full px-4 sm:px-6 md:px-12 lg:px-20 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           
           <div className="md:col-span-2 space-y-4">
@@ -19,11 +19,11 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Eksplorasi</h3>
             <ul className="space-y-3 text-sm text-slate-400">
-              <li><Link href="/" className="hover:text-blue-400 transition-colors">Home</Link></li>
-              <li><Link href="/fixtures" className="hover:text-blue-400 transition-colors">Upcoming Fixtures</Link></li>
-              <li><Link href="/standings" className="hover:text-blue-400 transition-colors">League Standings</Link></li>
-              <li><Link href="/history" className="hover:text-blue-400 transition-colors">Match History</Link></li>
-              <li><Link href="/performance" className="hover:text-blue-400 transition-colors">Model Performance</Link></li>
+              <li><Link href="/" className="hover:text-blue-400 transition-colors">Beranda</Link></li>
+              <li><Link href="/fixtures" className="hover:text-blue-400 transition-colors">Jadwal Mendatang</Link></li>
+              <li><Link href="/standings" className="hover:text-blue-400 transition-colors">Klasemen Liga</Link></li>
+              <li><Link href="/history" className="hover:text-blue-400 transition-colors">Riwayat Pertandingan</Link></li>
+              <li><Link href="/performance" className="hover:text-blue-400 transition-colors">Performa Model</Link></li>
             </ul>
           </div>
 
