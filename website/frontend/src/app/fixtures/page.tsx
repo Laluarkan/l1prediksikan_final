@@ -275,7 +275,6 @@ export default function FixturesPage() {
                 const isExpanded = expandedId === fixture.id;
                 const ext = fixture.extended_features || {};
 
-                // --- ML Pure Picks Logic ---
                 const ftrProbs = [
                   { label: 'Home', value: fixture.prob_ftr_h },
                   { label: 'Draw', value: fixture.prob_ftr_d },
@@ -361,8 +360,15 @@ export default function FixturesPage() {
                         {fixture.rl_stake_ftr > 0 ? (
                           <div className="flex justify-between items-center pb-2 border-b border-slate-700/50">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Rekomendasi FTR ({fixture.rl_pick_ftr})</span>
-                              <span className="text-xs text-blue-400 font-medium">{fixture.rl_action_ftr}</span>
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Rekomendasi FTR</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-extrabold text-blue-400 tracking-wide">
+                                  {fixture.rl_pick_ftr === 'H' ? 'Home' : fixture.rl_pick_ftr === 'D' ? 'Draw' : 'Away'}
+                                </span>
+                                <span className="text-[10px] text-blue-300 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded font-medium">
+                                  ({fixture.rl_action_ftr})
+                                </span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="block text-[10px] text-slate-500">Saran Bet</span>
@@ -372,8 +378,15 @@ export default function FixturesPage() {
                         ) : (
                           <div className="flex justify-between items-center pb-2 border-b border-slate-700/50">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Prediksi ML Murni (FTR)</span>
-                              <span className="text-xs text-slate-300 font-medium">{mlFtrPick.label} <span className="text-blue-400">({(mlFtrPick.value * 100).toFixed(1)}%)</span></span>
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Prediksi ML Murni (FTR)</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-bold text-slate-300 tracking-wide">
+                                  {mlFtrPick.label}
+                                </span>
+                                <span className="text-[10px] text-slate-400 bg-slate-700/50 border border-slate-600/50 px-1.5 py-0.5 rounded font-medium">
+                                  ({(mlFtrPick.value * 100).toFixed(1)}%)
+                                </span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="block text-[10px] text-slate-500">Saran RL</span>
@@ -385,8 +398,15 @@ export default function FixturesPage() {
                         {fixture.rl_stake_ou > 0 ? (
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Rekomendasi O/U ({fixture.rl_pick_ou})</span>
-                              <span className="text-xs text-purple-400 font-medium">{fixture.rl_action_ou}</span>
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Rekomendasi O/U</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-extrabold text-purple-400 tracking-wide">
+                                  {fixture.rl_pick_ou}
+                                </span>
+                                <span className="text-[10px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded font-medium">
+                                  ({fixture.rl_action_ou})
+                                </span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="block text-[10px] text-slate-500">Saran Bet</span>
@@ -396,8 +416,15 @@ export default function FixturesPage() {
                         ) : (
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Prediksi ML Murni (O/U)</span>
-                              <span className="text-xs text-slate-300 font-medium">{mlOuPick.label} <span className="text-purple-400">({(mlOuPick.value * 100).toFixed(1)}%)</span></span>
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Prediksi ML Murni (O/U)</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-bold text-slate-300 tracking-wide">
+                                  {mlOuPick.label}
+                                </span>
+                                <span className="text-[10px] text-slate-400 bg-slate-700/50 border border-slate-600/50 px-1.5 py-0.5 rounded font-medium">
+                                  ({(mlOuPick.value * 100).toFixed(1)}%)
+                                </span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="block text-[10px] text-slate-500">Saran RL</span>

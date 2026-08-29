@@ -300,7 +300,6 @@ export default function HistoryPage() {
                 const isExpanded = expandedId === match.id;
                 const ext = match.extended_features || {};
 
-                // --- ML Pure Picks Logic ---
                 const ftrProbs = [
                   { label: 'Home', value: match.prob_ftr_h },
                   { label: 'Draw', value: match.prob_ftr_d },
@@ -386,11 +385,16 @@ export default function HistoryPage() {
                         {match.rl_stake_ftr > 0 ? (
                           <div className="flex justify-between items-center pb-2 border-b border-slate-700/50">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Rekomendasi FTR ({match.rl_pick_ftr})</span>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-blue-400 font-medium">{match.rl_action_ftr}</span>
-                                {match.is_won_ftr === true && <span className="text-[9px] bg-emerald-900/50 text-emerald-400 px-1.5 py-0.5 rounded">MENANG</span>}
-                                {match.is_won_ftr === false && <span className="text-[9px] bg-rose-900/50 text-rose-400 px-1.5 py-0.5 rounded">KALAH</span>}
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Rekomendasi FTR</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-extrabold text-blue-400 tracking-wide">
+                                  {match.rl_pick_ftr === 'H' ? 'Home' : match.rl_pick_ftr === 'D' ? 'Draw' : 'Away'}
+                                </span>
+                                <span className="text-[10px] text-blue-300 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded font-medium">
+                                  ({match.rl_action_ftr})
+                                </span>
+                                {match.is_won_ftr === true && <span className="text-[9px] bg-emerald-900/80 border border-emerald-500/50 text-emerald-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(16,185,129,0.3)]">MENANG</span>}
+                                {match.is_won_ftr === false && <span className="text-[9px] bg-rose-900/80 border border-rose-500/50 text-rose-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(244,63,94,0.3)]">KALAH</span>}
                               </div>
                             </div>
                             <div className="flex gap-4 text-right">
@@ -411,8 +415,15 @@ export default function HistoryPage() {
                         ) : (
                           <div className="flex justify-between items-center pb-2 border-b border-slate-700/50">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Prediksi ML Murni (FTR)</span>
-                              <span className="text-xs text-slate-300 font-medium">{mlFtrPick.label} <span className="text-blue-400">({(mlFtrPick.value * 100).toFixed(1)}%)</span></span>
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Prediksi ML Murni (FTR)</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-bold text-slate-300 tracking-wide">
+                                  {mlFtrPick.label}
+                                </span>
+                                <span className="text-[10px] text-slate-400 bg-slate-700/50 border border-slate-600/50 px-1.5 py-0.5 rounded font-medium">
+                                  ({(mlFtrPick.value * 100).toFixed(1)}%)
+                                </span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="block text-[10px] text-slate-500">Saran RL</span>
@@ -424,11 +435,16 @@ export default function HistoryPage() {
                         {match.rl_stake_ou > 0 ? (
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Rekomendasi O/U ({match.rl_pick_ou})</span>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs text-purple-400 font-medium">{match.rl_action_ou}</span>
-                                {match.is_won_ou === true && <span className="text-[9px] bg-emerald-900/50 text-emerald-400 px-1.5 py-0.5 rounded">MENANG</span>}
-                                {match.is_won_ou === false && <span className="text-[9px] bg-rose-900/50 text-rose-400 px-1.5 py-0.5 rounded">KALAH</span>}
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Rekomendasi O/U</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-extrabold text-purple-400 tracking-wide">
+                                  {match.rl_pick_ou}
+                                </span>
+                                <span className="text-[10px] text-purple-300 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded font-medium">
+                                  ({match.rl_action_ou})
+                                </span>
+                                {match.is_won_ou === true && <span className="text-[9px] bg-emerald-900/80 border border-emerald-500/50 text-emerald-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(16,185,129,0.3)]">MENANG</span>}
+                                {match.is_won_ou === false && <span className="text-[9px] bg-rose-900/80 border border-rose-500/50 text-rose-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(244,63,94,0.3)]">KALAH</span>}
                               </div>
                             </div>
                             <div className="flex gap-4 text-right">
@@ -449,8 +465,15 @@ export default function HistoryPage() {
                         ) : (
                           <div className="flex justify-between items-center">
                             <div>
-                              <span className="block text-[10px] text-slate-400">Prediksi ML Murni (O/U)</span>
-                              <span className="text-xs text-slate-300 font-medium">{mlOuPick.label} <span className="text-purple-400">({(mlOuPick.value * 100).toFixed(1)}%)</span></span>
+                              <span className="block text-[10px] text-slate-400 mb-0.5">Prediksi ML Murni (O/U)</span>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className="text-[13px] md:text-sm font-bold text-slate-300 tracking-wide">
+                                  {mlOuPick.label}
+                                </span>
+                                <span className="text-[10px] text-slate-400 bg-slate-700/50 border border-slate-600/50 px-1.5 py-0.5 rounded font-medium">
+                                  ({(mlOuPick.value * 100).toFixed(1)}%)
+                                </span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <span className="block text-[10px] text-slate-500">Saran RL</span>
