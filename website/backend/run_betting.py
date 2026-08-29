@@ -117,11 +117,11 @@ def main():
     print(f"Total Expected Value (EV)  : {summary['total_ev']}")
     print(f"Rata-rata Edge Pasar       : {summary['avg_edge'] * 100:.2f}%")
 
-    # --- SUNTIKAN MODAL AGAR AGEN BISA BERNAPAS DENGAN MINIMAL BET 10.000 ---
-    MODAL_AWAL = 200000.0
+    # Kembalikan ke modal aman yang tidak menabrak batas minimal secara berlebihan
+    MODAL_AWAL = 500000.0
 
     print("\n=== TAHAP 3: MELATIH RL AGENT DENGAN HISTORI BETTING ===")
-    agent = train_rl_agent(df_bets, n_episodes=3000, init_bankroll=MODAL_AWAL)
+    agent = train_rl_agent(df_bets, n_episodes=5000, init_bankroll=MODAL_AWAL)
     save_agent(agent, 'rl_agent_FTR_OU')
 
     print("\n=== TAHAP 4: HASIL REKOMENDASI & SIMULASI RL AGENT ===")
@@ -131,15 +131,15 @@ def main():
     bankroll_history = [MODAL_AWAL]
     
     for r in recoms:
-        if r['won']:
-            profit = r['rl_stake'] * (r['bookie_odds'] - 1)
+        if r['rl_stake'] > 0:
+            profit = r['rl_stake'] * (r['bookie_odds'] - 1) if r['won'] else -r['rl_stake']
+            sim_bankroll += profit
+            bankroll_history.append(sim_bankroll)
+            r['profit_loss'] = profit
+            r['running_bankroll'] = sim_bankroll
         else:
-            profit = -r['rl_stake']
-            
-        sim_bankroll += profit
-        bankroll_history.append(sim_bankroll)
-        r['profit_loss'] = profit
-        r['running_bankroll'] = sim_bankroll
+            r['profit_loss'] = 0.0
+            r['running_bankroll'] = sim_bankroll
 
     df_recoms = pd.DataFrame(recoms)
     
@@ -149,8 +149,8 @@ def main():
     
     plt.figure(figsize=(10, 6))
     plt.plot(bankroll_history, color='blue', linewidth=2)
-    plt.title('Simulasi Pertumbuhan Bankroll (Single Bet)')
-    plt.xlabel('Jumlah Taruhan')
+    plt.title('Simulasi Pertumbuhan Bankroll (RL Agent)')
+    plt.xlabel('Jumlah Taruhan Dieksekusi')
     plt.ylabel('Bankroll (Rp)')
     plt.grid(True)
     
@@ -179,8 +179,6 @@ def main():
             print(f"- Match : {row['match']} ({row['date'].strftime('%Y-%m-%d')})")
             print(f"  Pick  : {row['outcome']} | Odds: {row['bookie_odds']} | Edge: {row['edge']*100:.2f}%")
             print(f"  Action: {row['rl_description']}")
-    else:
-        print("  (Tidak ada taruhan yang dieksekusi oleh Agent pada simulasi ini)")
 
 if __name__ == "__main__":
     main()
