@@ -6,6 +6,7 @@ from config import MODELS_DIR
 
 # --- ATURAN REALISTIS BANDAR ---
 MIN_BET_AMOUNT = 10000.0
+MAX_BET_PERCENTAGE = 0.10  # Sabuk pengaman dinaikkan ke 10% agar agen punya ruang napas
 
 class BettingState:
     N_EDGE_BINS    = 5
@@ -13,9 +14,9 @@ class BettingState:
     N_KELLY_BINS   = 4
     N_BANKROLL_BINS= 4
 
-    EDGE_BINS    = [0.05, 0.10, 0.15, 0.25]
-    EV_BINS      = [0.05, 0.10, 0.20, 0.30]
-    KELLY_BINS   = [0.05, 0.10, 0.20, 0.30]
+    EDGE_BINS    = [0.03, 0.06, 0.10, 0.15]
+    EV_BINS      = [0.02, 0.05, 0.10, 0.15]
+    KELLY_BINS   = [0.02, 0.05, 0.10, 0.15]
     BANKROLL_BINS= [0.5,  0.8,  1.0,  1.2 ]
 
     @staticmethod
@@ -31,18 +32,17 @@ class BettingState:
         return (BettingState.N_EDGE_BINS * BettingState.N_EV_BINS *
                 BettingState.N_KELLY_BINS * BettingState.N_BANKROLL_BINS)
 
-# Mengembalikan opsi fraksi, membiarkan Log-Utility menghukum aksi yang berbahaya
 ACTIONS = {
-    0: 0.00,  # Skip
-    1: 0.25,  # 25% Kelly
-    2: 0.50,  # 50% Kelly (Half-Kelly)
-    3: 0.75,  # 75% Kelly
-    4: 1.00,  # Full Kelly
+    0: 0.00,
+    1: 0.25,
+    2: 0.50,
+    3: 0.75,
+    4: 1.00,
 }
 
 class QLearningAgent:
     def __init__(self, alpha=0.1, gamma=0.95, epsilon=0.5,
-                 epsilon_decay=0.998, epsilon_min=0.01):
+                 epsilon_decay=0.999, epsilon_min=0.01):
         self.alpha         = alpha
         self.gamma         = gamma
         self.epsilon       = epsilon
@@ -54,7 +54,7 @@ class QLearningAgent:
         return state
 
     def get_q(self, state, action):
-        return self.q_table.get((self._key(state), action), 0.0)
+        return self.q_table.get((self._key(state), action), 0.01)
 
     def best_action(self, state):
         qs = {a: self.get_q(state, a) for a in ACTIONS}
@@ -87,14 +87,11 @@ def _build_bet_sequence(df_bets: pd.DataFrame) -> list:
     return sequence
 
 def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 3000,
-                   init_bankroll: float = 50000.0) -> QLearningAgent:
-    
+                   init_bankroll: float = 500000.0) -> QLearningAgent:
     agent    = QLearningAgent()
     sequence = _build_bet_sequence(df_bets)
     if not sequence:
         return agent
-
-    n_episodes = 3000
 
     for episode in range(n_episodes):
         bankroll = init_bankroll
@@ -106,56 +103,83 @@ def train_rl_agent(df_bets: pd.DataFrame, n_episodes: int = 3000,
 
             state  = BettingState.discretize(edge, ev, kelly_f, br_ratio)
             action = agent.choose_action(state)
-            frac   = ACTIONS[action] * kelly_f
             
-            raw_stake = bankroll * frac
+            stake = 0.0
+            if action > 0:
+                frac = ACTIONS[action] * kelly_f
+                raw_stake = bankroll * frac
+                
+                # --- LOGIKA SMART ROUND-UP ---
+                stake = raw_stake
+                if stake > 0 and stake < MIN_BET_AMOUNT:
+                    stake = MIN_BET_AMOUNT # Genapkan ke minimal
+                
+                max_allowed = bankroll * MAX_BET_PERCENTAGE
+                if stake > max_allowed:
+                    stake = max_allowed # Tahan agar tidak bunuh diri
+                
+                if stake < MIN_BET_AMOUNT:
+                    action = 0 # Modal sudah terlalu tiris, batal taruhan
+                    stake = 0.0
 
-            # JIKA SKIP ATAU TARUHAN DI BAWAH BATAS MINIMAL -> BATALKAN
-            if action == 0 or raw_stake < MIN_BET_AMOUNT:
+            if action == 0:
                 profit = 0.0
-                reward = 0.0  # Netral sempurna, tidak ada reward/hukuman buatan
+                reward = 0.0
             else:
                 if bet['won']:
-                    profit  = raw_stake * (bet['odds'] - 1.0)
+                    profit  = stake * (bet['odds'] - 1.0)
                 else:
-                    profit  = -raw_stake
+                    profit  = -stake
                 
-                # LOG UTILITY MURNI: Evaluasi berdasarkan riil pertumbuhan aset
+                # Biarkan Log-Utility menghukum jika agen sembarangan melakukan round-up
                 ratio = (bankroll + profit) / bankroll
                 reward = np.log(max(0.0001, ratio)) * 100.0
 
-            bankroll = max(100.0, bankroll + profit) 
+            bankroll = max(50.0, bankroll + profit)
             new_ratio= bankroll / init_bankroll
             new_state= BettingState.discretize(edge, ev, kelly_f, new_ratio)
             agent.update(state, action, reward, new_state)
 
         agent.decay_epsilon()
-        if (episode + 1) % 500 == 0:
+        if (episode + 1) % 1000 == 0:
             print(f"  Episode {episode+1}/{n_episodes}  ε={agent.epsilon:.3f}")
 
     return agent
 
 def rl_recommend(agent: QLearningAgent, bets: list,
-                 bankroll: float, init_bankroll: float = 50000.0) -> list:
+                 bankroll: float, init_bankroll: float = 500000.0) -> list:
     recommendations = []
-    current_bankroll = bankroll 
+    current_bankroll = bankroll
     
     for bet in bets:
         state  = BettingState.discretize(
             bet['edge'], bet['ev'], bet['kelly_frac'], current_bankroll / init_bankroll)
         action = agent.best_action(state)
-        frac   = ACTIONS[action] * bet['kelly_frac']
         
-        stake  = current_bankroll * frac
+        stake = 0.0
+        frac = 0.0
+        if action > 0:
+            frac = ACTIONS[action] * bet['kelly_frac']
+            raw_stake = current_bankroll * frac
+            
+            stake = raw_stake
+            if stake > 0 and stake < MIN_BET_AMOUNT:
+                stake = MIN_BET_AMOUNT
+                
+            max_allowed = current_bankroll * MAX_BET_PERCENTAGE
+            if stake > max_allowed:
+                stake = max_allowed
+                
+            if stake < MIN_BET_AMOUNT:
+                action = 0
+                stake = 0.0
+                frac = 0.0
         
-        # FILTER FINAL SAAT REKOMENDASI LIVE
-        if stake < MIN_BET_AMOUNT and action > 0:
-            action = 0
-            stake = 0.0
-            frac = 0.0
-            desc = "Skip (Modal/Kelly di bawah minimal Rp 10.000)"
+        if action == 0:
+            desc = "Bet 0% (Skip)"
         else:
-            desc = f"Bet {int(ACTIONS[action]*100)}% of Kelly = Rp {stake:,.2f}" if action > 0 else "Bet 0% (Skip)"
+            is_rounded = " (Digenapkan ke Min Bet)" if stake == MIN_BET_AMOUNT and (current_bankroll * frac) < MIN_BET_AMOUNT else ""
+            desc = f"Bet {int(ACTIONS[action]*100)}% of Kelly = Rp {stake:,.2f}{is_rounded}"
             
         recommendations.append({
             **bet,
@@ -170,7 +194,7 @@ def rl_recommend(agent: QLearningAgent, bets: list,
                 current_bankroll += stake * (bet.get('bookie_odds', 2.0) - 1.0)
             else:
                 current_bankroll -= stake
-            current_bankroll = max(100.0, current_bankroll)
+            current_bankroll = max(50.0, current_bankroll)
 
     return recommendations
 
