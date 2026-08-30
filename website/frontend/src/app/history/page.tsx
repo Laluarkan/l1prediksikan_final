@@ -73,40 +73,19 @@ export default function HistoryPage() {
     if (searchTerm) params.search = searchTerm;
     if (selectedLeague) params.league__code = selectedLeague;
     
-    const fetchAllHistory = async () => {
-      try {
-        let allData: MatchHistory[] = [];
-        let currentPageFetch = 1;
-        let hasNextPage = true;
-
-        while (hasNextPage) {
-          const res = await api.get('/history/', { 
-            params: { ...params, page: currentPageFetch, page_size: 100 } 
-          });
-
-          if (res.data && res.data.results) {
-            allData = [...allData, ...res.data.results];
-            if (res.data.next) {
-              currentPageFetch++;
-            } else {
-              hasNextPage = false;
-            }
-          } else if (Array.isArray(res.data)) {
-            allData = [...allData, ...res.data];
-            hasNextPage = false;
-          } else {
-            hasNextPage = false;
-          }
+    api.get('/history/', { params })
+      .then((res) => {
+        if (res.data && res.data.results) {
+          setHistory(res.data.results);
+        } else if (Array.isArray(res.data)) {
+          setHistory(res.data);
         }
-        setHistory(allData);
-      } catch (err) {
-        console.error("Gagal memuat histori:", err);
-      } finally {
         setLoading(false);
-      }
-    };
-
-    fetchAllHistory();
+      })
+      .catch((err) => {
+        console.error("Gagal memuat histori:", err);
+        setLoading(false);
+      });
   }, [triggerFetch]);
 
   const applyFilters = () => {
