@@ -29,12 +29,6 @@ interface TeamStanding {
 export default function StandingsPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
-  // Catatan performa (CLS): state loading di-default jadi `true` (sebelumnya `false`).
-  // Dulu, render pertama sebelum fetch selesai jatuh ke cabang "Tidak ada data..."
-  // (karena `loading=false` dan `standings=[]`), lalu begitu `loading` di-set `true`
-  // saat fetch mulai, tampilan berpindah ke skeleton, dan sekali lagi berpindah ke
-  // tabel penuh saat data datang -- dua kali lompatan tinggi. Dengan default `true`,
-  // urutannya jadi konsisten: skeleton -> tabel, cuma satu kali transisi ukuran.
   const [loading, setLoading] = useState(true);
 
   const generateSeasons = () => {
@@ -90,8 +84,9 @@ export default function StandingsPage() {
         </div>
         <div className="flex gap-3">
           <div className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg flex items-center gap-3 shadow-sm">
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Liga</span>
+            <label htmlFor="league-filter" className="text-[10px] text-slate-400 font-bold uppercase cursor-pointer">Liga</label>
             <select
+              id="league-filter"
               value={selectedLeague}
               onChange={(e) => setSelectedLeague(e.target.value)}
               className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none appearance-none cursor-pointer"
@@ -102,8 +97,9 @@ export default function StandingsPage() {
             </select>
           </div>
           <div className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg flex items-center gap-3 shadow-sm">
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Musim</span>
+            <label htmlFor="season-filter" className="text-[10px] text-slate-400 font-bold uppercase cursor-pointer">Musim</label>
             <select
+              id="season-filter"
               value={selectedSeason}
               onChange={(e) => setSelectedSeason(e.target.value)}
               className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none appearance-none cursor-pointer"
@@ -118,9 +114,6 @@ export default function StandingsPage() {
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         {loading ? (
-          // Skeleton tabel dengan jumlah baris mendekati klasemen liga sungguhan (20 tim),
-          // supaya tinggi kontainer sudah mendekati final SEBELUM data datang, dan tidak
-          // melonjak drastis saat tabel asli akhirnya dirender.
           <div className="overflow-x-auto animate-pulse">
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-700">
@@ -156,7 +149,7 @@ export default function StandingsPage() {
             </table>
           </div>
         ) : standings.length === 0 ? (
-          <div className="text-center py-20 text-sm text-slate-400">Tidak ada data pertandingan untuk musim dan liga ini.</div>
+          <div className="text-center py-20 text-sm text-slate-300">Tidak ada data pertandingan untuk musim dan liga ini.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-300">
@@ -175,9 +168,9 @@ export default function StandingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {standings.map((team, idx) => (
+                {standings.map((team) => (
                   <tr key={team.team} className="hover:bg-slate-700/30 transition-colors">
-                    <td className="px-4 py-3 text-center text-slate-500 font-mono">{team.rank}</td>
+                    <td className="px-4 py-3 text-center text-slate-400 font-mono">{team.rank}</td>
                     <td className="px-4 py-3 font-bold text-white">{team.team}</td>
                     <td className="px-4 py-3 text-center">{team.p}</td>
                     <td className="px-4 py-3 text-center">{team.w}</td>
