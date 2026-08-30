@@ -82,9 +82,13 @@ def main():
             probs_ftr_all[idx, 1], 
             probs_ftr_all[idx, 0]  
         ])
+        label_names_ftr = ['H', 'D', 'A']
+        ml_pick_ftr = label_names_ftr[np.argmax(model_probs_ftr)]
 
-        bets_ftr = detect_value_bets(model_probs_ftr, odds_dict_ftr, label_names=['H', 'D', 'A'])
-        for b in bets_ftr:
+        bets_ftr = detect_value_bets(model_probs_ftr, odds_dict_ftr, label_names=label_names_ftr)
+        
+        valid_bets_ftr = [b for b in bets_ftr if b['outcome'] == ml_pick_ftr]
+        for b in valid_bets_ftr:
             b['match'] = f"{row['HomeTeam']} vs {row['AwayTeam']}"
             b['date'] = row['Date']
             b['won'] = (b['outcome'] == row['FTR'])
@@ -96,11 +100,14 @@ def main():
         }
         prob_over = probs_ou_all[idx, 1]
         model_probs_ou = np.array([prob_over, 1.0 - prob_over])
+        label_names_ou = ['Over 2.5', 'Under 2.5']
+        ml_pick_ou = label_names_ou[np.argmax(model_probs_ou)]
         
-        bets_ou = detect_value_bets(model_probs_ou, odds_dict_ou, label_names=['Over 2.5', 'Under 2.5'])
+        bets_ou = detect_value_bets(model_probs_ou, odds_dict_ou, label_names=label_names_ou)
         actual_ou = 'Over 2.5' if (row['FTHG'] + row['FTAG'] > 2.5) else 'Under 2.5'
         
-        for b in bets_ou:
+        valid_bets_ou = [b for b in bets_ou if b['outcome'] == ml_pick_ou]
+        for b in valid_bets_ou:
             b['match'] = f"{row['HomeTeam']} vs {row['AwayTeam']} (OU25)"
             b['date'] = row['Date']
             b['won'] = (b['outcome'] == actual_ou)
@@ -117,7 +124,6 @@ def main():
     print(f"Total Expected Value (EV)  : {summary['total_ev']}")
     print(f"Rata-rata Edge Pasar       : {summary['avg_edge'] * 100:.2f}%")
 
-    # Kembalikan ke modal aman yang tidak menabrak batas minimal secara berlebihan
     MODAL_AWAL = 500000.0
 
     print("\n=== TAHAP 3: MELATIH RL AGENT DENGAN HISTORI BETTING ===")

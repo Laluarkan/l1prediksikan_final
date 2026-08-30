@@ -106,7 +106,7 @@ def extract_odds(row):
 def run_feature_engineering_pipeline(df: pd.DataFrame, upload_type: str = 'mixed', skip_weather: bool = False):
     if df.empty:
         return pd.DataFrame(), pd.DataFrame()
-    t_start = time.time()
+    
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df = df.dropna(subset=['Date', 'HomeTeam', 'AwayTeam', 'Div'])
     df = df.sort_values('Date').reset_index(drop=True)
@@ -191,14 +191,19 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
         odds = extract_odds(row)
         
         m_probs_ftr = np.array([row['prob_FTR_H'], row['prob_FTR_D'], row['prob_FTR_A']])
+        ftr_labels = ['H', 'D', 'A']
+        ml_pick_ftr = ftr_labels[np.argmax(m_probs_ftr)]
+        
         has_v_ftr, pick_ftr, rl_a_ftr, rl_s_ftr, is_won_ftr, edge_ftr = False, None, "Skip", 0.0, None, 0.0
         
         if sum(m_probs_ftr) > 0:
             try:
-                bets_ftr = detect_value_bets(m_probs_ftr, {'H': odds['H'], 'D': odds['D'], 'A': odds['A']}, ['H', 'D', 'A'])
-                if bets_ftr:
+                bets_ftr = detect_value_bets(m_probs_ftr, {'H': odds['H'], 'D': odds['D'], 'A': odds['A']}, ftr_labels)
+                valid_bets_ftr = [b for b in bets_ftr if b['outcome'] == ml_pick_ftr]
+                
+                if valid_bets_ftr:
                     has_v_ftr = True
-                    best_ftr = max(bets_ftr, key=lambda x: x['edge'])
+                    best_ftr = max(valid_bets_ftr, key=lambda x: x['edge'])
                     pick_ftr = best_ftr['outcome']
                     edge_ftr = best_ftr['edge']
                     
@@ -223,14 +228,25 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
         prob_over = row['prob_OU25_Yes']
         prob_under = 1.0 - prob_over if prob_over > 0 else 0.0
         m_probs_ou = np.array([prob_over, prob_under])
+        ou_labels = ['O25', 'U25']
+        ml_pick_ou_raw = ou_labels[np.argmax(m_probs_ou)]
+        ml_pick_ou = 'Over 2.5' if ml_pick_ou_raw == 'O25' else 'Under 2.5'
+        
         has_v_ou, pick_ou, rl_a_ou, rl_s_ou, is_won_ou, edge_ou = False, None, "Skip", 0.0, None, 0.0
         
         if sum(m_probs_ou) > 0:
             try:
-                bets_ou = detect_value_bets(m_probs_ou, {'O25': odds['O25'], 'U25': odds['U25']}, ['O25', 'U25'])
-                if bets_ou:
+                bets_ou = detect_value_bets(m_probs_ou, {'O25': odds['O25'], 'U25': odds['U25']}, ou_labels)
+                
+                valid_bets_ou = []
+                for b in bets_ou:
+                    mapped_outcome = 'Over 2.5' if b['outcome'] == 'O25' else 'Under 2.5'
+                    if mapped_outcome == ml_pick_ou:
+                        valid_bets_ou.append(b)
+
+                if valid_bets_ou:
                     has_v_ou = True
-                    best_ou = max(bets_ou, key=lambda x: x['edge'])
+                    best_ou = max(valid_bets_ou, key=lambda x: x['edge'])
                     pick_ou = 'Over 2.5' if best_ou['outcome'] == 'O25' else 'Under 2.5'
                     edge_ou = best_ou['edge']
                     
@@ -441,7 +457,6 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
 
 @transaction.atomic
 def commit_uploaded_data(upload_type):
-    print("  [DEBUG] Memulai proses unggah data ke Supabase...")
     hist_path = os.path.join(settings.BASE_DIR, 'temp_hist_processed.pkl')
     fix_path = os.path.join(settings.BASE_DIR, 'temp_fix_processed.pkl')
     
@@ -454,7 +469,6 @@ def commit_uploaded_data(upload_type):
     if not df_fixture.empty: all_teams |= set(df_fixture['HomeTeam'].unique()) | set(df_fixture['AwayTeam'].unique())
     team_objs = {name: Team.objects.get_or_create(name=name, defaults={'league': list(league_objs.values())[0]})[0] for name in all_teams if isinstance(name, str)}
     
-    print(f"  [DEBUG] Memproses tiket Parlay (History: {not df_history.empty}, Fixture: {not df_fixture.empty})...")
     if not df_history.empty:
         for _, row in df_history.iterrows():
             UpcomingFixture.objects.filter(date__date=row['Date'].date(), home_team__name=row['HomeTeam'], away_team__name=row['AwayTeam']).delete()
@@ -542,7 +556,6 @@ def commit_uploaded_data(upload_type):
             part_of_parlay=row.get('part_of_parlay', False), parlay_ticket_info=row.get('parlay_ticket_info'), extended_features=ext_feat
         ))
     
-    print(f"  [DEBUG] Menyiapkan Bulk Insert untuk {len(history_inserts)} baris MatchHistory...")
     MatchHistory.objects.bulk_create(history_inserts, batch_size=1000)
     
     fixture_inserts = []
@@ -558,15 +571,12 @@ def commit_uploaded_data(upload_type):
             part_of_parlay=row.get('part_of_parlay', False), parlay_ticket_info=row.get('parlay_ticket_info'), extended_features=clean_json_dict(row.to_dict()), is_processed=True
         ))
     
-    print(f"  [DEBUG] Menyiapkan Bulk Insert untuk {len(fixture_inserts)} baris UpcomingFixture...")
     UpcomingFixture.objects.bulk_create(fixture_inserts, batch_size=500)
     
-    print("  [DEBUG] Proses unggah ke Database selesai!")
     return len(history_inserts), len(fixture_inserts)
 
 @transaction.atomic
 def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'history'):
-    print("  [DEBUG] Memulai penyaringan tanggal, liga, dan validasi duplikat...")
     df_csv = parse_csv_datetime(df)
     if 'Div' in df_csv.columns:
         valid_leagues = list(LEAGUE_NAMES.keys())
@@ -579,13 +589,10 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     db_records = []
     teams_in_csv = set(df_csv['HomeTeam'].unique()) | set(df_csv['AwayTeam'].unique())
     
-    print(f"  [DEBUG] Menghubungkan ke Supabase untuk mencocokkan {len(teams_in_csv)} tim...")
     try:
         hist_qs = MatchHistory.objects.filter(
             models.Q(home_team__name__in=teams_in_csv) | models.Q(away_team__name__in=teams_in_csv)
         ).select_related('league', 'home_team', 'away_team')
-        
-        print(f"  [DEBUG] Kueri siap. Memproses baris dengan metode iterator yang ringan...")
         
         for m in hist_qs.iterator(chunk_size=1000):
             db_records.append({
@@ -594,9 +601,7 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
                 'AvgH': m.avg_h, 'AvgD': m.avg_d, 'AvgA': m.avg_a, 'Avg>2.5': m.avg_over_25, 'Avg<2.5': m.avg_under_25,
                 '_source': 'db'
             })
-        print(f"  [DEBUG] Berhasil memetakan {len(db_records)} catatan lama dari database tanpa freeze.")
     except Exception as e:
-        print(f"  [FATAL ERROR DATABASE]: {str(e)}")
         raise e
         
     df_db = pd.DataFrame(db_records)
@@ -606,7 +611,6 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     else:
         df_combined = df_csv.copy()
         
-    print("  [DEBUG] Menjalankan Pipeline Feature Engineering (Klasemen & ELO)...")
     df_hist, df_fix = run_feature_engineering_pipeline(df_combined, upload_type=upload_type, skip_weather=True)
     
     db_hist_qs = MatchHistory.objects.all()
@@ -628,17 +632,14 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
         df_fix.drop(columns=['match_key'], inplace=True)
         
     if df_hist.empty and df_fix.empty:
-        print("  [DEBUG] Semua data sudah mutakhir di Database. Tidak ada yang perlu diproses.")
         return 0, 0
         
     if not df_hist.empty: df_hist = build_weather_features(df_hist)
     if not df_fix.empty: df_fix = build_weather_features(df_fix)
     
-    print("  [DEBUG] Memulai Prediksi AI (LightGBM & Agen Reinforcement Learning)...")
     df_hist, df_fix = run_ml_predictions_for_preview(df_hist, df_fix)
     
     if upload_type == 'history' and not df_hist.empty:
-        print("  [DEBUG] Menyinkronkan fitur ekstensif dengan data yang sudah ada...")
         df_hist['synced_ext_features'] = None
         df_hist['synced_ext_features'] = df_hist['synced_ext_features'].astype(object)
         hist_dates = df_hist['Date'].dt.date.tolist()
@@ -689,7 +690,6 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     df_hist.to_pickle(os.path.join(settings.BASE_DIR, 'temp_hist_processed.pkl'))
     df_fix.to_pickle(os.path.join(settings.BASE_DIR, 'temp_fix_processed.pkl'))
     
-    print("  [DEBUG] Sinkronisasi ML selesai, meneruskan ke proses Database...")
     return commit_uploaded_data(upload_type)
 
 @transaction.atomic

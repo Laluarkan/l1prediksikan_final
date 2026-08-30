@@ -102,15 +102,11 @@
 │   │   ├── lgbm_finetuned_OU25_P1.pkl
 │   │   ├── lgbm_finetuned_OU25_SC0.pkl
 │   │   └── lgbm_finetuned_OU25_SP1.pkl
-│   ├── global
-│   │   ├── lgbm_global_BTTS.pkl
-│   │   ├── lgbm_global_FTR.pkl
-│   │   ├── lgbm_global_OU25.pkl
-│   │   └── rl_agent_FTR_OU.pkl
-│   ├── lgbm_global_BTTS.pkl
-│   ├── lgbm_global_FTR.pkl
-│   ├── lgbm_global_OU25.pkl
-│   └── rl_agent_FTR_OU.pkl
+│   └── global
+│       ├── lgbm_global_BTTS.pkl
+│       ├── lgbm_global_FTR.pkl
+│       ├── lgbm_global_OU25.pkl
+│       └── rl_agent_FTR_OU.pkl
 ├── predictions
 │   ├── management
 │   │   ├── commands
@@ -126,7 +122,8 @@
 │   │   │   ├── restore_db.py
 │   │   │   ├── seed_raw.py
 │   │   │   ├── test_mapping.py
-│   │   │   └── update_parlay.py
+│   │   │   ├── update_parlay.py
+│   │   │   └── verify_clean_slate.py
 │   │   └── __init__.py
 │   ├── migrations
 │   │   ├── __init__.py
@@ -174,6 +171,4 @@
 ├── manage.py
 ├── requirements.txt
 ├── run_betting.py
-├── struktur_project.txt
-├── temp_fix_processed.pkl
-└── temp_hist_processed.pkl
+└── struktur_project.txt
