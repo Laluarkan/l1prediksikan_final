@@ -45,7 +45,6 @@ export default function PerformancePage() {
   useEffect(() => {
     setLoading(true);
 
-    // Meminta data kalkulasi matang dari backend
     api.get('/performance/', { params: { season: selectedSeason } })
       .then((res) => {
         setMetrics(res.data);
@@ -61,21 +60,11 @@ export default function PerformancePage() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
   };
 
-  // Catatan performa (CLS): sebelumnya di sini ada `if (!metrics) return null;`
-  // sebelum JSX header/filter dirender. Efeknya, selama proses fetch, halaman
-  // benar-benar kosong (bukan skeleton), lalu begitu data datang seluruh halaman
-  // (header + konten) muncul sekaligus -> lompatan layout besar (CLS tinggi).
-  // Header & filter sekarang SELALU dirender di `return` utama di bawah,
-  // dan body-nya menampilkan skeleton berukuran mirip konten asli selama
-  // `loading || !metrics`, supaya tinggi halaman relatif stabil saat data masuk.
   const showSkeleton = loading || !metrics;
 
-  // Semua kalkulasi turunan di bawah ini TIDAK diubah logikanya sama sekali,
-  // hanya dipindah agar tidak dieksekusi saat `metrics` masih null (mencegah error).
   let content: React.ReactNode = null;
 
   if (!showSkeleton && metrics) {
-    // --- Perkalian Skala Modal ---
     const ftrProfit = metrics.ftr.unit_profit * bankroll;
     const ftrTotalStake = metrics.ftr.unit_stake * bankroll;
 
@@ -85,7 +74,6 @@ export default function PerformancePage() {
     const parlayProfit = metrics.parlay.unit_profit * ticketStake;
     const parlayTotalStake = metrics.parlay.unit_stake * ticketStake;
 
-    // --- Kalkulasi Agregat Top Level ---
     const totalWins = metrics.ftr.wins + metrics.ou.wins + metrics.parlay.wins;
     const totalLosses = metrics.ftr.losses + metrics.ou.losses + metrics.parlay.losses;
     const totalBets = totalWins + totalLosses;
@@ -95,7 +83,6 @@ export default function PerformancePage() {
     const totalTurnover = ftrTotalStake + ouTotalStake + parlayTotalStake;
     const overallROI = totalTurnover > 0 ? (totalProfit / totalTurnover) * 100 : 0;
 
-    // Win rates per market
     const ftrTotal = metrics.ftr.wins + metrics.ftr.losses;
     const ftrWinRate = ftrTotal > 0 ? (metrics.ftr.wins / ftrTotal) * 100 : 0;
 
@@ -251,8 +238,9 @@ export default function PerformancePage() {
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg flex items-center gap-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Musim</span>
+            <label htmlFor="season-select" className="text-[10px] text-slate-400 font-bold uppercase cursor-pointer">Musim</label>
             <select
+              id="season-select"
               value={selectedSeason}
               onChange={(e) => setSelectedSeason(e.target.value)}
               className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:outline-none appearance-none cursor-pointer hover:bg-slate-800 transition-colors"
@@ -264,8 +252,9 @@ export default function PerformancePage() {
             </select>
           </div>
           <div className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg flex items-center gap-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Bankroll</span>
+            <label htmlFor="bankroll-input" className="text-[10px] text-slate-400 font-bold uppercase cursor-pointer">Bankroll</label>
             <input
+              id="bankroll-input"
               type="number"
               value={bankroll}
               onChange={(e) => setBankroll(Number(e.target.value))}
@@ -273,8 +262,9 @@ export default function PerformancePage() {
             />
           </div>
           <div className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg flex items-center gap-3">
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Bet Parlay</span>
+            <label htmlFor="parlay-input" className="text-[10px] text-slate-400 font-bold uppercase cursor-pointer">Bet Parlay</label>
             <input
+              id="parlay-input"
               type="number"
               value={ticketStake}
               onChange={(e) => setTicketStake(Number(e.target.value))}
@@ -285,8 +275,6 @@ export default function PerformancePage() {
       </div>
 
       {showSkeleton ? (
-        // Skeleton berukuran mirip konten asli (4 kartu atas + 3 kartu pasar),
-        // supaya tinggi halaman tidak melonjak drastis saat data selesai dimuat.
         <div className="space-y-6 animate-pulse">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {Array(4).fill(0).map((_, i) => (
@@ -311,5 +299,5 @@ export default function PerformancePage() {
         </div>
       ) : content}
     </div>
-  );
+  ); 
 }
