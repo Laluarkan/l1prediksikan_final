@@ -29,7 +29,13 @@ interface TeamStanding {
 export default function StandingsPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [standings, setStandings] = useState<TeamStanding[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Catatan performa (CLS): state loading di-default jadi `true` (sebelumnya `false`).
+  // Dulu, render pertama sebelum fetch selesai jatuh ke cabang "Tidak ada data..."
+  // (karena `loading=false` dan `standings=[]`), lalu begitu `loading` di-set `true`
+  // saat fetch mulai, tampilan berpindah ke skeleton, dan sekali lagi berpindah ke
+  // tabel penuh saat data datang -- dua kali lompatan tinggi. Dengan default `true`,
+  // urutannya jadi konsisten: skeleton -> tabel, cuma satu kali transisi ukuran.
+  const [loading, setLoading] = useState(true);
 
   const generateSeasons = () => {
     const currentYear = new Date().getFullYear();
@@ -48,7 +54,7 @@ export default function StandingsPage() {
 
   const [availableSeasons] = useState<string[]>(generateSeasons());
   const [selectedSeason, setSelectedSeason] = useState<string>(availableSeasons[0]);
-  const [selectedLeague, setSelectedLeague] = useState<string>('E0'); 
+  const [selectedLeague, setSelectedLeague] = useState<string>('E0');
 
   useEffect(() => {
     api.get('/leagues/')
@@ -112,7 +118,43 @@ export default function StandingsPage() {
 
       <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
         {loading ? (
-          <div className="text-center py-20 text-sm text-slate-400 animate-pulse">Menarik data klasemen...</div>
+          // Skeleton tabel dengan jumlah baris mendekati klasemen liga sungguhan (20 tim),
+          // supaya tinggi kontainer sudah mendekati final SEBELUM data datang, dan tidak
+          // melonjak drastis saat tabel asli akhirnya dirender.
+          <div className="overflow-x-auto animate-pulse">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="text-xs uppercase bg-slate-900/80 text-slate-400 border-b border-slate-700">
+                <tr>
+                  <th className="px-4 py-4 text-center w-12">#</th>
+                  <th className="px-4 py-4 font-semibold text-white">Club</th>
+                  <th className="px-4 py-4 text-center">MP</th>
+                  <th className="px-4 py-4 text-center">W</th>
+                  <th className="px-4 py-4 text-center">D</th>
+                  <th className="px-4 py-4 text-center">L</th>
+                  <th className="px-4 py-4 text-center hidden sm:table-cell">GF</th>
+                  <th className="px-4 py-4 text-center hidden sm:table-cell">GA</th>
+                  <th className="px-4 py-4 text-center">GD</th>
+                  <th className="px-4 py-4 text-center font-bold text-white text-base">Pts</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {Array(20).fill(0).map((_, idx) => (
+                  <tr key={idx}>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3"><div className="h-3 w-32 bg-slate-700 rounded"></div></td>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center hidden sm:table-cell"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center hidden sm:table-cell"><div className="h-3 w-4 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-6 bg-slate-700 rounded mx-auto"></div></td>
+                    <td className="px-4 py-3 text-center"><div className="h-3 w-5 bg-slate-700 rounded mx-auto"></div></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : standings.length === 0 ? (
           <div className="text-center py-20 text-sm text-slate-400">Tidak ada data pertandingan untuk musim dan liga ini.</div>
         ) : (

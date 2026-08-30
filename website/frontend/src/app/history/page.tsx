@@ -149,7 +149,7 @@ export default function HistoryPage() {
     <div className="max-w-7xl mx-auto pt-6 pb-12 px-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white tracking-wide">Match History</h1>
-        <p className="text-slate-400 text-sm mt-1">Evaluasi performa taruhan dan hasil pertandingan <span className="text-blue-400 font-semibold">Musim Ini</span> yang telah diproses oleh sistem.</p>
+        <p className="text-slate-300 text-sm mt-1">Evaluasi performa taruhan dan hasil pertandingan <span className="text-blue-400 font-semibold">Musim Ini</span> yang telah diproses oleh sistem.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -157,10 +157,11 @@ export default function HistoryPage() {
           <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
             <h2 className="text-sm font-bold text-white mb-4">Pengaturan Modal</h2>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Bankroll Simulasi (Rp)</label>
+              <label htmlFor="history-bankroll-input" className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Bankroll Simulasi (Rp)</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-medium">Rp</span>
                 <input
+                  id="history-bankroll-input"
                   type="number"
                   value={bankroll}
                   onChange={(e) => setBankroll(Number(e.target.value))}
@@ -174,8 +175,9 @@ export default function HistoryPage() {
             <h2 className="text-sm font-bold text-white mb-4">Filter Data</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cari Tim</label>
+                <label htmlFor="history-search-input" className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Cari Tim</label>
                 <input
+                  id="history-search-input"
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -185,8 +187,9 @@ export default function HistoryPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Liga</label>
+                <label htmlFor="history-league-select" className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Liga</label>
                 <select
+                  id="history-league-select"
                   value={selectedLeague}
                   onChange={(e) => setSelectedLeague(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
@@ -199,8 +202,9 @@ export default function HistoryPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Status Taruhan</label>
+                <label htmlFor="history-result-select" className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Status Taruhan</label>
                 <select
+                  id="history-result-select"
                   value={filterResult}
                   onChange={(e) => setFilterResult(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
@@ -212,9 +216,10 @@ export default function HistoryPage() {
               </div>
 
               <div className="space-y-2.5 pt-2 border-t border-slate-700/50">
-                <label className="flex items-center gap-2.5 cursor-pointer group">
+                <label htmlFor="history-ftr-checkbox" className="flex items-center gap-2.5 cursor-pointer group">
                   <div className="relative flex items-center">
                     <input 
+                      id="history-ftr-checkbox"
                       type="checkbox" 
                       checked={filterFtr}
                       onChange={(e) => setFilterFtr(e.target.checked)}
@@ -225,9 +230,10 @@ export default function HistoryPage() {
                   <span className="text-xs text-slate-300 group-hover:text-white transition-colors">Menampilkan Value Bet FTR</span>
                 </label>
                 
-                <label className="flex items-center gap-2.5 cursor-pointer group">
+                <label htmlFor="history-ou-checkbox" className="flex items-center gap-2.5 cursor-pointer group">
                   <div className="relative flex items-center">
                     <input 
+                      id="history-ou-checkbox"
                       type="checkbox" 
                       checked={filterOu}
                       onChange={(e) => setFilterOu(e.target.checked)}
@@ -259,6 +265,7 @@ export default function HistoryPage() {
               {totalPages > 1 && (
                 <div className="flex justify-between items-center bg-slate-800/80 border border-slate-700 px-5 py-3 rounded-xl mb-6 shadow-sm">
                   <button
+                    aria-label="Halaman Sebelumnya"
                     onClick={() => {
                       setCurrentPage(p => Math.max(1, p - 1));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -268,10 +275,11 @@ export default function HistoryPage() {
                   >
                     <ChevronLeft size={16} /> Prev
                   </button>
-                  <span className="text-slate-400 text-xs font-medium tracking-wide">
+                  <span className="text-slate-300 text-xs font-medium tracking-wide">
                     Halaman <span className="text-white font-bold">{currentPage}</span> dari {totalPages}
                   </span>
                   <button
+                    aria-label="Halaman Selanjutnya"
                     onClick={() => {
                       setCurrentPage(p => Math.min(totalPages, p + 1));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -315,15 +323,17 @@ export default function HistoryPage() {
 
                 return (
                   <div key={match.id} className={`bg-slate-800 border ${isExpanded ? 'border-blue-500/50' : 'border-slate-700'} rounded-xl overflow-hidden shadow-sm transition-colors`}>
-                    <div 
+                    <button 
+                      aria-expanded={isExpanded}
+                      aria-controls={`history-match-details-${match.id}`}
                       onClick={() => toggleMatch(match.id)}
-                      className="bg-slate-800/60 px-5 py-2.5 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer hover:bg-slate-700/50 transition-colors"
+                      className="w-full text-left bg-slate-800/60 px-5 py-2.5 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-700/50 transition-colors"
                     >
                       <div className="flex items-center gap-4">
                         <div className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-900 text-slate-400">
                           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </div>
-                        <span className="text-[11px] text-slate-400 font-medium">
+                        <span className="text-[11px] text-slate-300 font-medium">
                           {new Date(match.date).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA 
                           <span className="mx-2 px-2 py-0.5 bg-slate-700/50 rounded text-slate-300">{match.league_name || "Liga Eropa"}</span>
                         </span>
@@ -331,9 +341,9 @@ export default function HistoryPage() {
                       <div className="flex gap-2">
                         <span className="bg-slate-700 border border-slate-600 text-white text-[10px] px-2 py-0.5 rounded font-semibold">Hasil Akhir</span>
                       </div>
-                    </div>
+                    </button>
 
-                    <div className="p-5 grid grid-cols-1 lg:grid-cols-[1.5fr_2fr_1.5fr] gap-6 items-center">
+                    <div id={`history-match-details-${match.id}`} className="p-5 grid grid-cols-1 lg:grid-cols-[1.5fr_2fr_1.5fr] gap-6 items-center">
                       <div className="space-y-1">
                         <div className="text-base font-bold text-white flex flex-col space-y-2">
                           <div className="flex justify-between items-center pr-4">
@@ -349,7 +359,7 @@ export default function HistoryPage() {
 
                       <div className="grid grid-cols-2 gap-4 border-y lg:border-y-0 lg:border-x border-slate-700 py-4 lg:py-0 lg:px-6">
                         <div className="space-y-2">
-                          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">1X2 Odds Akhir</span>
+                          <span className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider">1X2 Odds Akhir</span>
                           <div className="text-[11px] space-y-1 text-slate-300">
                             <div className="flex justify-between">
                               <span>Home:</span>
@@ -367,7 +377,7 @@ export default function HistoryPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider">O/U 2.5 Odds Akhir</span>
+                          <span className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider">O/U 2.5 Odds Akhir</span>
                           <div className="text-[11px] space-y-1 text-slate-300">
                             <div className="flex justify-between">
                               <span>Over:</span>
@@ -399,12 +409,12 @@ export default function HistoryPage() {
                             </div>
                             <div className="flex gap-4 text-right">
                               <div>
-                                <span className="block text-[10px] text-slate-500">Saran Bet</span>
+                                <span className="block text-[10px] text-slate-400">Saran Bet</span>
                                 <span className="text-sm font-bold text-white">{formatCurrency(stakeFtrAmount)}</span>
                               </div>
                               {ftrResultAmount !== null && (
                                 <div className="border-l border-slate-700/50 pl-4">
-                                  <span className="block text-[10px] text-slate-500">Return</span>
+                                  <span className="block text-[10px] text-slate-400">Return</span>
                                   <span className={`text-sm font-bold ${match.is_won_ftr ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {match.is_won_ftr ? '+' : ''}{formatCurrency(ftrResultAmount)}
                                   </span>
@@ -426,8 +436,8 @@ export default function HistoryPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="block text-[10px] text-slate-500">Saran RL</span>
-                              <span className="text-[10px] text-slate-600 italic">Skip Bet</span>
+                              <span className="block text-[10px] text-slate-400">Saran RL</span>
+                              <span className="text-[10px] text-slate-400 italic">Skip Bet</span>
                             </div>
                           </div>
                         )}
@@ -449,12 +459,12 @@ export default function HistoryPage() {
                             </div>
                             <div className="flex gap-4 text-right">
                               <div>
-                                <span className="block text-[10px] text-slate-500">Saran Bet</span>
+                                <span className="block text-[10px] text-slate-400">Saran Bet</span>
                                 <span className="text-sm font-bold text-white">{formatCurrency(stakeOuAmount)}</span>
                               </div>
                               {ouResultAmount !== null && (
                                 <div className="border-l border-slate-700/50 pl-4">
-                                  <span className="block text-[10px] text-slate-500">Return</span>
+                                  <span className="block text-[10px] text-slate-400">Return</span>
                                   <span className={`text-sm font-bold ${match.is_won_ou ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {match.is_won_ou ? '+' : ''}{formatCurrency(ouResultAmount)}
                                   </span>
@@ -476,8 +486,8 @@ export default function HistoryPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="block text-[10px] text-slate-500">Saran RL</span>
-                              <span className="text-[10px] text-slate-600 italic">Skip Bet</span>
+                              <span className="block text-[10px] text-slate-400">Saran RL</span>
+                              <span className="text-[10px] text-slate-400 italic">Skip Bet</span>
                             </div>
                           </div>
                         )}
@@ -488,12 +498,12 @@ export default function HistoryPage() {
                       <div className="bg-slate-900/80 border-t border-slate-700 p-5">
                         <div className="flex items-center gap-2 mb-4">
                           <BarChart2 size={16} className="text-blue-500" />
-                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Statistik Rata-Rata (Rolling) Pra-Pertandingan</h4>
+                          <h2 className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Statistik Rata-Rata (Rolling) Pra-Pertandingan</h2>
                         </div>
                         
                         <div className="grid grid-cols-[1fr_2fr_1fr] text-sm text-center">
                           <div className="font-bold text-white bg-slate-800/50 p-2 rounded-l-lg">{match.home_team_name}</div>
-                          <div className="text-slate-500 text-xs font-bold uppercase tracking-widest p-2 bg-slate-800/20">Parameter</div>
+                          <div className="text-slate-400 text-xs font-bold uppercase tracking-widest p-2 bg-slate-800/20">Parameter</div>
                           <div className="font-bold text-white bg-slate-800/50 p-2 rounded-r-lg">{match.away_team_name}</div>
 
                           <div className="p-3 border-b border-slate-700 text-blue-400 font-mono">
@@ -570,23 +580,23 @@ export default function HistoryPage() {
                         </div>
 
                         <div className="mt-6 pt-4 border-t border-slate-700">
-                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-3">Sejarah Head to Head</h4>
+                          <h3 className="text-[10px] font-bold text-slate-300 uppercase tracking-wider text-center mb-3">Sejarah Head to Head</h3>
                           <div className="flex justify-center gap-8 text-sm font-mono text-white">
                              <div className="text-center">
                                <span className="block text-xl text-blue-400">{ext.h2h_home_wins ?? '-'}</span>
-                               <span className="text-[9px] text-slate-500 uppercase tracking-widest">Home Win</span>
+                               <span className="text-[9px] text-slate-400 uppercase tracking-widest">Home Win</span>
                              </div>
                              <div className="text-center">
                                <span className="block text-xl text-slate-300">{ext.h2h_draws ?? '-'}</span>
-                               <span className="text-[9px] text-slate-500 uppercase tracking-widest">Draws</span>
+                               <span className="text-[9px] text-slate-400 uppercase tracking-widest">Draws</span>
                              </div>
                              <div className="text-center">
                                <span className="block text-xl text-purple-400">{ext.h2h_away_wins ?? '-'}</span>
-                               <span className="text-[9px] text-slate-500 uppercase tracking-widest">Away Win</span>
+                               <span className="text-[9px] text-slate-400 uppercase tracking-widest">Away Win</span>
                              </div>
                              <div className="text-center border-l border-slate-700 pl-8 ml-4">
                                <span className="block text-xl text-emerald-400">{ext.h2h_avg_goals?.toFixed(1) ?? '-'}</span>
-                               <span className="text-[9px] text-slate-500 uppercase tracking-widest">Avg Goals/Match</span>
+                               <span className="text-[9px] text-slate-400 uppercase tracking-widest">Avg Goals/Match</span>
                              </div>
                           </div>
                         </div>
