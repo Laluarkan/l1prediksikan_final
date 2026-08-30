@@ -7,10 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Providers from '@/components/Providers';
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  display: 'swap',
-});
+const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: {
@@ -59,12 +56,12 @@ export default function RootLayout({
     <html lang="id">
       <head>
         <Script
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           src="https://www.googletagmanager.com/gtag/js?id=G-SJ5L2P8WQN"
         />
         <Script
           id="google-analytics"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];

@@ -100,7 +100,7 @@ export default function Navbar() {
             )}
 
             <div className="md:hidden flex items-center ml-2">
-              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white p-1">
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white p-1" aria-label="Buka Menu">
                 {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
             </div>
