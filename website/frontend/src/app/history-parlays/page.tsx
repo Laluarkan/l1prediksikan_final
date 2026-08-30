@@ -46,7 +46,10 @@ export default function HistoryParlaysPage() {
     setLoading(true);
     const params: Record<string, any> = {
       ordering: '-date',
-      is_historical: true 
+      is_historical: true,
+      // Ambil seluruh tiket parlay historis yang cocok filter dalam satu request
+      // (bukan cuma 20 data pertama dari default pagination backend).
+      page_size: 1000,
     };
     
     if (searchTerm) params.search = searchTerm;

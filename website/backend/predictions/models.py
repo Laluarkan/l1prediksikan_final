@@ -35,6 +35,9 @@ class ParlayTicket(models.Model):
     is_historical = models.BooleanField(default=False)
     legs_details = models.JSONField(default=list, blank=True)
 
+    class Meta:
+        ordering = ['-date']
+
     def __str__(self):
         return f"{self.ticket_id} ({self.date})"
 

@@ -69,7 +69,14 @@ export default function HistoryPage() {
 
   useEffect(() => {
     setLoading(true);
-    const params: Record<string, any> = {};
+    const params: Record<string, any> = {
+      // Ambil seluruh data histori yang cocok filter dalam satu request (bukan
+      // cuma 20 data pertama dari default pagination backend), supaya filter
+      // "Musim Ini", sortir terbaru-duluan, dan pagination client-side di bawah
+      // bekerja pada dataset lengkap.
+      page_size: 1000,
+      ordering: '-date',
+    };
     if (searchTerm) params.search = searchTerm;
     if (selectedLeague) params.league__code = selectedLeague;
     
