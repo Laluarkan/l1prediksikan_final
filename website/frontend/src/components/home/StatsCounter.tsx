@@ -27,9 +27,9 @@ const AnimatedCounter = ({ end, suffix = "", prefix = "" }: { end: number; suffi
   );
 };
 
-// Gaya baru: papan skor stadion, bukan kartu statistik generik.
-// Setiap segmen punya garis atas berwarna hijau rumput (bukan seragam abu-abu
-// semua), dan labelnya sentence case (bukan UPPERCASE tracking-widest generik).
+// Gaya papan skor stadion: background disamakan ke slate (menyatu dengan
+// Navbar/Footer), aksen hijau lapangan tetap dipertahankan sebagai garis atas
+// tipis, dan labelnya sentence case (bukan UPPERCASE tracking-widest generik).
 export default function StatsCounter() {
   const stats = [
     { end: 11, suffix: '', label: 'Liga Eropa dianalisis' },
@@ -43,12 +43,12 @@ export default function StatsCounter() {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="bg-[#0D2117] border-t-2 border-[#3FA34D] border-x border-b border-[#17301F] p-3 md:p-6 rounded-b-lg text-center shadow-xl"
+          className="bg-slate-800 border-t-2 border-t-emerald-500 border-x border-b border-slate-700 p-3 md:p-6 rounded-b-lg text-center shadow-xl"
         >
-          <h3 className="text-xl md:text-4xl font-extrabold text-[#F3F6F1] mb-1">
+          <h3 className="text-xl md:text-4xl font-extrabold text-white mb-1">
             <AnimatedCounter end={stat.end} suffix={stat.suffix} />
           </h3>
-          <p className="text-[10px] md:text-xs text-[#8FA396] font-medium">{stat.label}</p>
+          <p className="text-[10px] md:text-xs text-slate-400 font-medium">{stat.label}</p>
         </div>
       ))}
     </section>

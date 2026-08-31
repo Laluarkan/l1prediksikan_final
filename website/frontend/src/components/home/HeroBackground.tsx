@@ -13,8 +13,8 @@ export default function HeroBackground() {
     >
       <defs>
         <radialGradient id="pitchGlow" cx="50%" cy="30%" r="70%">
-          <stop offset="0%" stopColor="#14311f" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#06130d" stopOpacity="0" />
+          <stop offset="0%" stopColor="#134e2f" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
         </radialGradient>
       </defs>
       <rect width="1200" height="700" fill="url(#pitchGlow)" />
