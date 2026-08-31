@@ -1,83 +1,35 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-'use client';
-
-import { useEffect, useRef } from 'react';
-
-// Catatan performa: komponen ini murni dekoratif (animasi partikel di background hero).
-// Logikanya TIDAK diubah sama sekali dari versi asli — hanya dipindah ke file
-// terpisah supaya bisa dimuat dengan next/dynamic({ ssr: false }) dari page.tsx,
-// sehingga tidak ikut membebani proses render awal (LCP) di halaman utama.
+// Motif garis lapangan sepak bola (setengah lapangan, dilihat dari atas) sebagai
+// latar hero — menggantikan animasi partikel generik sebelumnya dengan sesuatu
+// yang benar-benar berakar dari subjek situs ini (analitik pertandingan bola).
+// Murni SVG statis, jadi tidak perlu client-side JS/canvas lagi seperti versi
+// sebelumnya — bonus: lebih ringan untuk performa halaman.
 export default function HeroBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  return (
+    <svg
+      viewBox="0 0 1200 700"
+      preserveAspectRatio="xMidYMid slice"
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id="pitchGlow" cx="50%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#14311f" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#06130d" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="1200" height="700" fill="url(#pitchGlow)" />
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let particles: any[] = [];
-    let animationFrameId: number;
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      initParticles();
-    };
-
-    const initParticles = () => {
-      particles = [];
-      const particleCount = Math.floor((canvas.width * canvas.height) / 15000);
-      for (let i = 0; i < particleCount; i++) {
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
-          radius: Math.random() * 2 + 1,
-        });
-      }
-    };
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'rgba(59, 130, 246, 0.5)';
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fill();
-        for (let j = i + 1; j < particles.length; j++) {
-          const p2 = particles[j];
-          const dx = p.x - p2.x;
-          const dy = p.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-          }
-        }
-      }
-      animationFrameId = requestAnimationFrame(draw);
-    };
-
-    window.addEventListener('resize', resize);
-    resize();
-    draw();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="absolute inset-0 z-0 opacity-40 pointer-events-none" />;
+      {/* Garis tengah lapangan */}
+      <line x1="0" y1="470" x2="1200" y2="470" stroke="#3fa34d" strokeOpacity="0.25" strokeWidth="2" />
+      {/* Lingkaran tengah */}
+      <circle cx="600" cy="470" r="130" fill="none" stroke="#3fa34d" strokeOpacity="0.22" strokeWidth="2" />
+      <circle cx="600" cy="470" r="4" fill="#3fa34d" fillOpacity="0.35" />
+      {/* Kotak penalti kanan (terpotong di tepi) */}
+      <rect x="980" y="330" width="260" height="280" fill="none" stroke="#3fa34d" strokeOpacity="0.18" strokeWidth="2" />
+      <rect x="1080" y="400" width="160" height="140" fill="none" stroke="#3fa34d" strokeOpacity="0.18" strokeWidth="2" />
+      {/* Kotak penalti kiri (terpotong di tepi) */}
+      <rect x="-40" y="330" width="260" height="280" fill="none" stroke="#3fa34d" strokeOpacity="0.18" strokeWidth="2" />
+      <rect x="-40" y="400" width="160" height="140" fill="none" stroke="#3fa34d" strokeOpacity="0.18" strokeWidth="2" />
+    </svg>
+  );
 }
