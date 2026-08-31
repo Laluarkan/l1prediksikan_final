@@ -30,7 +30,7 @@ export default function HotFixturesSection() {
   return (
     <section>
       <div className="flex items-center gap-2 mb-4 md:mb-8">
-        <h2 className="text-xl md:text-3xl font-bold text-white tracking-tight">Fixtures</h2>
+        <h2 className="text-xl md:text-3xl font-bold text-white tracking-tight">Jadwal Pertandingan</h2>
       </div>
       {hotFixtures.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">

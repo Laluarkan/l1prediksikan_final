@@ -29,7 +29,6 @@ export default function Home() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="text-[11px] font-mono text-slate-400 tracking-wide">MUSIM 25/26 &middot; SEDANG BERJALAN</span>
           </div>
 
           <h1 className={`${oswald.className} text-3xl sm:text-5xl md:text-6xl text-white leading-[1.1] mb-6`}>
@@ -37,7 +36,7 @@ export default function Home() {
           </h1>
 
           <p className="text-sm md:text-lg text-slate-400 mb-8 leading-relaxed max-w-xl">
-            Odds pasar, statistik head-to-head, dan performa dari 11 liga Eropa diolah jadi satu rekomendasi taruhan yang presisi — bukan tebakan di menit terakhir.
+            Odds pasar, statistik head-to-head, dan performa dari 11 liga Eropa diolah jadi satu rekomendasi taruhan yang presisi bukan tebakan di menit terakhir.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3">
@@ -74,35 +73,23 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
 
             <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-lg p-5 md:p-7">
-              <div className="flex items-center gap-2 mb-4">
-                <Crosshair className="text-emerald-400 w-5 h-5" />
-                <span className="text-[11px] font-mono text-emerald-400 tracking-wide">VALUE</span>
-              </div>
               <h3 className="text-base md:text-xl font-bold text-white mb-2">Value Bet Detection</h3>
               <p className="text-slate-400 text-[13px] md:text-sm leading-relaxed">
-                Membandingkan probabilitas AI dengan probabilitas tersirat dari odds pasar untuk menemukan celah edge yang rasional — seperti mencari ruang kosong di lini pertahanan lawan.
+                Membandingkan probabilitas AI dengan probabilitas tersirat dari odds pasar untuk menemukan celah edge yang rasional.
               </p>
             </div>
 
             <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-amber-400 rounded-lg p-5 md:p-7">
-              <div className="flex items-center gap-2 mb-4">
-                <Layers className="text-amber-400 w-5 h-5" />
-                <span className="text-[11px] font-mono text-amber-400 tracking-wide">COMBO</span>
-              </div>
               <h3 className="text-base md:text-xl font-bold text-white mb-2">Dynamic Parlay Logic</h3>
               <p className="text-slate-400 text-[13px] md:text-sm leading-relaxed">
-                Algoritma menyeleksi pertandingan dengan tingkat probabilitas terbaik dan merangkumnya menjadi kombinasi tiket parlay harian, layaknya menyusun starting line-up terbaik.
+                Algoritma menyeleksi pertandingan dengan tingkat probabilitas terbaik dan merangkumnya menjadi kombinasi tiket parlay harian.
               </p>
             </div>
 
             <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-slate-300 rounded-lg p-5 md:p-7">
-              <div className="flex items-center gap-2 mb-4">
-                <ShieldHalf className="text-slate-300 w-5 h-5" />
-                <span className="text-[11px] font-mono text-slate-300 tracking-wide">DEFENSE</span>
-              </div>
               <h3 className="text-base md:text-xl font-bold text-white mb-2">Manajemen Modal RL</h3>
               <p className="text-slate-400 text-[13px] md:text-sm leading-relaxed">
-                Mengintegrasikan agen Reinforcement Learning dengan porsi Kelly Criterion untuk menjaga modal tetap solid, seperti lini belakang yang menjaga clean sheet musim ini.
+                Mengintegrasikan agen Reinforcement Learning dengan porsi Kelly Criterion untuk menjaga modal tetap solid.
               </p>
             </div>
 

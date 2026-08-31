@@ -25,7 +25,7 @@ export default function PerformanceSection() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-10 border-b border-slate-700/50 pb-5 md:pb-8">
           <div>
             <h2 className="text-lg md:text-3xl font-bold text-white mb-1 md:mb-2 flex items-center gap-2 md:gap-3">
-              <TrendingUp className="text-blue-500 w-4 h-4 md:w-6 md:h-6" /> Bukti Kinerja Historis
+               Bukti Kinerja Historis
             </h2>
             <p className="text-slate-400 text-[10px] md:text-sm">
               Transparansi penuh dari hasil prediksi model AI terhadap hasil nyata di lapangan.
@@ -107,7 +107,6 @@ export default function PerformanceSection() {
                   {perfData.parlay.unit_profit.toFixed(2)} <span className="text-[10px] md:text-sm text-slate-500 ml-2">Units</span>
                 </div>
                 <div className="mt-2 md:mt-4 flex items-center gap-1.5 md:gap-2">
-                  <DollarSign size={12} className="text-amber-500 md:w-4 md:h-4" />
                   <span className="text-[9px] md:text-xs text-slate-400">Diuji dengan 1 Unit / Tiket</span>
                 </div>
               </div>
