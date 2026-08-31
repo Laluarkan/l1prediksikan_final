@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import Link from 'next/link';
 import { Oswald } from 'next/font/google';
 import { ArrowRight, Crosshair, Layers, ShieldHalf } from 'lucide-react';
@@ -24,13 +25,6 @@ export default function Home() {
         <HeroBackground />
 
         <div className="relative z-10 max-w-3xl mx-auto lg:mx-0 lg:ml-[10%]">
-          <div className="inline-flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-full pl-1.5 pr-4 py-1 mb-6">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-          </div>
-
           <h1 className={`${oswald.className} text-3xl sm:text-5xl md:text-6xl text-white leading-[1.1] mb-6`}>
             Baca pertandingan sebelum peluit dibunyikan.
           </h1>
