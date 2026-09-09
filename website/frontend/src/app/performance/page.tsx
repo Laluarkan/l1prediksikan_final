@@ -21,7 +21,7 @@ export default function PerformancePage() {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [bankroll, setBankroll] = useState<number>(100000);
+  const [bankroll, setBankroll] = useState<number>(500000);
   const [ticketStake, setTicketStake] = useState<number>(10000);
 
   const generateSeasons = () => {

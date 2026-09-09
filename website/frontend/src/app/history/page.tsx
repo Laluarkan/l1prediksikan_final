@@ -49,7 +49,7 @@ export default function HistoryPage() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [bankroll, setBankroll] = useState<number>(100000);
+  const [bankroll, setBankroll] = useState<number>(500000);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeague, setSelectedLeague] = useState('');
   const [filterFtr, setFilterFtr] = useState(false);
