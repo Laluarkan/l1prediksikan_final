@@ -103,7 +103,7 @@ class TeamViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['league__code']
     search_fields = ['name']
 
-@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
+# PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
 class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MatchHistory.objects.select_related('league', 'home_team', 'away_team').all()
     serializer_class = MatchHistorySerializer
@@ -112,7 +112,7 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['home_team__name', 'away_team__name', 'parlay_ticket_info']
     ordering_fields = ['date']
 
-@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
+# PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
@@ -125,7 +125,7 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
         now = timezone.now()
         return UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
 
-@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
+# PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer
@@ -212,7 +212,8 @@ class DatasetConfirmSaveView(APIView):
             logger.error(f"Gagal menyimpan data konfirmasi: {str(e)}", exc_info=True)
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
+# Cache tetap dipertahankan karena JSON outputnya kecil (Hanya berisi angka rekap)
+@method_decorator(cache_page(60 * 60 * 2), name='dispatch')
 class PerformanceMetricsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
@@ -297,7 +298,8 @@ class PerformanceMetricsAPIView(APIView):
             }
         })
 
-@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
+# Cache tetap dipertahankan karena JSON outputnya kecil (Hanya 20 list klasemen)
+@method_decorator(cache_page(60 * 60 * 2), name='dispatch')
 class LeagueStandingsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
