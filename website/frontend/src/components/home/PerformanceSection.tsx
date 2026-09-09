@@ -14,7 +14,7 @@ export default function PerformanceSection() {
 
   useEffect(() => {
     api
-      .get('/performance-metrics/')
+      .get('/performance/')
       .then((res) => setPerfData(res.data))
       .catch(() => {});
   }, []);
