@@ -6,6 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.management import call_command
 from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -89,10 +90,12 @@ class CheckStaffView(APIView):
         except User.DoesNotExist:
             return Response({'is_staff': False})
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class LeagueViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = League.objects.all().order_by('name')
     serializer_class = LeagueSerializer
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class TeamViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Team.objects.select_related('league').order_by('name')
     serializer_class = TeamSerializer
@@ -100,6 +103,7 @@ class TeamViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['league__code']
     search_fields = ['name']
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = MatchHistory.objects.select_related('league', 'home_team', 'away_team').all()
     serializer_class = MatchHistorySerializer
@@ -108,6 +112,7 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['home_team__name', 'away_team__name', 'parlay_ticket_info']
     ordering_fields = ['date']
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
@@ -120,6 +125,7 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
         now = timezone.now()
         return UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer
@@ -206,6 +212,7 @@ class DatasetConfirmSaveView(APIView):
             logger.error(f"Gagal menyimpan data konfirmasi: {str(e)}", exc_info=True)
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class PerformanceMetricsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
@@ -290,6 +297,7 @@ class PerformanceMetricsAPIView(APIView):
             }
         })
 
+@method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class LeagueStandingsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
