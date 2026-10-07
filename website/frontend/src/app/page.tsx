@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import Link from 'next/link';
 import { Oswald } from 'next/font/google';
-import { ArrowRight, Crosshair, Layers, ShieldHalf } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import StatsCounter from '@/components/home/StatsCounter';
 import HotFixturesSection from '@/components/home/HotFixturesSection';
 import PerformanceSection from '@/components/home/PerformanceSection';
@@ -59,34 +59,60 @@ export default function Home() {
 
         {/* ================= LEMBAR STATISTIK / FITUR ================= */}
         <section>
-          <div className="mb-6 md:mb-10">
-            <h2 className={`${oswald.className} text-xl md:text-3xl text-white mb-2`}>Cara kerja analitiknya</h2>
-            <p className="text-xs md:text-base text-slate-400">Tiga lapisan analisis yang berjalan di setiap pertandingan yang dipindai.</p>
+          <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <h2 className={`${oswald.className} text-xl md:text-3xl text-white mb-2 uppercase tracking-wide`}>
+                Cara Kerja Analitiknya
+              </h2>
+              <p className="text-xs md:text-base text-slate-400">Tiga lapisan pemrosesan data di setiap pertandingan.</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6">
-
-            <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-emerald-500 rounded-lg p-5 md:p-7">
-              <h3 className="text-base md:text-xl font-bold text-white mb-2">Value Bet Detection</h3>
-              <p className="text-slate-400 text-[13px] md:text-sm leading-relaxed">
-                Membandingkan probabilitas AI dengan probabilitas tersirat dari odds pasar untuk menemukan celah edge yang rasional.
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border-t border-b lg:border-b-0 lg:border-l lg:border-t border-slate-800">
+            {/* Step 1 */}
+            <div className="p-6 md:p-8 flex flex-col relative border-b lg:border-b-0 lg:border-r border-slate-800 hover:bg-slate-800/30 transition-colors">
+              <div className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Tahap 01</div>
+              <h3 className="text-lg md:text-xl font-bold text-white mb-3">Value Bet Detection</h3>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6 flex-1">
+                Membandingkan probabilitas murni hasil model statistik dengan probabilitas tersirat dari odds pasar untuk menemukan celah (edge) yang menguntungkan.
               </p>
+              <div className="mt-auto pt-4 border-t border-slate-800">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">Metrik Kunci</span>
+                  <span className="text-sm text-slate-200 font-mono">EV (Expected Value) &gt; 0</span>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-amber-400 rounded-lg p-5 md:p-7">
-              <h3 className="text-base md:text-xl font-bold text-white mb-2">Dynamic Parlay Logic</h3>
-              <p className="text-slate-400 text-[13px] md:text-sm leading-relaxed">
-                Algoritma menyeleksi pertandingan dengan tingkat probabilitas terbaik dan merangkumnya menjadi kombinasi tiket parlay harian.
+            {/* Step 2 */}
+            <div className="p-6 md:p-8 flex flex-col relative border-b lg:border-b-0 lg:border-r border-slate-800 hover:bg-slate-800/30 transition-colors">
+              <div className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Tahap 02</div>
+              <h3 className="text-lg md:text-xl font-bold text-white mb-3">Dynamic Parlay Logic</h3>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6 flex-1">
+                Algoritma menyeleksi pertandingan dengan tingkat probabilitas tertinggi dan merangkumnya menjadi rekomendasi tiket parlay harian.
               </p>
+              <div className="mt-auto pt-4 border-t border-slate-800">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">Metrik Kunci</span>
+                  <span className="text-sm text-slate-200 font-mono">Min. Win Rate 70%</span>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-slate-800 border border-slate-700 border-l-4 border-l-slate-300 rounded-lg p-5 md:p-7">
-              <h3 className="text-base md:text-xl font-bold text-white mb-2">Manajemen Modal RL</h3>
-              <p className="text-slate-400 text-[13px] md:text-sm leading-relaxed">
-                Mengintegrasikan agen Reinforcement Learning dengan porsi Kelly Criterion untuk menjaga modal tetap solid.
+            {/* Step 3 */}
+            <div className="p-6 md:p-8 flex flex-col relative border-b lg:border-b-0 lg:border-r lg:border-b-slate-800 lg:border-r-slate-800 hover:bg-slate-800/30 transition-colors">
+              <div className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Tahap 03</div>
+              <h3 className="text-lg md:text-xl font-bold text-white mb-3">Manajemen Modal RL</h3>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6 flex-1">
+                Integrasi agen Reinforcement Learning dipadukan dengan formula Kelly Criterion untuk menentukan ukuran taruhan dan menjaga stabilitas modal.
               </p>
+              <div className="mt-auto pt-4 border-t border-slate-800">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-500 uppercase font-mono">Metrik Kunci</span>
+                  <span className="text-sm text-slate-200 font-mono">Fractional Kelly</span>
+                </div>
+              </div>
             </div>
-
           </div>
         </section>
 
