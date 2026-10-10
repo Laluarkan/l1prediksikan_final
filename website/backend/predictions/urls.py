@@ -9,9 +9,9 @@ from .views import (LeagueViewSet, TeamViewSet, MatchHistoryViewSet,
 router = DefaultRouter()
 router.register(r'leagues', LeagueViewSet)
 router.register(r'teams', TeamViewSet)
-router.register(r'history', MatchHistoryViewSet)
-router.register(r'fixtures', UpcomingFixtureViewSet)
-router.register(r'parlays', ParlayTicketViewSet)
+router.register(r'history', MatchHistoryViewSet, basename='history')
+router.register(r'fixtures', UpcomingFixtureViewSet, basename='fixtures')
+router.register(r'parlays', ParlayTicketViewSet, basename='parlays')
 
 urlpatterns = [
     path('', include(router.urls)),
