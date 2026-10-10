@@ -1,0 +1,39 @@
+name: Sync API-Football Teams Daily
+
+on:
+  schedule:
+    # Berjalan setiap hari pada jam 01:00 UTC (08:00 WIB), sesaat setelah limit harian API di-reset
+    - cron: '0 1 * * *'
+  workflow_dispatch: # Mengizinkan Anda memicunya secara manual dari tab Actions di GitHub
+
+jobs:
+  sync_teams:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: website/backend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Sesuaikan dengan versi Python proyek Anda
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Sync Command
+        env:
+          # Pastikan semua variabel ini didaftarkan di GitHub Repo -> Settings -> Secrets and variables -> Actions
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          python manage.py sync_api_football_teams
