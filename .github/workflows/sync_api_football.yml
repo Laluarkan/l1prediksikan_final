@@ -21,7 +21,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # Sesuaikan dengan versi Python proyek Anda
+          python-version: '3.12' # Django 6.0 membutuhkan Python 3.12 ke atas
           cache: 'pip'
 
       - name: Install Dependencies
