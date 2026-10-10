@@ -375,17 +375,19 @@ class LeagueStandingsAPIView(APIView):
             league__code=league_code,
             date__gte=start_date,
             date__lte=end_date
-        ).values('home_team__name', 'away_team__name', 'fthg', 'ftag')
+        ).values('home_team__name', 'away_team__name', 'home_team__logo_url', 'away_team__logo_url', 'fthg', 'ftag')
 
         standings = {}
         for m in matches:
             home = m['home_team__name']
             away = m['away_team__name']
+            home_logo = m['home_team__logo_url']
+            away_logo = m['away_team__logo_url']
 
             if home not in standings:
-                standings[home] = {'team': home, 'p': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
+                standings[home] = {'team': home, 'logo': home_logo, 'p': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
             if away not in standings:
-                standings[away] = {'team': away, 'p': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
+                standings[away] = {'team': away, 'logo': away_logo, 'p': 0, 'w': 0, 'd': 0, 'l': 0, 'gf': 0, 'ga': 0, 'pts': 0}
 
             hg = m['fthg'] if m['fthg'] is not None else 0
             ag = m['ftag'] if m['ftag'] is not None else 0

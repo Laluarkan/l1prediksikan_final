@@ -332,17 +332,17 @@ export default function FixturesPage() {
 
                     <div id={`match-details-${fixture.id}`} className="p-5 grid grid-cols-1 lg:grid-cols-[1.5fr_2fr_1.5fr] gap-6 items-center">
                       <div className="space-y-1">
-                        <div className="text-base font-bold text-white flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:items-center lg:justify-between w-full">
-                          <div className="flex items-center gap-3 w-full lg:w-2/5 justify-start lg:justify-end">
-                            <span className="text-right">{fixture.home_team_name}</span>
-                            <img src={fixture.home_team_logo || '/default-logo.png'} alt={fixture.home_team_name} className="w-8 h-8 object-contain" />
+                        <div className="text-base font-bold text-white flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:items-center w-full">
+                          <div className="flex items-center gap-3 w-full lg:w-[40%] justify-start lg:justify-end">
+                            <span className="text-right truncate flex-1 lg:flex-none">{fixture.home_team_name}</span>
+                            <img src={fixture.home_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-8 h-8 object-contain shrink-0" />
                           </div>
                           
-                          <span className="text-[11px] text-slate-400 font-normal uppercase tracking-widest text-center w-full lg:w-1/5 py-1">vs</span>
+                          <span className="text-[11px] text-slate-400 font-normal uppercase tracking-widest text-center w-full lg:w-[20%] py-1">vs</span>
                           
-                          <div className="flex items-center gap-3 w-full lg:w-2/5 justify-start">
-                            <img src={fixture.away_team_logo || '/default-logo.png'} alt={fixture.away_team_name} className="w-8 h-8 object-contain" />
-                            <span className="text-left">{fixture.away_team_name}</span>
+                          <div className="flex items-center gap-3 w-full lg:w-[40%] justify-start">
+                            <img src={fixture.away_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-8 h-8 object-contain shrink-0" />
+                            <span className="text-left truncate flex-1 lg:flex-none">{fixture.away_team_name}</span>
                           </div>
                         </div>
                       </div>
@@ -468,14 +468,14 @@ export default function FixturesPage() {
                         </div>
                         
                         <div className="grid grid-cols-[1fr_2fr_1fr] text-sm text-center">
-                          <div className="font-bold text-white bg-slate-800/50 p-2 rounded-l-lg flex items-center justify-center gap-2">
-                            <img src={fixture.home_team_logo || '/default-logo.png'} alt={fixture.home_team_name} className="w-4 h-4 object-contain" />
-                            {fixture.home_team_name}
+                          <div className="font-bold text-white bg-slate-800/50 p-2 rounded-l-lg flex items-center justify-center gap-2 overflow-hidden">
+                            <img src={fixture.home_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-4 h-4 object-contain shrink-0" />
+                            <span className="truncate">{fixture.home_team_name}</span>
                           </div>
                           <div className="text-slate-400 text-xs font-bold uppercase tracking-widest p-2 bg-slate-800/20 flex items-center justify-center">Parameter</div>
-                          <div className="font-bold text-white bg-slate-800/50 p-2 rounded-r-lg flex items-center justify-center gap-2">
-                            {fixture.away_team_name}
-                            <img src={fixture.away_team_logo || '/default-logo.png'} alt={fixture.away_team_name} className="w-4 h-4 object-contain" />
+                          <div className="font-bold text-white bg-slate-800/50 p-2 rounded-r-lg flex items-center justify-center gap-2 overflow-hidden">
+                            <span className="truncate">{fixture.away_team_name}</span>
+                            <img src={fixture.away_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-4 h-4 object-contain shrink-0" />
                           </div>
 
                           <div className="p-3 border-b border-slate-700 text-blue-400 font-mono">

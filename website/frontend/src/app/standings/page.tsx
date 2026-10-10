@@ -15,6 +15,7 @@ interface League {
 interface TeamStanding {
   rank: number;
   team: string;
+  logo: string | null;
   p: number;
   w: number;
   d: number;
@@ -170,7 +171,12 @@ export default function StandingsPage() {
                 {standings.map((team) => (
                   <tr key={team.team} className="hover:bg-slate-700/30 transition-colors">
                     <td className="px-4 py-3 text-center text-slate-400 font-mono">{team.rank}</td>
-                    <td className="px-4 py-3 font-bold text-white">{team.team}</td>
+                    <td className="px-4 py-3 font-bold text-white">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <img src={team.logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-5 h-5 object-contain shrink-0" />
+                        <span className="truncate">{team.team}</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-center">{team.p}</td>
                     <td className="px-4 py-3 text-center">{team.w}</td>
                     <td className="px-4 py-3 text-center">{team.d}</td>

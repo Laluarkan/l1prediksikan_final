@@ -19,6 +19,8 @@ interface MatchHistory {
   date: string;
   home_team_name: string;
   away_team_name: string;
+  home_team_logo: string | null;
+  away_team_logo: string | null;
   league_name: string;
   fthg: number | null;
   ftag: number | null;
@@ -336,12 +338,18 @@ export default function HistoryPage() {
                       <div className="space-y-1">
                         <div className="text-base font-bold text-white flex flex-col space-y-2">
                           <div className="flex justify-between items-center pr-4">
-                            <span>{match.home_team_name}</span>
-                            <span className="text-lg text-emerald-400 font-mono">{match.fthg !== null ? match.fthg : '-'}</span>
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <img src={match.home_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-5 h-5 object-contain shrink-0" />
+                              <span className="truncate">{match.home_team_name}</span>
+                            </div>
+                            <span className="text-lg text-emerald-400 font-mono pl-3">{match.fthg !== null ? match.fthg : '-'}</span>
                           </div>
                           <div className="flex justify-between items-center pr-4">
-                            <span>{match.away_team_name}</span>
-                            <span className="text-lg text-emerald-400 font-mono">{match.ftag !== null ? match.ftag : '-'}</span>
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <img src={match.away_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-5 h-5 object-contain shrink-0" />
+                              <span className="truncate">{match.away_team_name}</span>
+                            </div>
+                            <span className="text-lg text-emerald-400 font-mono pl-3">{match.ftag !== null ? match.ftag : '-'}</span>
                           </div>
                         </div>
                       </div>
