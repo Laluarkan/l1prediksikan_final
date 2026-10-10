@@ -17,6 +17,8 @@ class MatchHistorySerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
     home_team_name = serializers.CharField(source='home_team.name', read_only=True)
     away_team_name = serializers.CharField(source='away_team.name', read_only=True)
+    home_team_logo = serializers.URLField(source='home_team.logo_url', read_only=True)
+    away_team_logo = serializers.URLField(source='away_team.logo_url', read_only=True)
 
     class Meta:
         model = MatchHistory
@@ -26,6 +28,8 @@ class UpcomingFixtureSerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
     home_team_name = serializers.CharField(source='home_team.name', read_only=True)
     away_team_name = serializers.CharField(source='away_team.name', read_only=True)
+    home_team_logo = serializers.URLField(source='home_team.logo_url', read_only=True)
+    away_team_logo = serializers.URLField(source='away_team.logo_url', read_only=True)
 
     class Meta:
         model = UpcomingFixture

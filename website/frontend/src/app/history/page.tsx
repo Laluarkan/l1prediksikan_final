@@ -52,6 +52,7 @@ export default function HistoryPage() {
   const [bankroll, setBankroll] = useState<number>(500000);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLeague, setSelectedLeague] = useState('');
+  const [selectedSeason, setSelectedSeason] = useState('ALL');
   const [filterFtr, setFilterFtr] = useState(false);
   const [filterOu, setFilterOu] = useState(false);
   const [filterResult, setFilterResult] = useState('ALL');
@@ -59,6 +60,7 @@ export default function HistoryPage() {
   
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -70,22 +72,25 @@ export default function HistoryPage() {
   useEffect(() => {
     setLoading(true);
     const params: Record<string, any> = {
-      // Ambil seluruh data histori yang cocok filter dalam satu request (bukan
-      // cuma 20 data pertama dari default pagination backend), supaya filter
-      // "Musim Ini", sortir terbaru-duluan, dan pagination client-side di bawah
-      // bekerja pada dataset lengkap.
-      page_size: 1000,
+      page: currentPage,
+      page_size: itemsPerPage,
       ordering: '-date',
     };
     if (searchTerm) params.search = searchTerm;
     if (selectedLeague) params.league__code = selectedLeague;
+    if (selectedSeason !== 'ALL') params.season = selectedSeason;
+    if (filterResult !== 'ALL') params.filter_result = filterResult;
+    if (filterFtr) params.filter_ftr = 'true';
+    if (filterOu) params.filter_ou = 'true';
     
     api.get('/history/', { params })
       .then((res) => {
         if (res.data && res.data.results) {
           setHistory(res.data.results);
+          setTotalItems(res.data.count || 0);
         } else if (Array.isArray(res.data)) {
           setHistory(res.data);
+          setTotalItems(res.data.length);
         }
         setLoading(false);
       })
@@ -93,7 +98,7 @@ export default function HistoryPage() {
         console.error("Gagal memuat histori:", err);
         setLoading(false);
       });
-  }, [triggerFetch]);
+  }, [triggerFetch, currentPage]);
 
   const applyFilters = () => {
     setTriggerFetch((prev) => prev + 1);
@@ -109,54 +114,14 @@ export default function HistoryPage() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
   };
 
-  const sortedHistory = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  
-  const displayedHistory = sortedHistory.filter(h => {
-    const matchDate = new Date(h.date).getTime();
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); 
-    
-    const seasonStartYear = currentMonth >= 6 ? currentYear : currentYear - 1;
-    const seasonStartDate = new Date(seasonStartYear, 6, 1).getTime(); 
-    if (matchDate < seasonStartDate) return false; 
-    
-    if (filterFtr && (!h.rl_stake_ftr || h.rl_stake_ftr <= 0)) return false;
-    if (filterOu && (!h.rl_stake_ou || h.rl_stake_ou <= 0)) return false;
-    
-    if (filterResult !== 'ALL') {
-      const ftrValid = h.rl_stake_ftr > 0;
-      const ouValid = h.rl_stake_ou > 0;
-      
-      let isWon = false;
-      let isLost = false;
-      
-      if (ftrValid) {
-        if (h.is_won_ftr === true) isWon = true;
-        if (h.is_won_ftr === false) isLost = true;
-      }
-      if (ouValid) {
-        if (h.is_won_ou === true) isWon = true;
-        if (h.is_won_ou === false) isLost = true;
-      }
-      
-      if (filterResult === 'WON' && !isWon) return false;
-      if (filterResult === 'LOST' && !isLost) return false;
-    }
-    return true;
-  });
-
-  const totalPages = Math.ceil(displayedHistory.length / itemsPerPage);
-  const currentHistory = displayedHistory.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const currentHistory = history;
 
   return (
     <div className="max-w-7xl mx-auto pt-6 pb-12 px-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white tracking-wide">Match History</h1>
-        <p className="text-slate-300 text-sm mt-1">Evaluasi performa taruhan dan hasil pertandingan <span className="text-blue-400 font-semibold">Musim Ini</span> yang telah diproses oleh sistem.</p>
+        <p className="text-slate-300 text-sm mt-1">Evaluasi performa taruhan dan hasil pertandingan yang telah diproses oleh sistem.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -205,6 +170,23 @@ export default function HistoryPage() {
                   {leagues.map((l) => (
                     <option key={l.id} value={l.code}>{l.name} ({l.country})</option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="history-season-select" className="block text-[10px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Musim</label>
+                <select
+                  id="history-season-select"
+                  value={selectedSeason}
+                  onChange={(e) => setSelectedSeason(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
+                >
+                  <option value="ALL">Semua Musim</option>
+                  <option value="24/25">2024/2025</option>
+                  <option value="23/24">2023/2024</option>
+                  <option value="22/23">2022/2023</option>
+                  <option value="21/22">2021/2022</option>
+                  <option value="20/21">2020/2021</option>
                 </select>
               </div>
 
@@ -266,7 +248,7 @@ export default function HistoryPage() {
           {loading ? (
             <div className="text-center py-12 text-sm text-slate-400 bg-slate-800/50 border border-slate-700 rounded-xl">Memuat data histori...</div>
           ) : currentHistory.length === 0 ? (
-            <div className="text-center py-12 text-sm text-slate-400 bg-slate-800 border border-slate-700 rounded-xl">Tidak ada data historis musim ini yang sesuai dengan kriteria filter Anda.</div>
+            <div className="text-center py-12 text-sm text-slate-400 bg-slate-800 border border-slate-700 rounded-xl">Tidak ada data historis yang sesuai dengan kriteria filter Anda.</div>
           ) : (
             <>
               {totalPages > 1 && (

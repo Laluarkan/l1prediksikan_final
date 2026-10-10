@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -105,12 +106,49 @@ class TeamViewSet(viewsets.ReadOnlyModelViewSet):
 
 # PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
 class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = MatchHistory.objects.select_related('league', 'home_team', 'away_team').all()
     serializer_class = MatchHistorySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_won_ftr', 'is_won_ou']
     search_fields = ['home_team__name', 'away_team__name', 'parlay_ticket_info']
     ordering_fields = ['date']
+
+    def get_queryset(self):
+        queryset = MatchHistory.objects.select_related('league', 'home_team', 'away_team').all()
+        
+        season = self.request.query_params.get('season')
+        if season and season != 'ALL':
+            try:
+                if '/' in season:
+                    y1, y2 = season.split('/')
+                    start_year = 2000 + int(y1)
+                    end_year = 2000 + int(y2)
+                    start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
+                    end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
+                else:
+                    year = int(season)
+                    if year < 100:
+                        year += 2000
+                    start_date = timezone.make_aware(datetime.datetime(year, 1, 1))
+                    end_date = timezone.make_aware(datetime.datetime(year, 12, 31, 23, 59, 59))
+                queryset = queryset.filter(date__gte=start_date, date__lte=end_date)
+            except Exception:
+                pass
+
+        filter_result = self.request.query_params.get('filter_result')
+        if filter_result == 'WON':
+            queryset = queryset.filter(Q(is_won_ftr=True) | Q(is_won_ou=True))
+        elif filter_result == 'LOST':
+            queryset = queryset.filter(Q(is_won_ftr=False) | Q(is_won_ou=False))
+            
+        filter_ftr = self.request.query_params.get('filter_ftr')
+        if filter_ftr and filter_ftr.lower() == 'true':
+            queryset = queryset.filter(rl_stake_ftr__gt=0)
+            
+        filter_ou = self.request.query_params.get('filter_ou')
+        if filter_ou and filter_ou.lower() == 'true':
+            queryset = queryset.filter(rl_stake_ou__gt=0)
+
+        return queryset
 
 # PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
@@ -224,11 +262,19 @@ class PerformanceMetricsAPIView(APIView):
         
         if season != 'ALL':
             try:
-                y1, y2 = season.split('/')
-                start_year = 2000 + int(y1)
-                end_year = 2000 + int(y2)
-                start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
-                end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
+                if '/' in season:
+                    y1, y2 = season.split('/')
+                    start_year = 2000 + int(y1)
+                    end_year = 2000 + int(y2)
+                    start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
+                    end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
+                else:
+                    year = int(season)
+                    if year < 100:
+                        year += 2000
+                    start_date = timezone.make_aware(datetime.datetime(year, 1, 1))
+                    end_date = timezone.make_aware(datetime.datetime(year, 12, 31, 23, 59, 59))
+
                 history_qs = history_qs.filter(date__gte=start_date, date__lte=end_date)
                 parlay_qs = parlay_qs.filter(date__gte=start_date, date__lte=end_date)
             except Exception:
@@ -310,11 +356,18 @@ class LeagueStandingsAPIView(APIView):
             return Response([])
 
         try:
-            y1, y2 = season.split('/')
-            start_year = 2000 + int(y1)
-            end_year = 2000 + int(y2)
-            start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
-            end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
+            if '/' in season:
+                y1, y2 = season.split('/')
+                start_year = 2000 + int(y1)
+                end_year = 2000 + int(y2)
+                start_date = timezone.make_aware(datetime.datetime(start_year, 7, 1))
+                end_date = timezone.make_aware(datetime.datetime(end_year, 6, 30, 23, 59, 59))
+            else:
+                year = int(season)
+                if year < 100:
+                    year += 2000
+                start_date = timezone.make_aware(datetime.datetime(year, 1, 1))
+                end_date = timezone.make_aware(datetime.datetime(year, 12, 31, 23, 59, 59))
         except Exception:
             return Response([])
 

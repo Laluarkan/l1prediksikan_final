@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
@@ -50,7 +49,7 @@ export default function PerformanceSection() {
                 <DollarSign size={16} />
               </div>
               <div>
-                <p className="text-white text-xs font-semibold mb-0.5">Apa itu "Unit"?</p>
+                <p className="text-white text-xs font-semibold mb-0.5">Apa itu &quot;Unit&quot;?</p>
                 <p className="text-slate-400 text-[10px] md:text-xs leading-relaxed">
                   <strong>1 Unit</strong> mewakili ukuran taruhan standar Anda (misal: 1 Unit = Rp 50.000). Jika profit <strong>+10 Units</strong>, artinya Anda untung 10x lipat dari ukuran standar (Rp 500.000).
                 </p>

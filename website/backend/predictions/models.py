@@ -22,6 +22,10 @@ class League(models.Model):
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
     league = models.ForeignKey(League, on_delete=models.CASCADE, related_name='teams')
+    
+    # Integrasi API-Football
+    logo_url = models.URLField(max_length=500, null=True, blank=True)
+    api_football_id = models.IntegerField(null=True, blank=True, unique=True)
 
     def __str__(self):
         return self.name
@@ -73,6 +77,9 @@ class BaseMatch(models.Model):
 
     part_of_parlay = models.BooleanField(default=False)
     parlay_ticket_info = models.CharField(max_length=255, null=True, blank=True)
+
+    # Integrasi API-Football (Untuk ambil update skor/hasil live)
+    api_football_fixture_id = models.IntegerField(null=True, blank=True)
 
     extended_features = models.JSONField(default=dict, blank=True)
 

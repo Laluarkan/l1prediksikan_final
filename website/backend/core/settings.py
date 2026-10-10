@@ -13,6 +13,8 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,.l1prediksikan.my.id,.onrender.com').split(',')
 
+API_FOOTBALL_KEY = os.environ.get('API_FOOTBALL_KEY', '')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
