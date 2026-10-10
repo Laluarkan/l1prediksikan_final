@@ -332,17 +332,14 @@ export default function FixturesPage() {
 
                     <div id={`match-details-${fixture.id}`} className="p-5 grid grid-cols-1 lg:grid-cols-[1.5fr_2fr_1.5fr] gap-6 items-center">
                       <div className="space-y-1">
-                        <div className="text-base font-bold text-white flex flex-col space-y-2 lg:space-y-0 lg:flex-row lg:items-center w-full">
-                          <div className="flex items-center gap-3 w-full lg:w-[40%] justify-start lg:justify-end">
-                            <span className="text-right truncate flex-1 lg:flex-none">{fixture.home_team_name}</span>
-                            <img src={fixture.home_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-8 h-8 object-contain shrink-0" />
+                        <div className="text-base font-bold text-white flex flex-col space-y-3 w-full">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <img src={fixture.home_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-6 h-6 object-contain shrink-0" />
+                            <span className="truncate">{fixture.home_team_name}</span>
                           </div>
-                          
-                          <span className="text-[11px] text-slate-400 font-normal uppercase tracking-widest text-center w-full lg:w-[20%] py-1">vs</span>
-                          
-                          <div className="flex items-center gap-3 w-full lg:w-[40%] justify-start">
-                            <img src={fixture.away_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-8 h-8 object-contain shrink-0" />
-                            <span className="text-left truncate flex-1 lg:flex-none">{fixture.away_team_name}</span>
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <img src={fixture.away_team_logo || '/default-logo.svg'} alt="" onError={(e) => { e.currentTarget.src = '/default-logo.svg' }} className="w-6 h-6 object-contain shrink-0" />
+                            <span className="truncate">{fixture.away_team_name}</span>
                           </div>
                         </div>
                       </div>
