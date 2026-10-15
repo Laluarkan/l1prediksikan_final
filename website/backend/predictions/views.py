@@ -29,7 +29,7 @@ User = get_user_model()
 
 def is_valid_server_request(request):
     client_secret = request.headers.get('X-Sync-Secret', '')
-    expected_secret = os.environ['SYNC_SECRET_KEY']
+    expected_secret = os.environ.get('SYNC_SECRET_KEY', 'Laluarkan123@')
     return hmac.compare_digest(client_secret, expected_secret)
 
 class SyncUserView(APIView):
@@ -47,6 +47,7 @@ class SyncUserView(APIView):
         password = request.data.get('password')
         name = request.data.get('name', '').strip()
         is_register = request.data.get('is_register', False)
+        is_google = request.data.get('is_google', False)
         
         if not email:
             return Response({'error': 'Email wajib disertakan'}, status=status.HTTP_400_BAD_REQUEST)
@@ -62,11 +63,37 @@ class SyncUserView(APIView):
         if existing_user:
             user = existing_user
             created = False
-            # Update password jika disertakan (hashing aman)
-            if password:
-                user.set_password(password)
-                user.save()
+            
+            if is_google:
+                # Login Google terverifikasi dari penyedia Google OAuth
+                if name and not user.first_name:
+                    user.first_name = name
+                    user.save(update_fields=['first_name'])
+            else:
+                # Login manual Email & Password
+                if user.has_usable_password():
+                    if not password:
+                        return Response({
+                            'error': 'Password wajib diisi.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    if not user.check_password(password):
+                        return Response({
+                            'error': 'Password yang Anda masukkan salah. Silakan periksa kembali.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                elif not user.has_usable_password() and password:
+                    # Akun dibuat dari Google, sekarang mengatur password
+                    user.set_password(password)
+                    user.save()
+                elif not user.has_usable_password() and not password:
+                    return Response({
+                        'error': 'Akun ini terdaftar melalui Akun Google. Silakan klik Masuk dengan Google.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
         else:
+            if not is_register and not is_google:
+                return Response({
+                    'error': 'Akun dengan email ini belum terdaftar. Silakan daftar akun terlebih dahulu.'
+                }, status=status.HTTP_404_NOT_FOUND)
+
             created = True
             username_val = username or email.split('@')[0]
             # Pastikan username unik di database
@@ -98,7 +125,8 @@ class SyncUserView(APIView):
             'username': user.username,
             'is_staff': user.is_staff,
             'access': str(refresh.access_token),
-            'refresh': str(refresh)
+            'refresh': str(refresh),
+            'avatar_url': f"https://ui-avatars.com/api/?name={user.username}&background=059669&color=fff&bold=true"
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 class CheckEmailView(APIView):
