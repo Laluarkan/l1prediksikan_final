@@ -17,6 +17,7 @@ import {
   PerformanceData,
   fetchUpcomingFixtures,
   fetchPerformanceMetrics,
+  getCurrentSeason,
 } from '../services/api';
 
 interface HomeScreenProps {
@@ -29,11 +30,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const currentSeason = getCurrentSeason();
+  const seasonParts = currentSeason.split('/');
+  const seasonLabel = seasonParts.length === 2 ? `20${seasonParts[0]}/${seasonParts[1]}` : currentSeason;
+
   const loadData = useCallback(async () => {
     try {
       const [fixturesData, perfData] = await Promise.all([
         fetchUpcomingFixtures(),
-        fetchPerformanceMetrics(),
+        fetchPerformanceMetrics(currentSeason),
       ]);
       setFixtures(fixturesData);
       setPerformance(perfData);
@@ -43,7 +48,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [currentSeason]);
 
   useEffect(() => {
     loadData();
@@ -68,22 +73,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     }
   };
 
-  // Kalkulasi statistik dari data backend riil
-  const totalMatches = performance
-    ? (performance.ftr.wins + performance.ftr.losses).toLocaleString('id-ID')
-    : '13,400+';
+  // Kalkulasi statistik dari data backend riil musim terbaru saja untuk semua liga
+  const ftrWins = performance?.ftr.wins ?? 0;
+  const ftrLosses = performance?.ftr.losses ?? 0;
+  const totalMatchesCount = ftrWins + ftrLosses;
+
+  const totalMatches = performance ? totalMatchesCount.toLocaleString('id-ID') : '-';
 
   const winRate = performance
-    ? (
-        (performance.ftr.wins /
-          (performance.ftr.wins + performance.ftr.losses)) *
-        100
-      ).toFixed(1) + '%'
-    : '79.5%';
+    ? totalMatchesCount > 0
+      ? ((ftrWins / totalMatchesCount) * 100).toFixed(1) + '%'
+      : '0.0%'
+    : '-';
 
-  const profitUnit = performance
-    ? `+${Math.round(performance.ftr.unit_profit).toLocaleString('id-ID')}u`
-    : '+1,815u';
+  const profitVal = performance?.ftr.unit_profit;
+  const profitUnit = profitVal !== undefined
+    ? `${profitVal >= 0 ? '+' : ''}${Math.abs(profitVal) < 10 ? profitVal.toFixed(2) : Math.round(profitVal).toLocaleString('id-ID')}u`
+    : '-';
 
   // Ambil 3 pertandingan mendatang terdekat
   const featuredFixtures = fixtures.slice(0, 3);
@@ -132,21 +138,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         </View>
       </View>
 
-      {/* ================= STATISTIK RIIL BACKEND ================= */}
-      <View style={styles.statsStrip}>
-        <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{totalMatches}</Text>
-          <Text style={styles.statLabel}>Total Laga</Text>
+      {/* ================= STATISTIK RIIL MUSIM TERBARU ================= */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statsHeaderRow}>
+          <View style={styles.statsBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.statsBadgeText}>Performa Musim {seasonLabel} • Semua Liga</Text>
+          </View>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statNumber, { color: colors.primary }]}>{winRate}</Text>
-          <Text style={styles.statLabel}>Win Rate</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statNumber, { color: colors.primaryLight }]}>{profitUnit}</Text>
-          <Text style={styles.statLabel}>Net Profit</Text>
+
+        <View style={styles.statsStrip}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{totalMatches}</Text>
+            <Text style={styles.statLabel}>Total Laga</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.primary }]}>{winRate}</Text>
+            <Text style={styles.statLabel}>Win Rate</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text
+              style={[
+                styles.statNumber,
+                { color: profitVal !== undefined && profitVal < 0 ? '#F87171' : colors.primaryLight },
+              ]}
+            >
+              {profitUnit}
+            </Text>
+            <Text style={styles.statLabel}>Net Profit</Text>
+          </View>
         </View>
       </View>
 
@@ -400,6 +422,37 @@ const styles = StyleSheet.create({
   },
 
   /* Stats Strip */
+  statsContainer: {
+    gap: 8,
+  },
+  statsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 2,
+  },
+  statsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  statsBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
   statsStrip: {
     flexDirection: 'row',
     backgroundColor: colors.surface,

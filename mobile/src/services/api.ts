@@ -159,10 +159,29 @@ export const fetchUpcomingFixtures = async (params?: {
   return [];
 };
 
-export const fetchPerformanceMetrics = async (): Promise<PerformanceData | null> => {
+export const getCurrentSeason = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0 = Jan, 11 = Dec (7 = Aug)
+  
+  // Jika bulan Agustus (7) atau setelahnya, masuk musim tahun_ini/tahun_depan (misal: 26/27)
+  if (month >= 7) {
+    return `${year.toString().slice(-2)}/${(year + 1).toString().slice(-2)}`;
+  }
+  // Jika sebelum Agustus, masuk musim tahun_lalu/tahun_ini (misal: 25/26)
+  return `${(year - 1).toString().slice(-2)}/${year.toString().slice(-2)}`;
+};
+
+export const fetchPerformanceMetrics = async (
+  season?: string
+): Promise<PerformanceData | null> => {
+  const url = season
+    ? `${BASE_URL}/performance/?season=${encodeURIComponent(season)}`
+    : `${BASE_URL}/performance/`;
+
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(`${BASE_URL}/performance/`);
+      const response = await fetch(url);
       if (!response.ok) {
         if (attempt === 1 && response.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500));

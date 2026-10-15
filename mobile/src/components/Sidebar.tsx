@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { UserSession } from '../services/auth';
 import { TabType } from './BottomNav';
+import { APP_VERSION, APP_NAME } from '../config/version';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(width * 0.78, 300);
@@ -262,7 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Ionicons name="log-out-outline" size={20} color="#EF4444" />
               <Text style={styles.logoutText}>Keluar Akun</Text>
             </TouchableOpacity>
-            <Text style={styles.versionText}>Prediksikan Mobile v1.0.0</Text>
+            <Text style={styles.versionText}>{APP_NAME} Mobile v{APP_VERSION}</Text>
           </View>
         </View>
       </View>
