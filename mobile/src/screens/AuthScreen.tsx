@@ -22,17 +22,20 @@ import {
   checkEmailExists,
   saveUserSession,
 } from '../services/auth';
+import { GoogleAuthModal } from '../components/modals/GoogleAuthModal';
 
 interface AuthScreenProps {
   onSuccess: (session: UserSession) => void;
+  onClose?: () => void;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) => {
   const [mode, setMode] = useState<'register' | 'login'>('register');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
 
   // Status Validasi Live Email
   const [isEmailChecking, setIsEmailChecking] = useState(false);
@@ -189,27 +192,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
   // Login Cepat via Google (Gmail) - Password TIDAK disertakan
   const handleGoogleAuth = () => {
-    Alert.prompt
-      ? Alert.prompt(
-          'Masuk dengan Akun Google',
-          'Masukkan alamat Gmail Anda (otentikasi Google tanpa password):',
-          [
-            { text: 'Batal', style: 'cancel' },
-            {
-              text: 'Lanjutkan',
-              onPress: async (inputEmail?: string) => {
-                if (!inputEmail || !isValidEmailFormat(inputEmail)) {
-                  setErrorMessage('Alamat email Google tidak valid.');
-                  return;
-                }
-                executeGoogleSync(inputEmail.trim());
-              },
-            },
-          ],
-          'plain-text',
-          email.includes('@gmail.com') ? email : ''
-        )
-      : executeGoogleSync(email.trim() || 'pengguna.google@gmail.com');
+    setShowGoogleModal(true);
   };
 
   const executeGoogleSync = async (googleEmail: string) => {
@@ -220,6 +203,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
     setLoading(false);
 
     if (res.success && res.session) {
+      setShowGoogleModal(false);
       setSuccessMessage('Akun Google berhasil terhubung!');
       setTimeout(() => {
         onSuccess(res.session!);
@@ -259,6 +243,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       >
         {/* Header: Logo & Judul */}
         <View style={styles.headerBox}>
+          {onClose ? (
+            <TouchableOpacity style={styles.topCloseBtn} onPress={onClose} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
+
           <Image
             source={require('../../assets/logo.png')}
             style={styles.logoImage}
@@ -557,6 +547,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Modal Masuk dengan Akun Google */}
+      <GoogleAuthModal
+        visible={showGoogleModal}
+        onClose={() => setShowGoogleModal(false)}
+        onSubmit={executeGoogleSync}
+        loading={loading}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -568,6 +566,15 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
+  },
+  topCloseBtn: {
+    position: 'absolute',
+    top: -10,
+    right: 0,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#1E293B',
+    zIndex: 10,
   },
   contentContainer: {
     paddingHorizontal: 22,

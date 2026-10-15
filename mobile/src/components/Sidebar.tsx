@@ -9,6 +9,7 @@ import {
   Dimensions,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -27,7 +28,11 @@ interface SidebarProps {
   onNavigate: (tab: TabType) => void;
   onLogout: () => void;
   onShowOnboarding?: () => void;
-  onOpenPerintilan?: (featureName: string) => void;
+  onOpenProfile: () => void;
+  onOpenNotifications: () => void;
+  onOpenGuide: () => void;
+  onOpenAbout: () => void;
+  onOpenAuth: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,7 +43,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   onLogout,
   onShowOnboarding,
-  onOpenPerintilan,
+  onOpenProfile,
+  onOpenNotifications,
+  onOpenGuide,
+  onOpenAbout,
+  onOpenAuth,
 }) => {
   const getInitials = (name?: string) => {
     if (!name) return 'U';
@@ -52,14 +61,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleSelectTab = (tab: TabType) => {
     onNavigate(tab);
     onClose();
-  };
-
-  const handlePerintilanPress = (title: string) => {
-    if (onOpenPerintilan) {
-      onOpenPerintilan(title);
-    } else {
-      Alert.alert(title, `Fitur ${title} akan kita lengkapi pada langkah perintilan selanjutnya.`);
-    }
   };
 
   const handleLogoutPress = () => {
@@ -97,9 +98,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <View style={styles.drawerContainer}>
           {/* User Profile Card */}
           <View style={styles.profileSection}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-            </View>
+            {user?.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+              </View>
+            )}
             <View style={styles.profileInfo}>
               <Text style={styles.userName} numberOfLines={1}>
                 {user?.name || 'Pengguna'}
@@ -205,19 +210,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => handlePerintilanPress('Profil & Akun Saya')}
+                onPress={() => {
+                  onClose();
+                  onOpenProfile();
+                }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="person-outline" size={20} color={colors.textMuted} />
+                <Ionicons name="person-outline" size={20} color={colors.primaryLight} />
                 <Text style={styles.menuItemText}>Profil & Akun</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => handlePerintilanPress('Pengaturan Notifikasi')}
+                onPress={() => {
+                  onClose();
+                  onOpenNotifications();
+                }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="notifications-outline" size={20} color={colors.textMuted} />
+                <Ionicons name="notifications-outline" size={20} color="#F59E0B" />
                 <Text style={styles.menuItemText}>Notifikasi Jadwal</Text>
               </TouchableOpacity>
 
@@ -229,41 +240,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="sparkles-outline" size={20} color={colors.primaryLight} />
+                <Ionicons name="sparkles-outline" size={20} color="#38BDF8" />
                 <Text style={styles.menuItemText}>Tur Pengenalan Aplikasi</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => handlePerintilanPress('Panduan Odds & Value')}
+                onPress={() => {
+                  onClose();
+                  onOpenGuide();
+                }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="book-outline" size={20} color={colors.textMuted} />
+                <Ionicons name="book-outline" size={20} color="#818CF8" />
                 <Text style={styles.menuItemText}>Panduan Nilai Taruhan</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => handlePerintilanPress('Tentang Aplikasi & Privasi')}
+                onPress={() => {
+                  onClose();
+                  onOpenAbout();
+                }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="shield-checkmark-outline" size={20} color={colors.textMuted} />
+                <Ionicons name="shield-checkmark-outline" size={20} color="#10B981" />
                 <Text style={styles.menuItemText}>Tentang & Privasi</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
 
-          {/* Bottom Logout Button */}
+          {/* Bottom Section: Logout or Guest Login Button */}
           <View style={styles.bottomSection}>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogoutPress}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-              <Text style={styles.logoutText}>Keluar Akun</Text>
-            </TouchableOpacity>
-            <Text style={styles.versionText}>{APP_NAME} Mobile v{APP_VERSION}</Text>
+            {user?.isGuest ? (
+              <TouchableOpacity
+                style={styles.guestLoginBtn}
+                onPress={() => {
+                  onClose();
+                  onOpenAuth();
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-in-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.guestLoginText}>Masuk / Daftar Akun</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogoutPress}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                <Text style={styles.logoutText}>Keluar Akun</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={styles.versionText}>{APP_NAME} v{APP_VERSION}</Text>
           </View>
         </View>
       </View>
@@ -404,6 +435,20 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     gap: 8,
   },
+  guestLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  guestLoginText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -418,5 +463,12 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 10,
     color: colors.textMuted,
+  },
+  avatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
 });

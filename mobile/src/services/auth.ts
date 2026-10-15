@@ -186,6 +186,7 @@ export const registerAccount = async (
       isStaff: data.is_staff ?? false,
       accessToken: data.access,
       refreshToken: data.refresh,
+      avatarUrl: data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanUsername)}&background=059669&color=fff&bold=true`,
       provider: 'email',
     };
 
@@ -271,6 +272,7 @@ export const loginAccount = async (
       isStaff: data.is_staff ?? false,
       accessToken: data.access,
       refreshToken: data.refresh,
+      avatarUrl: data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.username || fallbackUsername)}&background=059669&color=fff&bold=true`,
       provider: 'email',
     };
 
@@ -334,6 +336,7 @@ export const syncGoogleAccount = async (
       isStaff: data.is_staff ?? false,
       accessToken: data.access,
       refreshToken: data.refresh,
+      avatarUrl: data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName || cleanEmail.split('@')[0])}&background=059669&color=fff&bold=true`,
       provider: 'google',
     };
 

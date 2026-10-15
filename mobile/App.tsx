@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
@@ -13,6 +13,10 @@ import { StandingsScreen } from './src/screens/StandingsScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { ProfileModal } from './src/components/modals/ProfileModal';
+import { NotificationsModal } from './src/components/modals/NotificationsModal';
+import { OddsGuideModal } from './src/components/modals/OddsGuideModal';
+import { AboutModal } from './src/components/modals/AboutModal';
 import {
   UserSession,
   getHasSeenOnboarding,
@@ -27,6 +31,13 @@ export default function App() {
   const [user, setUser] = useState<UserSession | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(false);
+
+  // Modal States untuk Fitur Pengaturan & Lainnya
+  const [profileVisible, setProfileVisible] = useState(false);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [guideVisible, setGuideVisible] = useState(false);
+  const [aboutVisible, setAboutVisible] = useState(false);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
 
   // Periksa status onboarding & sesi login saat aplikasi dibuka
   useEffect(() => {
@@ -66,6 +77,7 @@ export default function App() {
   // Handler saat login berhasil
   const handleAuthSuccess = (session: UserSession) => {
     setUser(session);
+    setAuthModalVisible(false);
     setAppFlow('main');
   };
 
@@ -117,8 +129,17 @@ export default function App() {
         {/* 4. MAIN APP WITH HEADER, SIDEBAR, & BOTTOM NAV */}
         {appFlow === 'main' ? (
           <View style={styles.mainContainer}>
-            {/* Top App Header with Sidebar Hamburger Toggle */}
-            <Header onOpenSidebar={() => setSidebarVisible(true)} />
+            {/* Top App Header with Modern Login or User Dropdown */}
+            <Header
+              onOpenSidebar={() => setSidebarVisible(true)}
+              user={user}
+              onOpenAuth={() => setAuthModalVisible(true)}
+              onLogout={handleLogout}
+              onOpenProfile={() => setProfileVisible(true)}
+              onOpenNotifications={() => setNotificationsVisible(true)}
+              onOpenGuide={() => setGuideVisible(true)}
+              onOpenAbout={() => setAboutVisible(true)}
+            />
 
             {/* Dynamic Screen Content */}
             <View style={styles.contentContainer}>{renderScreen()}</View>
@@ -135,7 +156,50 @@ export default function App() {
               onNavigate={setActiveTab}
               onLogout={handleLogout}
               onShowOnboarding={() => setAppFlow('onboarding')}
+              onOpenProfile={() => setProfileVisible(true)}
+              onOpenNotifications={() => setNotificationsVisible(true)}
+              onOpenGuide={() => setGuideVisible(true)}
+              onOpenAbout={() => setAboutVisible(true)}
+              onOpenAuth={() => setAuthModalVisible(true)}
             />
+
+            {/* Modals Pengaturan & Lainnya */}
+            <ProfileModal
+              visible={profileVisible}
+              onClose={() => setProfileVisible(false)}
+              user={user}
+              onLogout={handleLogout}
+              onUpdateUser={(updated) => setUser(updated)}
+            />
+
+            <NotificationsModal
+              visible={notificationsVisible}
+              onClose={() => setNotificationsVisible(false)}
+            />
+
+            <OddsGuideModal
+              visible={guideVisible}
+              onClose={() => setGuideVisible(false)}
+            />
+
+            <AboutModal
+              visible={aboutVisible}
+              onClose={() => setAboutVisible(false)}
+            />
+
+            {/* Modal Auth ketika dibuka dari dalam aplikasi utama */}
+            <Modal
+              visible={authModalVisible}
+              animationType="slide"
+              onRequestClose={() => setAuthModalVisible(false)}
+            >
+              <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+                <AuthScreen
+                  onSuccess={handleAuthSuccess}
+                  onClose={() => setAuthModalVisible(false)}
+                />
+              </SafeAreaView>
+            </Modal>
           </View>
         ) : null}
       </SafeAreaView>

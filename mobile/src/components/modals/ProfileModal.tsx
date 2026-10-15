@@ -1,0 +1,525 @@
+import React, { useState } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  TextInput,
+  Image,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme/colors';
+import { UserSession, saveUserSession } from '../../services/auth';
+
+interface ProfileModalProps {
+  visible: boolean;
+  onClose: () => void;
+  user: UserSession | null;
+  onLogout: () => void;
+  onUpdateUser?: (updated: UserSession) => void;
+}
+
+export const ProfileModal: React.FC<ProfileModalProps> = ({
+  visible,
+  onClose,
+  user,
+  onLogout,
+  onUpdateUser,
+}) => {
+  const [displayName, setDisplayName] = useState(user?.name || '');
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'P';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
+
+  const handleSaveName = async () => {
+    if (!displayName.trim()) {
+      Alert.alert('Perhatian', 'Nama tampilan tidak boleh kosong.');
+      return;
+    }
+
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const updatedUser: UserSession = {
+        ...user,
+        name: displayName.trim(),
+      };
+      await saveUserSession(updatedUser);
+      if (onUpdateUser) onUpdateUser(updatedUser);
+      setIsEditing(false);
+      Alert.alert('Berhasil', 'Nama profil Anda berhasil diperbarui!');
+    } catch {
+      Alert.alert('Gagal', 'Terjadi kesalahan saat menyimpan profil.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLogoutConfirm = () => {
+    Alert.alert(
+      'Konfirmasi Keluar',
+      'Apakah Anda yakin ingin keluar dari akun ini?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Keluar',
+          style: 'destructive',
+          onPress: () => {
+            onClose();
+            onLogout();
+          },
+        },
+      ]
+    );
+  };
+
+  const isGoogle = user?.provider === 'google' || user?.email?.includes('@gmail.com');
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerTitleRow}>
+              <View style={styles.headerIconContainer}>
+                <Ionicons name="person-circle" size={24} color={colors.primary} />
+              </View>
+              <Text style={styles.headerTitle}>Profil & Akun Saya</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+            {/* User Identity Card */}
+            <View style={styles.profileCard}>
+              <View style={styles.avatarContainer}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarInitial}>{getInitials(user?.name)}</Text>
+                  </View>
+                )}
+                <View style={styles.onlineBadge} />
+              </View>
+
+              <Text style={styles.userName}>{user?.name || 'Pengguna'}</Text>
+              <Text style={styles.userEmail}>{user?.email || 'tamu@prediksikan.id'}</Text>
+
+              <View style={styles.badgeRow}>
+                {user?.isGuest ? (
+                  <View style={[styles.pillBadge, { backgroundColor: '#334155' }]}>
+                    <Ionicons name="compass-outline" size={12} color="#94A3B8" />
+                    <Text style={[styles.pillText, { color: '#94A3B8' }]}>Akses Tamu</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.pillBadge, { backgroundColor: '#064E3B60', borderColor: '#059669' }]}>
+                    <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                    <Text style={[styles.pillText, { color: '#10B981' }]}>
+                      {isGoogle ? 'Member Google' : 'Member Terverifikasi'}
+                    </Text>
+                  </View>
+                )}
+
+                {user?.isStaff ? (
+                  <View style={[styles.pillBadge, { backgroundColor: '#7C2D1250', borderColor: '#EA580C' }]}>
+                    <Ionicons name="shield-checkmark" size={12} color="#FB923C" />
+                    <Text style={[styles.pillText, { color: '#FB923C' }]}>Admin</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Account Details */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>INFORMASI DETAIL AKUN</Text>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Username</Text>
+                <Text style={styles.detailValue}>@{user?.username || user?.name?.toLowerCase().replace(/\s+/g, '_') || 'tamu'}</Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Metode Masuk</Text>
+                <View style={styles.providerBadge}>
+                  {isGoogle ? (
+                    <>
+                      <Ionicons name="logo-google" size={13} color="#EA4335" />
+                      <Text style={styles.providerText}>Google OAuth (Gmail)</Text>
+                    </>
+                  ) : user?.isGuest ? (
+                    <>
+                      <Ionicons name="compass-outline" size={13} color="#94A3B8" />
+                      <Text style={styles.providerText}>Tamu (Guest)</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name="mail-outline" size={13} color="#10B981" />
+                      <Text style={styles.providerText}>Email & Password Terenkripsi</Text>
+                    </>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Sinkronisasi Server</Text>
+                <View style={styles.syncStatusRow}>
+                  <View style={styles.syncDot} />
+                  <Text style={styles.syncText}>PostgreSQL Render Terhubung</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Edit Display Name */}
+            {!user?.isGuest && (
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>UBAH NAMA TAMPILAN</Text>
+                {isEditing ? (
+                  <View style={styles.editContainer}>
+                    <TextInput
+                      style={styles.inputField}
+                      value={displayName}
+                      onChangeText={setDisplayName}
+                      placeholder="Masukkan nama baru"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <View style={styles.editActionRow}>
+                      <TouchableOpacity
+                        style={styles.cancelEditBtn}
+                        onPress={() => {
+                          setDisplayName(user?.name || '');
+                          setIsEditing(false);
+                        }}
+                      >
+                        <Text style={styles.cancelEditText}>Batal</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.saveEditBtn}
+                        onPress={handleSaveName}
+                        disabled={saving}
+                      >
+                        <Text style={styles.saveEditText}>{saving ? 'Menyimpan...' : 'Simpan'}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.readOnlyNameRow}>
+                    <Text style={styles.readOnlyName}>{user?.name}</Text>
+                    <TouchableOpacity
+                      style={styles.editToggleBtn}
+                      onPress={() => setIsEditing(true)}
+                    >
+                      <Ionicons name="pencil-outline" size={15} color={colors.primaryLight} />
+                      <Text style={styles.editToggleText}>Ubah</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Logout Button */}
+            <TouchableOpacity
+              style={styles.logoutBtn}
+              onPress={handleLogoutConfirm}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="log-out-outline" size={18} color="#EF4444" />
+              <Text style={styles.logoutBtnText}>Keluar dari Akun</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: '#00000088',
+    justifyContent: 'flex-end',
+  },
+  container: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    borderTopWidth: 1,
+    borderColor: colors.border,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#064E3B40',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  closeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+  },
+  body: {
+    paddingHorizontal: 18,
+  },
+  bodyContent: {
+    paddingVertical: 18,
+    gap: 14,
+  },
+  profileCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  avatarImg: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  avatarPlaceholder: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: colors.primaryDark,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  onlineBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: 10,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 5,
+  },
+  pillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  sectionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 4,
+  },
+  providerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  providerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  syncStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  syncDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#10B981',
+  },
+  syncText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  readOnlyNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  readOnlyName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  editToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  editToggleText: {
+    fontSize: 12,
+    color: colors.primaryLight,
+    fontWeight: '600',
+  },
+  editContainer: {
+    gap: 10,
+  },
+  inputField: {
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  editActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  cancelEditBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+  },
+  cancelEditText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  saveEditBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  saveEditText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7F1D1D25',
+    borderWidth: 1,
+    borderColor: '#EF444450',
+    borderRadius: 12,
+    paddingVertical: 13,
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  logoutBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+});
