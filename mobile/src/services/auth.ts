@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface UserSession {
+  username?: string;
   name: string;
   email: string;
   isGuest: boolean;
@@ -13,7 +14,7 @@ export interface UserSession {
 }
 
 export interface UserAccount {
-  name: string;
+  username: string;
   email: string;
   userId?: number;
   createdAt: string;
@@ -26,7 +27,7 @@ const STORAGE_KEYS = {
 };
 
 // URL API Sinkronisasi Backend Django (Render + Neon PostgreSQL)
-const BACKEND_SYNC_URL = 'https://l1prediksi-api.onrender.com/api/sync-user/';
+const BACKEND_BASE_URL = 'https://l1prediksi-api.onrender.com/api';
 const SYNC_SECRET_KEY = 'Laluarkan123@';
 
 // ================= ONBOARDING STATE =================
@@ -100,28 +101,70 @@ export interface AuthResult {
 }
 
 /**
- * Mendaftarkan akun baru:
- * Mengirim data Nama Lengkap & Email ke backend Django & Database Neon PostgreSQL.
- * Sesuai arsitektur web L1 Prediksi-Kan tanpa password rumit.
+ * Validasi Live: Memeriksa apakah email sudah terdaftar di database server.
+ */
+export const checkEmailExists = async (email: string): Promise<boolean> => {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch(
+      `${BACKEND_BASE_URL}/check-email/?email=${encodeURIComponent(cleanEmail)}`,
+      {
+        method: 'GET',
+        headers: {
+          'X-Sync-Secret': SYNC_SECRET_KEY,
+        },
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      return data.exists === true;
+    }
+  } catch (err) {
+    // Abaikan jika network timeout / offline
+  }
+
+  // Fallback: periksa daftar user di cache lokal jika server tidak merespons
+  try {
+    const localUsers = await getRegisteredUsers();
+    return localUsers.some((u) => u.email.toLowerCase() === cleanEmail);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Mendaftarkan akun baru ke backend Django & Database Neon PostgreSQL.
+ * Input: username, email, password (terenkripsi di database server).
  */
 export const registerAccount = async (
-  name: string,
-  email: string
+  username: string,
+  email: string,
+  password: string
 ): Promise<AuthResult> => {
-  const cleanName = name.trim();
+  const cleanUsername = username.trim().toLowerCase();
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    // 1. Kirim request registrasi langsung ke backend Django (Render)
-    const response = await fetch(BACKEND_SYNC_URL, {
+    const response = await fetch(`${BACKEND_BASE_URL}/sync-user/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Sync-Secret': SYNC_SECRET_KEY,
       },
       body: JSON.stringify({
-        name: cleanName,
+        username: cleanUsername,
         email: cleanEmail,
+        password: password,
+        name: cleanUsername,
+        is_register: true,
       }),
     });
 
@@ -130,13 +173,13 @@ export const registerAccount = async (
     if (!response.ok) {
       return {
         success: false,
-        message: data.error || data.detail || 'Gagal mendaftarkan akun ke server. Silakan coba lagi.',
+        message: data.error || data.detail || 'Pendaftaran gagal. Silakan coba lagi.',
       };
     }
 
-    // 2. Format sesi login dari data database
     const session: UserSession = {
-      name: cleanName,
+      username: data.username || cleanUsername,
+      name: data.username || cleanUsername,
       email: cleanEmail,
       isGuest: false,
       userId: data.user_id,
@@ -146,16 +189,15 @@ export const registerAccount = async (
       provider: 'email',
     };
 
-    // 3. Simpan sesi aktif ke AsyncStorage
     await saveUserSession(session);
 
-    // 4. Update cache daftar user lokal
+    // Simpan ke cache lokal
     try {
       const existingUsers = await getRegisteredUsers();
       const updatedList = [
         ...existingUsers.filter((u) => u.email.toLowerCase() !== cleanEmail),
         {
-          name: cleanName,
+          username: cleanUsername,
           email: cleanEmail,
           userId: data.user_id,
           createdAt: new Date().toISOString(),
@@ -169,13 +211,9 @@ export const registerAccount = async (
       console.warn('Gagal mengupdate cache user lokal:', e);
     }
 
-    const message = response.status === 201
-      ? 'Akun berhasil didaftarkan dan tersimpan di database server!'
-      : 'Akun Anda sudah terdaftar dan berhasil disinkronisasi!';
-
     return {
       success: true,
-      message,
+      message: 'Akun Anda berhasil didaftarkan!',
       session,
     };
   } catch (error) {
@@ -188,19 +226,20 @@ export const registerAccount = async (
 };
 
 /**
- * Masuk ke akun menggunakan Alamat Email yang terdaftar di database server.
+ * Masuk ke akun menggunakan Alamat Email dan Password.
  */
-export const loginAccount = async (email: string): Promise<AuthResult> => {
+export const loginAccount = async (
+  email: string,
+  password?: string
+): Promise<AuthResult> => {
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    // Cek apakah ada nama tersimpan di cache lokal
     const localUsers = await getRegisteredUsers();
     const matchedUser = localUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-    const fallbackName = matchedUser?.name || cleanEmail.split('@')[0];
+    const fallbackUsername = matchedUser?.username || cleanEmail.split('@')[0];
 
-    // Sinkronisasi/Verifikasi dengan database backend
-    const response = await fetch(BACKEND_SYNC_URL, {
+    const response = await fetch(`${BACKEND_BASE_URL}/sync-user/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -208,7 +247,9 @@ export const loginAccount = async (email: string): Promise<AuthResult> => {
       },
       body: JSON.stringify({
         email: cleanEmail,
-        name: fallbackName,
+        password: password,
+        name: fallbackUsername,
+        username: fallbackUsername,
       }),
     });
 
@@ -217,12 +258,13 @@ export const loginAccount = async (email: string): Promise<AuthResult> => {
     if (!response.ok) {
       return {
         success: false,
-        message: data.error || data.detail || 'Email tidak dapat diverifikasi oleh server.',
+        message: data.error || data.detail || 'Email atau password tidak dapat diverifikasi oleh server.',
       };
     }
 
     const session: UserSession = {
-      name: fallbackName,
+      username: data.username || fallbackUsername,
+      name: data.username || fallbackUsername,
       email: cleanEmail,
       isGuest: false,
       userId: data.user_id,
@@ -250,7 +292,7 @@ export const loginAccount = async (email: string): Promise<AuthResult> => {
 
 /**
  * Autentikasi Cepat dengan Google (Gmail)
- * Terhubung langsung ke database backend via SyncUserView
+ * Sesuai ketentuan: jika login menggunakan akun google, password TIDAK disertakan.
  */
 export const syncGoogleAccount = async (
   name: string,
@@ -260,7 +302,7 @@ export const syncGoogleAccount = async (
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    const response = await fetch(BACKEND_SYNC_URL, {
+    const response = await fetch(`${BACKEND_BASE_URL}/sync-user/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -269,6 +311,8 @@ export const syncGoogleAccount = async (
       body: JSON.stringify({
         name: cleanName,
         email: cleanEmail,
+        username: cleanEmail.split('@')[0],
+        // Password TIDAK disertakan
       }),
     });
 
@@ -282,7 +326,8 @@ export const syncGoogleAccount = async (
     }
 
     const session: UserSession = {
-      name: cleanName,
+      username: data.username || cleanEmail.split('@')[0],
+      name: cleanName || cleanEmail.split('@')[0],
       email: cleanEmail,
       isGuest: false,
       userId: data.user_id,

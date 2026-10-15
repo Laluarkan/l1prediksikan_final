@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
   registerAccount,
   loginAccount,
   syncGoogleAccount,
+  checkEmailExists,
   saveUserSession,
 } from '../services/auth';
 
@@ -28,35 +29,97 @@ interface AuthScreenProps {
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [mode, setMode] = useState<'register' | 'login'>('register');
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Status Validasi Live Email
+  const [isEmailChecking, setIsEmailChecking] = useState(false);
+  const [emailWarning, setEmailWarning] = useState('');
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   // Validasi format email standar
-  const isValidEmail = (str: string) => {
+  const isValidEmailFormat = (str: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(str.trim());
   };
+
+  // Checklist Ketentuan Keamanan Password (Live)
+  const hasMinLength = password.length >= 8;
+  const hasNumber = /\d/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const isPasswordSecure = hasMinLength && hasNumber && hasUppercase && hasLowercase;
+
+  // Live Email Validation: Memeriksa apakah email sudah terdaftar di database server
+  useEffect(() => {
+    const trimmed = email.trim().toLowerCase();
+
+    // Reset warning jika kosong atau tidak valid
+    if (!trimmed || !isValidEmailFormat(trimmed)) {
+      setEmailWarning('');
+      setIsEmailChecking(false);
+      return;
+    }
+
+    // Hanya lakukan pengecekan duplikasi pada mode register
+    if (mode !== 'register') {
+      setEmailWarning('');
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    setIsEmailChecking(true);
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const exists = await checkEmailExists(trimmed);
+        if (exists) {
+          setEmailWarning('Email ini sudah terdaftar. Silakan gunakan email lain atau masuk ke akun Anda.');
+        } else {
+          setEmailWarning('');
+        }
+      } catch {
+        setEmailWarning('');
+      } finally {
+        setIsEmailChecking(false);
+      }
+    }, 450);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [email, mode]);
 
   // Submit Handler: Register atau Login
   const handleSubmit = async () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    const trimmedEmail = email.trim();
-    const trimmedName = name.trim();
+    const trimmedUsername = username.trim().toLowerCase();
+    const trimmedEmail = email.trim().toLowerCase();
 
     if (mode === 'register') {
-      // ===== VALIDASI FORM REGISTER (SESUAI WEB) =====
-      if (!trimmedName) {
-        setErrorMessage('Nama lengkap wajib diisi.');
+      // ===== VALIDASI FORM REGISTER =====
+      if (!trimmedUsername) {
+        setErrorMessage('Username wajib diisi.');
         return;
       }
-      if (trimmedName.length < 2) {
-        setErrorMessage('Nama minimal terdiri dari 2 karakter.');
+      if (trimmedUsername.length < 3) {
+        setErrorMessage('Username minimal terdiri dari 3 karakter.');
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
+        setErrorMessage('Username hanya boleh memuat huruf, angka, dan garis bawah (_).');
         return;
       }
 
@@ -64,61 +127,78 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         setErrorMessage('Alamat email wajib diisi.');
         return;
       }
-      if (!isValidEmail(trimmedEmail)) {
+      if (!isValidEmailFormat(trimmedEmail)) {
         setErrorMessage('Format email tidak valid (contoh: nama@gmail.com).');
+        return;
+      }
+      if (emailWarning) {
+        setErrorMessage('Silakan gunakan email lain yang belum terdaftar.');
+        return;
+      }
+
+      if (!password) {
+        setErrorMessage('Password wajib diisi.');
+        return;
+      }
+      if (!isPasswordSecure) {
+        setErrorMessage('Password belum memenuhi seluruh ketentuan keamanan di bawah kolom.');
         return;
       }
 
       setLoading(true);
-      const res = await registerAccount(trimmedName, trimmedEmail);
+      const res = await registerAccount(trimmedUsername, trimmedEmail, password);
       setLoading(false);
 
       if (res.success && res.session) {
-        setSuccessMessage(res.message || 'Akun Anda berhasil disimpan di database!');
+        setSuccessMessage('Akun Anda berhasil didaftarkan! Mengalihkan...');
         setTimeout(() => {
           onSuccess(res.session!);
-        }, 600);
+        }, 500);
       } else {
         setErrorMessage(res.message || 'Registrasi gagal. Silakan coba lagi.');
       }
     } else {
       // ===== VALIDASI FORM LOGIN =====
       if (!trimmedEmail) {
-        setErrorMessage('Silakan isi alamat email Anda.');
+        setErrorMessage('Silakan masukkan alamat email Anda.');
         return;
       }
-      if (!isValidEmail(trimmedEmail)) {
+      if (!isValidEmailFormat(trimmedEmail)) {
         setErrorMessage('Format email tidak valid (contoh: nama@gmail.com).');
+        return;
+      }
+      if (!password) {
+        setErrorMessage('Silakan masukkan password Anda.');
         return;
       }
 
       setLoading(true);
-      const res = await loginAccount(trimmedEmail);
+      const res = await loginAccount(trimmedEmail, password);
       setLoading(false);
 
       if (res.success && res.session) {
         setSuccessMessage('Berhasil masuk! Memuat data...');
         setTimeout(() => {
           onSuccess(res.session!);
-        }, 500);
+        }, 400);
       } else {
-        setErrorMessage(res.message || 'Gagal masuk. Periksa kembali email Anda.');
+        setErrorMessage(res.message || 'Gagal masuk. Periksa kembali email dan password Anda.');
       }
     }
   };
 
-  // Login Cepat via Google / Gmail (Tersinkron ke Database Backend)
+  // Login Cepat via Google (Gmail) - Password TIDAK disertakan
   const handleGoogleAuth = () => {
     Alert.prompt
       ? Alert.prompt(
           'Masuk dengan Akun Google',
-          'Masukkan alamat Gmail Anda untuk sinkronisasi otomatis dengan database:',
+          'Masukkan alamat Gmail Anda (otentikasi Google tanpa password):',
           [
             { text: 'Batal', style: 'cancel' },
             {
-              text: 'Masuk & Sinkron',
+              text: 'Lanjutkan',
               onPress: async (inputEmail?: string) => {
-                if (!inputEmail || !isValidEmail(inputEmail)) {
+                if (!inputEmail || !isValidEmailFormat(inputEmail)) {
                   setErrorMessage('Alamat email Google tidak valid.');
                   return;
                 }
@@ -135,15 +215,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const executeGoogleSync = async (googleEmail: string) => {
     setLoading(true);
     setErrorMessage('');
-    const googleName = name.trim() || googleEmail.split('@')[0];
+    const googleName = username.trim() || googleEmail.split('@')[0];
     const res = await syncGoogleAccount(googleName, googleEmail);
     setLoading(false);
 
     if (res.success && res.session) {
-      setSuccessMessage('Akun Google berhasil terhubung ke database!');
+      setSuccessMessage('Akun Google berhasil terhubung!');
       setTimeout(() => {
         onSuccess(res.session!);
-      }, 500);
+      }, 400);
     } else {
       setErrorMessage(res.message || 'Gagal menyinkronkan akun Google.');
     }
@@ -155,6 +235,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
     setErrorMessage('');
     setTimeout(async () => {
       const session: UserSession = {
+        username: 'tamu',
         name: 'Pengguna Tamu',
         email: 'tamu@prediksikan.id',
         isGuest: true,
@@ -188,8 +269,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </Text>
           <Text style={styles.subTitle}>
             {mode === 'register'
-              ? 'Sesuai web L1 Prediksi-Kan: masukkan nama dan email untuk tersimpan langsung di database pusat.'
-              : 'Gunakan alamat email terdaftar Anda untuk mengakses dasbor analitik.'}
+              ? 'Lengkapi username, email, dan password aman Anda.'
+              : 'Gunakan email dan password terdaftar untuk mengakses analitik.'}
           </Text>
         </View>
 
@@ -217,6 +298,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               setMode('login');
               setErrorMessage('');
               setSuccessMessage('');
+              setEmailWarning('');
             }}
             activeOpacity={0.8}
           >
@@ -228,7 +310,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Notifikasi Error */}
+        {/* Notifikasi Error Banner */}
         {errorMessage.length > 0 ? (
           <View style={styles.errorAlert}>
             <Ionicons name="alert-circle" size={18} color="#EF4444" />
@@ -236,7 +318,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </View>
         ) : null}
 
-        {/* Notifikasi Sukses */}
+        {/* Notifikasi Sukses Banner */}
         {successMessage.length > 0 ? (
           <View style={styles.successAlert}>
             <Ionicons name="checkmark-circle" size={18} color={colors.primaryLight} />
@@ -244,37 +326,54 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </View>
         ) : null}
 
-        {/* Form Inputs Sesuai Web L1 Prediksi-Kan */}
+        {/* Form Inputs */}
         <View style={styles.formContainer}>
-          {/* 1. INPUT NAMA LENGKAP (Hanya di mode Register) */}
+          {/* 1. INPUT USERNAME (Hanya di mode Register) */}
           {mode === 'register' ? (
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>
-                Nama Lengkap <Text style={{ color: '#EF4444' }}>*</Text>
+                Username <Text style={{ color: '#EF4444' }}>*</Text>
               </Text>
               <View style={styles.inputBox}>
-                <Ionicons name="person-outline" size={18} color={colors.textMuted} />
+                <Ionicons name="at-outline" size={18} color={colors.textMuted} />
                 <TextInput
                   style={styles.inputField}
-                  placeholder="Contoh: Lalu Naufal Arkan"
+                  placeholder="contoh: laluarkan"
                   placeholderTextColor={colors.textMuted}
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
                   autoCorrect={false}
                 />
               </View>
             </View>
           ) : null}
 
-          {/* 2. INPUT ALAMAT EMAIL */}
+          {/* 2. INPUT ALAMAT EMAIL DENGAN LIVE WARNING */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>
-              {mode === 'register' ? 'Alamat Email' : 'Alamat Email Terdaftar'}{' '}
-              <Text style={{ color: '#EF4444' }}>*</Text>
-            </Text>
-            <View style={styles.inputBox}>
-              <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>
+                Alamat Email <Text style={{ color: '#EF4444' }}>*</Text>
+              </Text>
+              {isEmailChecking ? (
+                <View style={styles.inlineCheckingBox}>
+                  <ActivityIndicator size="small" color={colors.primaryLight} />
+                  <Text style={styles.inlineCheckingText}>Memeriksa...</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View
+              style={[
+                styles.inputBox,
+                emailWarning ? styles.inputBoxError : null,
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={18}
+                color={emailWarning ? '#EF4444' : colors.textMuted}
+              />
               <TextInput
                 style={styles.inputField}
                 placeholder="nama@gmail.com"
@@ -286,38 +385,136 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
                 autoCorrect={false}
               />
             </View>
+
+            {/* Live Warning Email Sudah Terdaftar */}
+            {emailWarning ? (
+              <View style={styles.fieldWarningBox}>
+                <Ionicons name="alert-circle" size={15} color="#EF4444" />
+                <Text style={styles.fieldWarningText}>{emailWarning}</Text>
+              </View>
+            ) : null}
           </View>
 
-          {/* Card Info Sinkronisasi Database */}
-          <View style={styles.dbInfoCard}>
-            <Ionicons name="cloud-done-outline" size={18} color={colors.primaryLight} />
-            <Text style={styles.dbInfoText}>
-              {mode === 'register'
-                ? 'Akun otomatis tersinkronisasi dan disimpan permanen di database backend kami (PostgreSQL).'
-                : 'Sistem akan memverifikasi email Anda langsung dari basis data server.'}
+          {/* 3. INPUT PASSWORD (SATU SAJA + ICON MATA) */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              Password <Text style={{ color: '#EF4444' }}>*</Text>
             </Text>
+
+            <View style={styles.inputBox}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
+              <TextInput
+                style={styles.inputField}
+                placeholder={mode === 'register' ? 'Buat password aman Anda' : 'Masukkan password'}
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={19}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Live Checklist Keamanan Password (Hanya di mode Register) */}
+            {mode === 'register' ? (
+              <View style={styles.checklistContainer}>
+                <Text style={styles.checklistTitle}>Ketentuan Keamanan Password:</Text>
+
+                <View style={styles.checklistItem}>
+                  <Ionicons
+                    name={hasMinLength ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={14}
+                    color={hasMinLength ? '#10B981' : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.checklistLabel,
+                      hasMinLength ? styles.checklistLabelMet : null,
+                    ]}
+                  >
+                    Minimal 8 karakter
+                  </Text>
+                </View>
+
+                <View style={styles.checklistItem}>
+                  <Ionicons
+                    name={hasNumber ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={14}
+                    color={hasNumber ? '#10B981' : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.checklistLabel,
+                      hasNumber ? styles.checklistLabelMet : null,
+                    ]}
+                  >
+                    Harus ada angka (0-9)
+                  </Text>
+                </View>
+
+                <View style={styles.checklistItem}>
+                  <Ionicons
+                    name={hasUppercase ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={14}
+                    color={hasUppercase ? '#10B981' : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.checklistLabel,
+                      hasUppercase ? styles.checklistLabelMet : null,
+                    ]}
+                  >
+                    Harus ada huruf besar (A-Z)
+                  </Text>
+                </View>
+
+                <View style={styles.checklistItem}>
+                  <Ionicons
+                    name={hasLowercase ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={14}
+                    color={hasLowercase ? '#10B981' : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.checklistLabel,
+                      hasLowercase ? styles.checklistLabelMet : null,
+                    ]}
+                  >
+                    Harus ada huruf kecil (a-z)
+                  </Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
-          {/* Tombol Submit Utama */}
+          {/* Tombol Hijau: Hanya Bertuliskan "Daftar" / "Masuk" */}
           <TouchableOpacity
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+            style={[
+              styles.submitButton,
+              (loading || (mode === 'register' && (!!emailWarning || !isPasswordSecure))) &&
+                styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || (mode === 'register' && (!!emailWarning || !isPasswordSecure))}
             activeOpacity={0.85}
           >
             {loading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <View style={styles.submitBtnContent}>
-                <Ionicons
-                  name={mode === 'register' ? 'person-add-outline' : 'log-in-outline'}
-                  size={18}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.submitButtonText}>
-                  {mode === 'register' ? 'Daftar & Simpan ke Database' : 'Masuk ke Akun'}
-                </Text>
-              </View>
+              <Text style={styles.submitButtonText}>
+                {mode === 'register' ? 'Daftar' : 'Masuk'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -325,11 +522,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
         {/* Pemisah "atau" */}
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>atau metode cepat</Text>
+          <Text style={styles.dividerText}>atau</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Pilihan Google & Tamu */}
+        {/* Pilihan Google (Tanpa Password) & Tamu */}
         <View style={styles.socialButtonsGroup}>
           <TouchableOpacity
             style={styles.googleButton}
@@ -352,11 +549,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Footer info privasi sesuai web */}
+        {/* Footer info privasi */}
         <View style={styles.footerNote}>
-          <Ionicons name="lock-closed-outline" size={13} color={colors.textMuted} />
+          <Ionicons name="shield-checkmark-outline" size={13} color={colors.textMuted} />
           <Text style={styles.footerNoteText}>
-            L1 Prediksi-Kan menerapkan otentikasi aman tanpa menyimpan password terbuka.
+            Password Anda dienkripsi secara aman menggunakan standar kriptografi server.
           </Text>
         </View>
       </ScrollView>
@@ -467,10 +664,24 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 6,
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  inlineCheckingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  inlineCheckingText: {
+    fontSize: 11,
+    color: colors.primaryLight,
   },
   inputBox: {
     flexDirection: 'row',
@@ -483,28 +694,58 @@ const styles = StyleSheet.create({
     height: 46,
     gap: 10,
   },
+  inputBoxError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#7F1D1D12',
+  },
   inputField: {
     flex: 1,
     color: colors.textPrimary,
     fontSize: 14,
   },
-  dbInfoCard: {
+  fieldWarningBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#05966912',
-    borderWidth: 1,
-    borderColor: '#05966935',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
+    gap: 6,
     marginTop: 2,
+    paddingHorizontal: 4,
   },
-  dbInfoText: {
-    flex: 1,
-    color: colors.textSecondary,
+  fieldWarningText: {
+    color: '#EF4444',
     fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
     lineHeight: 16,
+  },
+  checklistContainer: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    gap: 6,
+    marginTop: 4,
+  },
+  checklistTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  checklistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checklistLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  checklistLabelMet: {
+    color: '#10B981',
+    fontWeight: '600',
   },
   submitButton: {
     backgroundColor: colors.primary,
@@ -512,20 +753,16 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitBtnContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    opacity: 0.5,
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   dividerRow: {
     flexDirection: 'row',

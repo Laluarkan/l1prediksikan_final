@@ -42,35 +42,84 @@ class SyncUserView(APIView):
             logger.warning("Akses SyncUserView ditolak: Kunci Sinkronisasi tidak cocok.")
             return Response({'error': 'Akses Ditolak. Endpoint khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
 
-        email = request.data.get('email')
-        name = request.data.get('name')
+        email = request.data.get('email', '').strip().lower()
+        username = request.data.get('username', '').strip()
+        password = request.data.get('password')
+        name = request.data.get('name', '').strip()
+        is_register = request.data.get('is_register', False)
         
         if not email:
             return Response({'error': 'Email wajib disertakan'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        username_base = email.split('@')[0]
+
+        # Cek apakah email sudah terdaftar sebelumnya
+        existing_user = User.objects.filter(email__iexact=email).first()
         
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                'username': username_base,
-                'first_name': name or '',
-                'is_active': True
-            }
-        )
-        
-        if created:
+        if is_register and existing_user:
+            return Response({
+                'error': 'Email sudah terdaftar. Silakan gunakan email lain atau masuk ke akun Anda.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if existing_user:
+            user = existing_user
+            created = False
+            # Update password jika disertakan (hashing aman)
+            if password:
+                user.set_password(password)
+                user.save()
+        else:
+            created = True
+            username_val = username or email.split('@')[0]
+            # Pastikan username unik di database
+            base_username = username_val
+            counter = 1
+            while User.objects.filter(username__iexact=username_val).exists():
+                username_val = f"{base_username}_{counter}"
+                counter += 1
+
+            user = User(
+                email=email,
+                username=username_val,
+                first_name=name or username_val,
+                is_active=True
+            )
+            # Enkripsi password menggunakan Django built-in PBKDF2 SHA-256 hasher
+            if password:
+                user.set_password(password)
+            else:
+                # Login dengan akun Google tidak menyertakan password
+                user.set_unusable_password()
             user.save()
-            
+
         refresh = RefreshToken.for_user(user)
         
         return Response({
-            'message': 'User berhasil disinkronisasi', 
+            'message': 'User berhasil didaftarkan' if created else 'User berhasil disinkronisasi', 
             'user_id': user.id,
+            'username': user.username,
             'is_staff': user.is_staff,
             'access': str(refresh.access_token),
             'refresh': str(refresh)
         }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+class CheckEmailView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    @extend_schema(exclude=True)
+    def get(self, request):
+        if not is_valid_server_request(request):
+            return Response({'error': 'Akses Ditolak. Endpoint khusus server-to-server.'}, status=status.HTTP_403_FORBIDDEN)
+
+        email = request.query_params.get('email', '').strip().lower()
+        username = request.query_params.get('username', '').strip()
+
+        exists = False
+        if email:
+            exists = User.objects.filter(email__iexact=email).exists()
+        elif username:
+            exists = User.objects.filter(username__iexact=username).exists()
+
+        return Response({'exists': exists})
 
 class CheckStaffView(APIView):
     permission_classes = []
