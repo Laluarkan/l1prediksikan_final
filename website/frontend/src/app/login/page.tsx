@@ -235,8 +235,12 @@ function AuthContent() {
           
           {/* Header Branding */}
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-3 shadow-inner">
-              <Sparkles size={22} className="animate-pulse" />
+            <div className="flex justify-center mb-3">
+              <img 
+                src="/logo.svg" 
+                alt="L1 Prediksi-Kan Logo" 
+                className="w-14 h-14 rounded-2xl object-contain shadow-xl shadow-blue-950/70 border border-blue-500/20" 
+              />
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-wide">
               L1 Prediksi-Kan
@@ -257,7 +261,7 @@ function AuthContent() {
               }}
               className={`flex-1 py-2.5 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 ${
                 mode === 'login'
-                  ? 'bg-slate-800 text-emerald-400 shadow-md border border-slate-700/50'
+                  ? 'bg-slate-800 text-blue-400 shadow-md border border-slate-700/50'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
@@ -314,7 +318,7 @@ function AuthContent() {
                     placeholder="nama@email.com"
                     required
                     autoComplete="email"
-                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   />
                 </div>
               </div>
@@ -335,7 +339,7 @@ function AuthContent() {
                     placeholder="Masukkan password"
                     required
                     autoComplete="current-password"
-                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-11 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-11 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                   />
                   <button
                     type="button"
@@ -348,11 +352,11 @@ function AuthContent() {
                 </div>
               </div>
 
-              {/* Tombol Hijau: Masuk */}
+              {/* Tombol Biru Tua: Masuk */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full mt-2 py-3 px-4 bg-blue-700 hover:bg-blue-600 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-950/60 border border-blue-600/40 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -66,10 +66,12 @@ export default function Navbar() {
             
             {/* Logo Brand */}
             <div className="flex-shrink-0 flex items-center gap-3">
-              <Link href="/" className="flex items-center gap-2 text-lg md:text-xl font-black text-white tracking-wide hover:opacity-95 transition-opacity">
-                <span className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white text-sm font-black shadow-md shadow-emerald-950/50">
-                  L1
-                </span>
+              <Link href="/" className="flex items-center gap-2.5 text-lg md:text-xl font-black text-white tracking-wide hover:opacity-95 transition-opacity">
+                <img 
+                  src="/logo.svg" 
+                  alt="L1 Prediksi-Kan Logo" 
+                  className="w-8 h-8 rounded-xl object-contain shadow-md shadow-blue-950/60 border border-blue-500/20" 
+                />
                 <span>Prediksi-Kan</span>
               </Link>
             </div>
@@ -405,7 +407,7 @@ export default function Navbar() {
                 <Link
                   href="/login"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-600 active:bg-blue-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm border border-blue-500/30"
                 >
                   <LogIn size={13} /> Masuk
                 </Link>
