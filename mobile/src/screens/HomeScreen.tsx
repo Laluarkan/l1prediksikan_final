@@ -87,37 +87,52 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     loadData();
   };
 
-  // Filter 10 Laga Mendatang: Tepat 2 laga dari masing-masing Top 5 Liga Eropa, diutamakan tim dengan klasemen tertinggi
-  const top10Fixtures = useMemo(() => {
+  // Filter 5 Laga Mendatang: Tepat 1 laga per liga dari Top 5 Liga Eropa.
+  // Dimulai dari tanggal match terbaru (terdekat). Jika ada beberapa match di tanggal tersebut,
+  // pilih 1 match yang timnya memiliki posisi klasemen tertinggi.
+  const top5Fixtures = useMemo(() => {
     if (!fixtures || fixtures.length === 0) return [];
 
     const result: Fixture[] = [];
 
     TOP_5_LEAGUES_CONFIG.forEach((league) => {
-      // Ambil laga yang cocok dengan liga ini
+      // 1. Ambil laga yang cocok dengan liga ini
       const leagueMatches = fixtures.filter((f) => league.pattern.test(f.league_name));
+      if (leagueMatches.length === 0) return;
 
-      // Urutkan berdasarkan posisi klasemen tim tertinggi yang bertanding
-      leagueMatches.sort((a, b) => {
-        const rankAHome = standingsMap[a.home_team_name.toLowerCase().trim()] || 99;
-        const rankAAway = standingsMap[a.away_team_name.toLowerCase().trim()] || 99;
+      // 2. Urutkan berdasarkan tanggal & jam kickoff (terdekat lebih dulu)
+      leagueMatches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // 3. Ambil tanggal paling awal yang ada (match terbaru yang belum dimainkan)
+      const earliestDateStr = leagueMatches[0].date ? leagueMatches[0].date.split('T')[0] : '';
+
+      // 4. Ambil semua match pada tanggal tersebut (misal tanggal 17 ada 3 match)
+      const matchesOnEarliestDate = earliestDateStr
+        ? leagueMatches.filter((f) => (f.date || '').startsWith(earliestDateStr))
+        : [leagueMatches[0]];
+
+      // 5. Dari match pada tanggal tersebut, pilih 1 match dengan posisi klasemen tertinggi
+      matchesOnEarliestDate.sort((a, b) => {
+        const rankAHome = standingsMap[a.home_team_name.toLowerCase().trim()] ?? 99;
+        const rankAAway = standingsMap[a.away_team_name.toLowerCase().trim()] ?? 99;
         const bestRankA = Math.min(rankAHome, rankAAway);
         const sumRankA = rankAHome + rankAAway;
 
-        const rankBHome = standingsMap[b.home_team_name.toLowerCase().trim()] || 99;
-        const rankBAway = standingsMap[b.away_team_name.toLowerCase().trim()] || 99;
+        const rankBHome = standingsMap[b.home_team_name.toLowerCase().trim()] ?? 99;
+        const rankBAway = standingsMap[b.away_team_name.toLowerCase().trim()] ?? 99;
         const bestRankB = Math.min(rankBHome, rankBAway);
         const sumRankB = rankBHome + rankBAway;
 
         if (bestRankA !== bestRankB) {
-          return bestRankA - bestRankB; // Posisi teratas (1, 2, 3) didahulukan
+          return bestRankA - bestRankB; // Rank 1, 2, 3 lebih diprioritaskan
         }
         return sumRankA - sumRankB;
       });
 
-      // Ambil maksimal 2 laga terbaik per liga
-      const selected = leagueMatches.slice(0, 2);
-      result.push(...selected);
+      // Ambil 1 match terbaik untuk liga ini
+      if (matchesOnEarliestDate.length > 0) {
+        result.push(matchesOnEarliestDate[0]);
+      }
     });
 
     return result;
@@ -216,65 +231,83 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           </View>
         </View>
 
-        {/* ================= MENU NAVIGASI UTAMA ================= */}
+        {/* ================= MENU NAVIGASI UTAMA (2x2 GRID RAPI) ================= */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Menu Utama</Text>
 
-          <View style={styles.menuGrid}>
-            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('fixtures')} activeOpacity={0.8}>
-              <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
-                <Ionicons name="calendar-outline" size={22} color={colors.primary} />
-              </View>
-              <Text style={styles.menuCardTitle}>Jadwal Pertandingan</Text>
-              <Text style={styles.menuCardDesc}>Jadwal laga & odds lengkap</Text>
-              <View style={styles.menuArrow}>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
+          <View style={styles.menuContainer}>
+            <View style={styles.menuRow}>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => onNavigate('fixtures')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
+                  <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text style={styles.menuCardTitle} numberOfLines={1}>Jadwal</Text>
+                  <Text style={styles.menuCardDesc} numberOfLines={1}>Odds & analisa</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('standings')} activeOpacity={0.8}>
-              <View style={[styles.menuIconContainer, { backgroundColor: '#1E1B4B' }]}>
-                <Ionicons name="trophy-outline" size={22} color="#818CF8" />
-              </View>
-              <Text style={styles.menuCardTitle}>Klasemen Liga</Text>
-              <Text style={styles.menuCardDesc}>Tabel poin & logo klub</Text>
-              <View style={styles.menuArrow}>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => onNavigate('standings')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.menuIconContainer, { backgroundColor: '#1E1B4B' }]}>
+                  <Ionicons name="trophy-outline" size={20} color="#818CF8" />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text style={styles.menuCardTitle} numberOfLines={1}>Klasemen</Text>
+                  <Text style={styles.menuCardDesc} numberOfLines={1}>Poin & klub</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('history')} activeOpacity={0.8}>
-              <View style={[styles.menuIconContainer, { backgroundColor: '#0C4A6E40' }]}>
-                <Ionicons name="time-outline" size={22} color="#38BDF8" />
-              </View>
-              <Text style={styles.menuCardTitle}>Riwayat Hasil</Text>
-              <Text style={styles.menuCardDesc}>Evaluasi skor & prediksi</Text>
-              <View style={styles.menuArrow}>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
+            <View style={styles.menuRow}>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => onNavigate('history')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.menuIconContainer, { backgroundColor: '#0C4A6E40' }]}>
+                  <Ionicons name="time-outline" size={20} color="#38BDF8" />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text style={styles.menuCardTitle} numberOfLines={1}>Riwayat</Text>
+                  <Text style={styles.menuCardDesc} numberOfLines={1}>Evaluasi skor</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('parlay')} activeOpacity={0.8}>
-              <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
-                <Ionicons name="sparkles" size={22} color="#10B981" />
-              </View>
-              <Text style={styles.menuCardTitle}>Tiket Parlay AI</Text>
-              <Text style={styles.menuCardDesc}>Kombinasi multi-leg odds tinggi</Text>
-              <View style={styles.menuArrow}>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuCard}
+                onPress={() => onNavigate('parlay')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
+                  <Ionicons name="sparkles" size={20} color="#10B981" />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text style={styles.menuCardTitle} numberOfLines={1}>Parlay AI</Text>
+                  <Text style={styles.menuCardDesc} numberOfLines={1}>Tiket multi-leg</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
-        {/* ================= 10 PERTANDINGAN MENDATANG TOP 5 LIGA EROPA ================= */}
+        {/* ================= 5 PERTANDINGAN MENDATANG TOP 5 LIGA EROPA ================= */}
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <View>
               <Text style={styles.sectionTitle}>Pertandingan Mendatang</Text>
-              <Text style={styles.sectionSubtitle}>
-                Top 10 laga pilihan (2 match unggulan per Top 5 Liga Eropa)
-              </Text>
+              <Text style={styles.sectionSubtitle}>Top 5 laga pilihan</Text>
             </View>
             <TouchableOpacity onPress={() => onNavigate('fixtures')}>
               <Text style={styles.seeAllText}>Lihat Semua</Text>
@@ -286,14 +319,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.loadingText}>Memuat jadwal pilihan dari server...</Text>
             </View>
-          ) : top10Fixtures.length === 0 ? (
+          ) : top5Fixtures.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="calendar-outline" size={32} color={colors.textMuted} />
               <Text style={styles.emptyText}>Tidak ada jadwal aktif untuk Top 5 Liga saat ini.</Text>
             </View>
           ) : (
             <View style={styles.matchesList}>
-              {top10Fixtures.map((fixture) => (
+              {top5Fixtures.map((fixture) => (
                 <CompactMatchCard
                   key={fixture.id}
                   fixture={fixture}
@@ -470,43 +503,47 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
-  menuGrid: {
+  menuContainer: {
+    gap: 10,
+  },
+  menuRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
   },
   menuCard: {
-    width: '48.5%',
-    backgroundColor: colors.surface,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
     borderRadius: 14,
-    padding: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 4,
-    position: 'relative',
+    borderColor: '#1E293B',
+    gap: 10,
   },
   menuIconContainer: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+  },
+  menuTextCol: {
+    flex: 1,
+    gap: 1,
   },
   menuCardTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   menuCardDesc: {
-    fontSize: 10,
+    fontSize: 9.5,
     color: colors.textMuted,
-    lineHeight: 14,
   },
   menuArrow: {
-    position: 'absolute',
-    top: 14,
-    right: 12,
+    marginLeft: 2,
   },
 
   /* Matches List */

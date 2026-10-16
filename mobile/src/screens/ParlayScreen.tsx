@@ -532,7 +532,6 @@ export const ParlayScreen: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.slipMetaRight}>
-                      <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
                       <Text style={styles.slipDateText}>{formatDate(ticketToShare.date)}</Text>
                     </View>
                   </View>

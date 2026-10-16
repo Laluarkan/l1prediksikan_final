@@ -61,6 +61,54 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   const probOver = Math.round((fixture.prob_ou25_over || 0.5) * 100);
   const probUnder = Math.max(0, 100 - probOver);
 
+  // 1. Sanitasi Rekomendasi 1X2
+  const rawFtr = (fixture.rl_pick_ftr || '').trim().toUpperCase();
+  let ftrPick: 'H' | 'D' | 'A';
+  if (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') {
+    ftrPick = rawFtr;
+  } else {
+    if (probH >= probD && probH >= probA) ftrPick = 'H';
+    else if (probA >= probH && probA >= probD) ftrPick = 'A';
+    else ftrPick = 'D';
+  }
+
+  let rawFtrOdds = ftrPick === 'H' ? fixture.avg_h : ftrPick === 'A' ? fixture.avg_a : fixture.avg_d;
+  if (!rawFtrOdds || isNaN(rawFtrOdds) || rawFtrOdds <= 1.0) {
+    rawFtrOdds = ftrPick === 'H' ? 1.85 : ftrPick === 'A' ? 2.45 : 3.20;
+  }
+  const ftrOdds = Number(rawFtrOdds).toFixed(2);
+
+  // 2. Sanitasi Rekomendasi O/U
+  const rawOu = (fixture.rl_pick_ou || '').trim().toUpperCase();
+  let ouPickShort: 'O 2.5' | 'U 2.5';
+  let ouPickLong: 'OVER 2.5' | 'UNDER 2.5';
+  let rawOuOdds: number | undefined;
+
+  if (rawOu.includes('UNDER') || rawOu === 'U') {
+    ouPickShort = 'U 2.5';
+    ouPickLong = 'UNDER 2.5';
+    rawOuOdds = fixture.avg_under_25;
+  } else if (rawOu.includes('OVER') || rawOu === 'O') {
+    ouPickShort = 'O 2.5';
+    ouPickLong = 'OVER 2.5';
+    rawOuOdds = fixture.avg_over_25;
+  } else {
+    if (probOver >= 50) {
+      ouPickShort = 'O 2.5';
+      ouPickLong = 'OVER 2.5';
+      rawOuOdds = fixture.avg_over_25;
+    } else {
+      ouPickShort = 'U 2.5';
+      ouPickLong = 'UNDER 2.5';
+      rawOuOdds = fixture.avg_under_25;
+    }
+  }
+
+  if (!rawOuOdds || isNaN(rawOuOdds) || rawOuOdds <= 1.0) {
+    rawOuOdds = ouPickShort === 'O 2.5' ? 1.90 : 1.85;
+  }
+  const ouOdds = Number(rawOuOdds).toFixed(2);
+
   return (
     <Modal
       visible={visible}
@@ -148,13 +196,9 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 {/* Pick 1X2 */}
                 <View style={[styles.aiPickCard, fixture.has_value_bet && styles.aiPickCardValue]}>
                   <Text style={styles.aiPickLabel}>REKOMENDASI 1X2</Text>
-                  <Text style={styles.aiPickMain}>
-                    {fixture.rl_pick_ftr ? fixture.rl_pick_ftr.toUpperCase() : 'H'}
-                  </Text>
+                  <Text style={styles.aiPickMain}>{ftrPick}</Text>
                   <View style={styles.aiPickBadgeRow}>
-                    <Text style={styles.aiPickOdds}>
-                      @{fixture.rl_pick_ftr === 'h' ? (fixture.avg_h?.toFixed(2) || '-') : fixture.rl_pick_ftr === 'a' ? (fixture.avg_a?.toFixed(2) || '-') : (fixture.avg_d?.toFixed(2) || '-')}
-                    </Text>
+                    <Text style={styles.aiPickOdds}>@{ftrOdds}</Text>
                     {fixture.has_value_bet && (
                       <View style={styles.valueTag}>
                         <Ionicons name="diamond" size={10} color="#F59E0B" />
@@ -167,13 +211,9 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 {/* Pick O/U */}
                 <View style={[styles.aiPickCard, fixture.has_value_bet_ou && styles.aiPickCardValue]}>
                   <Text style={styles.aiPickLabel}>REKOMENDASI O/U 2.5</Text>
-                  <Text style={styles.aiPickMain}>
-                    {fixture.rl_pick_ou ? fixture.rl_pick_ou.toUpperCase() : 'OVER 2.5'}
-                  </Text>
+                  <Text style={styles.aiPickMain}>{ouPickLong}</Text>
                   <View style={styles.aiPickBadgeRow}>
-                    <Text style={styles.aiPickOdds}>
-                      @{fixture.rl_pick_ou?.toLowerCase().includes('over') ? (fixture.avg_over_25?.toFixed(2) || '1.90') : (fixture.avg_under_25?.toFixed(2) || '1.90')}
-                    </Text>
+                    <Text style={styles.aiPickOdds}>@{ouOdds}</Text>
                     {fixture.has_value_bet_ou && (
                       <View style={styles.valueTag}>
                         <Ionicons name="diamond" size={10} color="#F59E0B" />

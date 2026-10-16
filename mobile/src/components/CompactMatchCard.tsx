@@ -28,21 +28,57 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
     }
   };
 
-  // 1X2 Pick formatting
-  const hdaPick = fixture.rl_pick_ftr ? fixture.rl_pick_ftr.toUpperCase() : 'H';
-  const hdaOdds =
-    hdaPick === 'H'
-      ? fixture.avg_h?.toFixed(2)
-      : hdaPick === 'A'
-      ? fixture.avg_a?.toFixed(2)
-      : fixture.avg_d?.toFixed(2);
+  // 1. Sanitasi Rekomendasi 1X2 (HDA)
+  const rawFtr = (fixture.rl_pick_ftr || '').trim().toUpperCase();
+  let hdaPick: 'H' | 'D' | 'A';
+  if (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') {
+    hdaPick = rawFtr;
+  } else {
+    // Jika null, undefined, 'NAN', kalkulasi dari probabilitas tertinggi
+    const pH = fixture.prob_ftr_h || 0;
+    const pD = fixture.prob_ftr_d || 0;
+    const pA = fixture.prob_ftr_a || 0;
+    if (pH >= pD && pH >= pA) {
+      hdaPick = 'H';
+    } else if (pA >= pH && pA >= pD) {
+      hdaPick = 'A';
+    } else {
+      hdaPick = 'D';
+    }
+  }
 
-  // O/U Pick formatting
-  const ouRaw = fixture.rl_pick_ou ? fixture.rl_pick_ou.toUpperCase() : 'OVER 2.5';
-  const ouPickShort = ouRaw.includes('UNDER') ? 'U 2.5' : 'O 2.5';
-  const ouOdds = ouRaw.includes('UNDER')
-    ? (fixture.avg_under_25 ? fixture.avg_under_25.toFixed(2) : '1.85')
-    : (fixture.avg_over_25 ? fixture.avg_over_25.toFixed(2) : '1.90');
+  let rawHdaOdds = hdaPick === 'H' ? fixture.avg_h : hdaPick === 'A' ? fixture.avg_a : fixture.avg_d;
+  if (!rawHdaOdds || isNaN(rawHdaOdds) || rawHdaOdds <= 1.0) {
+    rawHdaOdds = hdaPick === 'H' ? 1.85 : hdaPick === 'A' ? 2.45 : 3.20;
+  }
+  const hdaOdds = Number(rawHdaOdds).toFixed(2);
+
+  // 2. Sanitasi Rekomendasi O/U
+  const rawOu = (fixture.rl_pick_ou || '').trim().toUpperCase();
+  let ouPickShort: 'O 2.5' | 'U 2.5';
+  let rawOuOdds: number | undefined;
+
+  if (rawOu.includes('UNDER') || rawOu === 'U') {
+    ouPickShort = 'U 2.5';
+    rawOuOdds = fixture.avg_under_25;
+  } else if (rawOu.includes('OVER') || rawOu === 'O') {
+    ouPickShort = 'O 2.5';
+    rawOuOdds = fixture.avg_over_25;
+  } else {
+    const pOver = fixture.prob_ou25_over || 0.5;
+    if (pOver >= 0.5) {
+      ouPickShort = 'O 2.5';
+      rawOuOdds = fixture.avg_over_25;
+    } else {
+      ouPickShort = 'U 2.5';
+      rawOuOdds = fixture.avg_under_25;
+    }
+  }
+
+  if (!rawOuOdds || isNaN(rawOuOdds) || rawOuOdds <= 1.0) {
+    rawOuOdds = ouPickShort === 'O 2.5' ? 1.90 : 1.85;
+  }
+  const ouOdds = Number(rawOuOdds).toFixed(2);
 
   const hasAnyValue = Boolean(fixture.has_value_bet || fixture.has_value_bet_ou);
 
