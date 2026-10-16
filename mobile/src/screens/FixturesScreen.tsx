@@ -12,12 +12,21 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Animated,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { Fixture, League, fetchLeagues, fetchUpcomingFixtures } from '../services/api';
+import { Fixture, fetchUpcomingFixtures } from '../services/api';
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
+import {
+  getWitaDateKey,
+  getTodayWitaDate,
+  formatWitaShortDate,
+  formatWitaFullDate,
+  getWitaRelativeLabel,
+} from '../utils/dateUtils';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -25,7 +34,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 // Prioritas Urutan Liga Top 5 Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
 const getLeaguePriority = (leagueName: string): { priority: number; label: string } => {
-  const l = leagueName.toLowerCase();
+  const l = (leagueName || '').toLowerCase();
   if (l.includes('bundes')) return { priority: 1, label: 'Bundesliga' };
   if (l.includes('premier') || l.includes('epl')) return { priority: 2, label: 'Premier League' };
   if (l.includes('la liga') || l.includes('laliga') || l.includes('primera')) return { priority: 3, label: 'La Liga' };
@@ -34,77 +43,76 @@ const getLeaguePriority = (leagueName: string): { priority: number; label: strin
   return { priority: 99, label: leagueName };
 };
 
-const formatDateToKey = (date: Date): string => {
-  const y = date.getFullYear();
-  const m = (date.getMonth() + 1).toString().padStart(2, '0');
-  const d = date.getDate().toString().padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
-const parseDateKey = (dateKey: string): Date => {
-  const parts = dateKey.split('-');
+// Fungsi utilitas menggeser key tanggal WITA 'YYYY-MM-DD'
+const shiftWitaDate = (currentKey: string, days: number): string => {
+  const parts = currentKey.split('-');
   if (parts.length === 3) {
-    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const temp = new Date(Date.UTC(y, m, d + days));
+    const newY = temp.getUTCFullYear();
+    const newM = (temp.getUTCMonth() + 1).toString().padStart(2, '0');
+    const newD = temp.getUTCDate().toString().padStart(2, '0');
+    return `${newY}-${newM}-${newD}`;
   }
-  return new Date();
+  return currentKey;
 };
 
-const formatDisplayDate = (dateKey: string): string => {
-  try {
-    const d = parseDateKey(dateKey);
-    return d.toLocaleDateString('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return dateKey;
-  }
-};
+interface FilterState {
+  league: string; // 'ALL' | 'TOP5' | specific league name
+  valueOnly: boolean;
+  ouPick: 'ALL' | 'OVER' | 'UNDER';
+  ftrPick: 'ALL' | 'H' | 'D' | 'A';
+  highOddsOnly: boolean; // Odds >= 2.00
+}
 
-const getRelativeDateLabel = (dateKey: string): string | null => {
-  const todayKey = formatDateToKey(new Date());
-  if (dateKey === todayKey) return 'Hari Ini';
-
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  if (dateKey === formatDateToKey(tomorrow)) return 'Besok';
-
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (dateKey === formatDateToKey(yesterday)) return 'Kemarin';
-
-  return null;
+const INITIAL_FILTERS: FilterState = {
+  league: 'ALL',
+  valueOnly: false,
+  ouPick: 'ALL',
+  ftrPick: 'ALL',
+  highOddsOnly: false,
 };
 
 export const FixturesScreen: React.FC = () => {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
-  const [, setLeagues] = useState<League[]>([]);
-  const [selectedDateKey, setSelectedDateKey] = useState<string>(formatDateToKey(new Date()));
+  const [selectedDateKey, setSelectedDateKey] = useState<string>(() =>
+    getWitaDateKey(getTodayWitaDate())
+  );
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedFixture, setSelectedFixture] = useState<Fixture | null>(null);
 
+  // Filter state & modal
+  const [filterModalVisible, setFilterModalVisible] = useState<boolean>(false);
+  const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
+
+  // Animasi geser kartu horizontal & fade (mencegah glitch langsung pindah)
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Ref untuk menghindari stale closure pada PanResponder
+  const selectedDateKeyRef = useRef(selectedDateKey);
+  selectedDateKeyRef.current = selectedDateKey;
+
   const loadData = useCallback(async () => {
     try {
-      const [leaguesData, fixturesData] = await Promise.all([
-        fetchLeagues(),
-        fetchUpcomingFixtures(),
-      ]);
-      setLeagues(leaguesData);
+      const fixturesData = await fetchUpcomingFixtures();
       setFixtures(fixturesData);
 
-      // Jika tanggal hari ini belum ada match, namun ada jadwal terdekat di masa depan,
-      // otomatis arahkan ke tanggal jadwal terdekat tersebut
-      const today = formatDateToKey(new Date());
-      const hasToday = fixturesData.some((f) => (f.date || '').startsWith(today));
+      // Pastikan tanggal default mencerminkan hari ini di WITA
+      const todayKey = getWitaDateKey(getTodayWitaDate());
+      const hasToday = fixturesData.some((f) => getWitaDateKey(f.date) === todayKey);
       if (!hasToday && fixturesData.length > 0 && fixturesData[0].date) {
-        const firstDate = fixturesData[0].date.split('T')[0];
-        if (firstDate) {
-          setSelectedDateKey(firstDate);
+        // Cari match terdekat dari hari ini
+        const nearestMatch = fixturesData.find((f) => getWitaDateKey(f.date) >= todayKey);
+        if (nearestMatch && nearestMatch.date) {
+          setSelectedDateKey(getWitaDateKey(nearestMatch.date));
+        } else {
+          setSelectedDateKey(getWitaDateKey(fixturesData[0].date));
         }
       }
     } catch (error) {
@@ -124,30 +132,69 @@ export const FixturesScreen: React.FC = () => {
     loadData();
   };
 
-  // Navigasi Tanggal (Maju / Mundur)
-  const shiftDate = useCallback((days: number) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSelectedDateKey((prev) => {
-      const d = parseDateKey(prev);
-      d.setDate(d.getDate() + days);
-      return formatDateToKey(d);
-    });
-  }, []);
+  // Transisi animasi halus saat tanggal berubah
+  const animateDateTransition = useCallback(
+    (direction: 1 | -1, nextKey: string) => {
+      const slideOut = direction > 0 ? -45 : 45;
+      const slideIn = direction > 0 ? 45 : -45;
 
-  // Gesture Swipe Kiri (Mundur) dan Kanan (Maju)
-  // "ketika di geser ke kiri akan menggeser mundur tanggal begitupun jika di geser ke kanan akan menggeser maju tanggal"
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: slideOut,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0.35,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setSelectedDateKey(nextKey);
+        slideAnim.setValue(slideIn);
+
+        Animated.parallel([
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            tension: 65,
+            friction: 9,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 130,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    },
+    [slideAnim, fadeAnim]
+  );
+
+  const handleDateShift = useCallback(
+    (direction: 1 | -1) => {
+      const nextKey = shiftWitaDate(selectedDateKeyRef.current, direction);
+      animateDateTransition(direction, nextKey);
+    },
+    [animateDateTransition]
+  );
+
+  const handleDateShiftRef = useRef(handleDateShift);
+  handleDateShiftRef.current = handleDateShift;
+
+  // Gesture Swipe:
+  // Swipe Kiri (dx < -40) -> Maju ke tanggal berikutnya (+1)
+  // Swipe Kanan (dx > 40) -> Mundur ke tanggal sebelumnya (-1)
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
         return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 30;
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < -50) {
-          // Geser ke kiri -> mundur tanggal
-          shiftDate(-1);
-        } else if (gestureState.dx > 50) {
-          // Geser ke kanan -> maju tanggal
-          shiftDate(1);
+        if (gestureState.dx < -40) {
+          handleDateShiftRef.current(1);
+        } else if (gestureState.dx > 40) {
+          handleDateShiftRef.current(-1);
         }
       },
     })
@@ -162,20 +209,30 @@ export const FixturesScreen: React.FC = () => {
     }));
   };
 
-  // Strip 11 tanggal di sekitar tanggal aktif
+  // Strip deretan tanggal horizontal ringkas (11 hari di sekitar tanggal terpilih)
   const dateStrip = useMemo(() => {
-    const center = parseDateKey(selectedDateKey);
-    const dates: Array<{ key: string; dayName: string; dayNum: string; isSelected: boolean; isToday: boolean }> = [];
-    const todayKey = formatDateToKey(new Date());
+    const dates: Array<{
+      key: string;
+      dayName: string;
+      dayNum: string;
+      isSelected: boolean;
+      isToday: boolean;
+    }> = [];
+    const todayKey = getWitaDateKey(getTodayWitaDate());
 
-    for (let offset = -3; offset <= 7; offset++) {
-      const d = new Date(center);
-      d.setDate(d.getDate() + offset);
-      const key = formatDateToKey(d);
+    for (let offset = -4; offset <= 6; offset++) {
+      const key = shiftWitaDate(selectedDateKey, offset);
+      const parts = key.split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const tempDate = new Date(Date.UTC(y, m, d));
+
+      const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
       dates.push({
         key,
-        dayName: d.toLocaleDateString('id-ID', { weekday: 'short' }),
-        dayNum: d.getDate().toString(),
+        dayName: DAY_NAMES[tempDate.getUTCDay()],
+        dayNum: tempDate.getUTCDate().toString(),
         isSelected: key === selectedDateKey,
         isToday: key === todayKey,
       });
@@ -183,29 +240,91 @@ export const FixturesScreen: React.FC = () => {
     return dates;
   }, [selectedDateKey]);
 
+  // Daftar nama liga yang tersedia untuk opsi filter
+  const availableLeagues = useMemo(() => {
+    const leagueSet = new Set<string>();
+    fixtures.forEach((f) => {
+      if (f.league_name) leagueSet.add(f.league_name);
+    });
+    return Array.from(leagueSet).sort();
+  }, [fixtures]);
+
+  // Jumlah filter aktif
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.league !== 'ALL') count++;
+    if (filters.valueOnly) count++;
+    if (filters.ouPick !== 'ALL') count++;
+    if (filters.ftrPick !== 'ALL') count++;
+    if (filters.highOddsOnly) count++;
+    return count;
+  }, [filters]);
+
   // Tanggal terdekat pertama yang memiliki match
   const firstAvailableDate = useMemo(() => {
     if (!fixtures || fixtures.length === 0) return null;
-    return fixtures[0].date ? fixtures[0].date.split('T')[0] : null;
+    return fixtures[0].date ? getWitaDateKey(fixtures[0].date) : null;
   }, [fixtures]);
 
-  // 1. Filter match hanya pada tanggal terpilih
+  // 1. Filter match hanya pada tanggal terpilih (WITA) + kriteria filter
   const dateFixtures = useMemo(() => {
     return fixtures.filter((f) => {
-      const matchDate = (f.date || '').split('T')[0];
+      // 1. Tanggal sesuai zona waktu WITA
+      const matchDate = getWitaDateKey(f.date);
       if (matchDate !== selectedDateKey) return false;
 
+      // 2. Pencarian teks
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase();
-        return (
+        const matchSearch =
           f.home_team_name.toLowerCase().includes(q) ||
           f.away_team_name.toLowerCase().includes(q) ||
-          f.league_name.toLowerCase().includes(q)
-        );
+          f.league_name.toLowerCase().includes(q);
+        if (!matchSearch) return false;
       }
+
+      // 3. Filter Liga
+      if (filters.league === 'TOP5') {
+        const isTop5 = /bundes|premier|epl|la liga|primera|serie a|ligue 1/i.test(f.league_name);
+        if (!isTop5) return false;
+      } else if (filters.league !== 'ALL') {
+        if (f.league_name !== filters.league) return false;
+      }
+
+      // 4. Filter Value Bet Only
+      if (filters.valueOnly) {
+        if (!f.has_value_bet && !f.has_value_bet_ou) return false;
+      }
+
+      // 5. Filter Pasaran O/U
+      if (filters.ouPick === 'OVER') {
+        const ou = (f.rl_pick_ou || '').toUpperCase();
+        if (!ou.includes('OVER') && ou !== 'O') return false;
+      } else if (filters.ouPick === 'UNDER') {
+        const ou = (f.rl_pick_ou || '').toUpperCase();
+        if (!ou.includes('UNDER') && ou !== 'U') return false;
+      }
+
+      // 6. Filter Pasaran 1X2
+      if (filters.ftrPick !== 'ALL') {
+        const rawFtr = (f.rl_pick_ftr || '').toUpperCase();
+        if (rawFtr !== filters.ftrPick) return false;
+      }
+
+      // 7. Filter High Odds (Odds >= 2.00)
+      if (filters.highOddsOnly) {
+        const hasHigh =
+          (f.avg_h && f.avg_h >= 2.0) ||
+          (f.avg_d && f.avg_d >= 2.0) ||
+          (f.avg_a && f.avg_a >= 2.0) ||
+          (f.avg_over_25 && f.avg_over_25 >= 2.0) ||
+          (f.avg_under_25 && f.avg_under_25 >= 2.0);
+        if (!hasHigh) return false;
+      }
+
       return true;
     });
-  }, [fixtures, selectedDateKey, searchQuery]);
+  }, [fixtures, selectedDateKey, searchQuery, filters]);
 
   // 2. Kelompokkan per liga vertikal
   const groupedLeagues = useMemo(() => {
@@ -239,219 +358,591 @@ export const FixturesScreen: React.FC = () => {
     return entries;
   }, [dateFixtures]);
 
-  const relativeLabel = getRelativeDateLabel(selectedDateKey);
+  const relativeLabel = getWitaRelativeLabel(selectedDateKey);
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
-      {/* ================= DATE FILTER HEADER & NAVIGATION ================= */}
-      <View style={styles.dateControlCard}>
-        {/* Row 1: Navigasi Panah & Judul Tanggal */}
-        <View style={styles.dateNavRow}>
+      {/* ================= COMPACT CONTROL BAR: KIRI FILTER, KANAN TANGGAL ================= */}
+      <View style={styles.topControlCard}>
+        <View style={styles.controlRow}>
+          {/* Sisi Kiri: Tombol Fitur Filter */}
           <TouchableOpacity
-            style={styles.dateArrowBtn}
-            onPress={() => shiftDate(-1)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={[styles.filterTriggerBtn, activeFilterCount > 0 && styles.filterTriggerBtnActive]}
+            onPress={() => setFilterModalVisible(true)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+            <Ionicons
+              name="options-outline"
+              size={15}
+              color={activeFilterCount > 0 ? '#10B981' : colors.textPrimary}
+            />
+            <Text
+              style={[
+                styles.filterTriggerText,
+                activeFilterCount > 0 && styles.filterTriggerTextActive,
+              ]}
+            >
+              Filter
+            </Text>
+            {activeFilterCount > 0 ? (
+              <View style={styles.filterCountBadge}>
+                <Text style={styles.filterCountBadgeText}>{activeFilterCount}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
 
-          <View style={styles.dateTitleCol}>
-            <View style={styles.dateMainRow}>
-              <Ionicons name="calendar" size={15} color={colors.primaryLight} />
-              <Text style={styles.dateMainText}>{formatDisplayDate(selectedDateKey)}</Text>
-            </View>
-            <View style={styles.dateMetaRow}>
+          {/* Sisi Kanan: Ringkasan Tanggal dengan Panah Kiri-Kanan */}
+          <View style={styles.dateNavigatorRight}>
+            <TouchableOpacity
+              style={styles.dateNavArrow}
+              onPress={() => handleDateShift(-1)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-back" size={17} color={colors.textPrimary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dateCenterBox}
+              onPress={() => {
+                const todayKey = getWitaDateKey(getTodayWitaDate());
+                if (selectedDateKey !== todayKey) {
+                  animateDateTransition(selectedDateKey < todayKey ? 1 : -1, todayKey);
+                }
+              }}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="calendar" size={13} color={colors.primaryLight} />
+              <Text style={styles.dateCenterText}>{formatWitaShortDate(selectedDateKey)}</Text>
               {relativeLabel ? (
-                <View style={styles.relativeBadge}>
-                  <Text style={styles.relativeBadgeText}>{relativeLabel}</Text>
+                <View style={styles.relativePill}>
+                  <Text style={styles.relativePillText}>{relativeLabel}</Text>
                 </View>
               ) : null}
-              <Text style={styles.dateHintText}>Geser kanan / kiri untuk ubah tanggal</Text>
-            </View>
-          </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.dateArrowBtn}
-            onPress={() => shiftDate(1)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dateNavArrow}
+              onPress={() => handleDateShift(1)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-forward" size={17} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Row 2: Strip Tanggal Cepat (Horizontal Pills) */}
+        {/* Deretan Strip Tanggal Horizontal Ringkas */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.datePillsScroll}
         >
-          {dateStrip.map((item) => {
-            return (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.datePill, item.isSelected && styles.datePillSelected]}
-                onPress={() => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                  setSelectedDateKey(item.key);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.datePillDay, item.isSelected && styles.datePillDaySelected]}>
-                  {item.dayName}
-                </Text>
-                <Text style={[styles.datePillNum, item.isSelected && styles.datePillNumSelected]}>
-                  {item.dayNum}
-                </Text>
-                {item.isToday && !item.isSelected ? <View style={styles.todayDot} /> : null}
-              </TouchableOpacity>
-            );
-          })}
+          {dateStrip.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={[styles.datePill, item.isSelected && styles.datePillSelected]}
+              onPress={() => {
+                if (item.key !== selectedDateKey) {
+                  animateDateTransition(item.key > selectedDateKey ? 1 : -1, item.key);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.datePillDay, item.isSelected && styles.datePillDaySelected]}>
+                {item.dayName}
+              </Text>
+              <Text style={[styles.datePillNum, item.isSelected && styles.datePillNumSelected]}>
+                {item.dayNum}
+              </Text>
+              {item.isToday && !item.isSelected ? <View style={styles.todayDot} /> : null}
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
 
       {/* ================= SEARCH BAR ================= */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={16} color={colors.textMuted} />
+          <Ionicons name="search" size={15} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari klub di tanggal ini..."
+            placeholder="Cari klub atau liga di tanggal ini..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
           />
           {searchQuery.length > 0 ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
 
-      {/* ================= DAFTAR LIGA VERTIKAL DENGAN DROPDOWN ================= */}
+      {/* ================= ACTIVE FILTER CHIPS (JIKA ADA FILTER AKTIF) ================= */}
+      {activeFilterCount > 0 && (
+        <View style={styles.activeFiltersRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilterChipsScroll}>
+            {filters.league !== 'ALL' && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterChipText}>
+                  Liga: {filters.league === 'TOP5' ? 'Top 5 Eropa' : filters.league}
+                </Text>
+                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, league: 'ALL' }))}>
+                  <Ionicons name="close" size={12} color="#10B981" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {filters.valueOnly && (
+              <View style={styles.activeFilterChip}>
+                <Ionicons name="sparkles" size={10} color="#10B981" />
+                <Text style={styles.activeFilterChipText}>Value Bet Only</Text>
+                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, valueOnly: false }))}>
+                  <Ionicons name="close" size={12} color="#10B981" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {filters.ouPick !== 'ALL' && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterChipText}>O/U: {filters.ouPick}</Text>
+                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, ouPick: 'ALL' }))}>
+                  <Ionicons name="close" size={12} color="#10B981" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {filters.ftrPick !== 'ALL' && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterChipText}>1X2: Pick {filters.ftrPick}</Text>
+                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, ftrPick: 'ALL' }))}>
+                  <Ionicons name="close" size={12} color="#10B981" />
+                </TouchableOpacity>
+              </View>
+            )}
+            {filters.highOddsOnly && (
+              <View style={styles.activeFilterChip}>
+                <Text style={styles.activeFilterChipText}>Odds ≥ 2.00</Text>
+                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, highOddsOnly: false }))}>
+                  <Ionicons name="close" size={12} color="#10B981" />
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.resetFilterChip}
+              onPress={() => setFilters(INITIAL_FILTERS)}
+            >
+              <Text style={styles.resetFilterChipText}>Reset Semua</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ================= DAFTAR LIGA VERTIKAL DENGAN EFEK GESER ANIMASI ================= */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Memuat jadwal pertandingan...</Text>
+          <Text style={styles.loadingText}>Memuat jadwal pertandingan (WITA)...</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.listContainer}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
+        <Animated.View
+          style={[
+            styles.animatedContainer,
+            {
+              transform: [{ translateX: slideAnim }],
+              opacity: fadeAnim,
+            },
+          ]}
         >
-          {/* Header Summary Laga di Tanggal Tersebut */}
-          <View style={styles.summaryBar}>
-            <Text style={styles.summaryText}>
-              <Text style={{ color: colors.textPrimary, fontWeight: '800' }}>{dateFixtures.length}</Text> Pertandingan
-              {' • '}{groupedLeagues.length} Liga
-            </Text>
-            {selectedDateKey !== formatDateToKey(new Date()) && (
-              <TouchableOpacity
-                onPress={() => setSelectedDateKey(formatDateToKey(new Date()))}
-                style={styles.todayJumpBtn}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="today-outline" size={12} color={colors.primaryLight} />
-                <Text style={styles.todayJumpText}>Ke Hari Ini</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {groupedLeagues.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="calendar-outline" size={44} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>Tidak Ada Pertandingan</Text>
-              <Text style={styles.emptyDesc}>
-                Tidak ada pertandingan pada {formatDisplayDate(selectedDateKey)}.
-                Geser ke kanan / kiri atau pilih tanggal lain di atas.
+          <ScrollView
+            style={styles.listContainer}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            }
+          >
+            {/* Header Summary Laga di Tanggal Tersebut */}
+            <View style={styles.summaryBar}>
+              <Text style={styles.summaryText}>
+                <Text style={{ color: colors.textPrimary, fontWeight: '800' }}>
+                  {dateFixtures.length}
+                </Text>{' '}
+                Pertandingan • {groupedLeagues.length} Liga
               </Text>
-              {firstAvailableDate && firstAvailableDate !== selectedDateKey && (
+              {selectedDateKey !== getWitaDateKey(getTodayWitaDate()) && (
                 <TouchableOpacity
-                  style={styles.jumpDateBtn}
                   onPress={() => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    setSelectedDateKey(firstAvailableDate);
+                    const todayKey = getWitaDateKey(getTodayWitaDate());
+                    animateDateTransition(selectedDateKey < todayKey ? 1 : -1, todayKey);
                   }}
-                  activeOpacity={0.8}
+                  style={styles.todayJumpBtn}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons name="flash-outline" size={14} color="#FFFFFF" />
-                  <Text style={styles.jumpDateBtnText}>
-                    Buka Jadwal Terdekat ({formatDisplayDate(firstAvailableDate)})
-                  </Text>
+                  <Ionicons name="today-outline" size={12} color={colors.primaryLight} />
+                  <Text style={styles.todayJumpText}>Ke Hari Ini</Text>
                 </TouchableOpacity>
               )}
             </View>
-          ) : (
-            groupedLeagues.map((group) => {
-              const isExpanded = Boolean(expandedLeagues[group.leagueName] || searchQuery.trim().length > 0);
 
-              return (
-                <View key={group.leagueName} style={styles.leagueCardContainer}>
-                  {/* Vertical League Header Card (Tekan untuk Dropdown) */}
+            {groupedLeagues.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="calendar-outline" size={44} color={colors.textMuted} />
+                <Text style={styles.emptyTitle}>Tidak Ada Pertandingan</Text>
+                <Text style={styles.emptyDesc}>
+                  Tidak ada pertandingan pada {formatWitaFullDate(selectedDateKey)}.
+                  {activeFilterCount > 0
+                    ? ' Coba longgarkan kriteria filter Anda.'
+                    : ' Geser ke kanan / kiri atau pilih tanggal lain di atas.'}
+                </Text>
+                {activeFilterCount > 0 ? (
                   <TouchableOpacity
-                    style={[styles.leagueAccordionHeader, isExpanded && styles.leagueAccordionHeaderActive]}
-                    onPress={() => toggleLeague(group.leagueName)}
-                    activeOpacity={0.75}
+                    style={styles.jumpDateBtn}
+                    onPress={() => setFilters(INITIAL_FILTERS)}
+                    activeOpacity={0.8}
                   >
-                    <View style={styles.leagueHeaderLeft}>
-                      <Ionicons
-                        name="trophy"
-                        size={16}
-                        color={group.priority <= 5 ? '#F59E0B' : colors.primaryLight}
-                      />
-                      <Text style={styles.leagueAccordionTitle} numberOfLines={1}>
-                        {group.leagueName}
-                      </Text>
-                      {group.priority <= 5 ? (
-                        <View style={styles.topLeagueBadge}>
-                          <Text style={styles.topLeagueBadgeText}>TOP 5</Text>
-                        </View>
-                      ) : null}
-                    </View>
+                    <Ionicons name="refresh-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.jumpDateBtnText}>Reset Filter</Text>
+                  </TouchableOpacity>
+                ) : firstAvailableDate && firstAvailableDate !== selectedDateKey ? (
+                  <TouchableOpacity
+                    style={styles.jumpDateBtn}
+                    onPress={() => {
+                      animateDateTransition(
+                        firstAvailableDate > selectedDateKey ? 1 : -1,
+                        firstAvailableDate
+                      );
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="flash-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.jumpDateBtnText}>
+                      Buka Jadwal Terdekat ({formatWitaShortDate(firstAvailableDate)})
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : (
+              groupedLeagues.map((group) => {
+                const isExpanded = Boolean(
+                  expandedLeagues[group.leagueName] || searchQuery.trim().length > 0 || activeFilterCount > 0
+                );
 
-                    <View style={styles.leagueHeaderRight}>
-                      <View style={styles.matchCountPill}>
-                        <Text style={styles.matchCountPillText}>{group.matches.length} Laga</Text>
+                return (
+                  <View key={group.leagueName} style={styles.leagueCardContainer}>
+                    {/* Vertical League Header Card (Tekan untuk Dropdown) */}
+                    <TouchableOpacity
+                      style={[styles.leagueAccordionHeader, isExpanded && styles.leagueAccordionHeaderActive]}
+                      onPress={() => toggleLeague(group.leagueName)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.leagueHeaderLeft}>
+                        <Ionicons
+                          name="trophy"
+                          size={15}
+                          color={group.priority <= 5 ? '#F59E0B' : colors.primaryLight}
+                        />
+                        <Text style={styles.leagueAccordionTitle} numberOfLines={1}>
+                          {group.leagueName}
+                        </Text>
+                        {group.priority <= 5 ? (
+                          <View style={styles.topLeagueBadge}>
+                            <Text style={styles.topLeagueBadgeText}>TOP 5</Text>
+                          </View>
+                        ) : null}
                       </View>
-                      <Ionicons
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={18}
-                        color={colors.textSecondary}
-                      />
-                    </View>
+
+                      <View style={styles.leagueHeaderRight}>
+                        <View style={styles.matchCountPill}>
+                          <Text style={styles.matchCountPillText}>{group.matches.length} Laga</Text>
+                        </View>
+                        <Ionicons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={17}
+                          color={colors.textSecondary}
+                        />
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Dropdown Match List ketika Liga Ditekan */}
+                    {isExpanded && (
+                      <View style={styles.dropdownMatchesContainer}>
+                        {group.matches.map((fixture) => (
+                          <CompactMatchCard
+                            key={fixture.id}
+                            fixture={fixture}
+                            onPress={() => setSelectedFixture(fixture)}
+                            showLeagueBadge={false}
+                          />
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* ================= MODAL FILTER LENGKAP ================= */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.filterModalOverlay}>
+          <View style={styles.filterModalCard}>
+            {/* Header Modal */}
+            <View style={styles.filterModalHeader}>
+              <View style={styles.filterModalHeaderLeft}>
+                <Ionicons name="options" size={18} color="#10B981" />
+                <Text style={styles.filterModalTitle}>Filter Jadwal Pertandingan</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.filterModalBody}
+              contentContainerStyle={styles.filterModalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* 1. Filter Liga */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>PILIH LIGA</Text>
+                <View style={styles.chipRowWrap}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.league === 'ALL' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, league: 'ALL' }))}
+                  >
+                    <Text style={[styles.filterChipText, filters.league === 'ALL' && styles.filterChipTextSelected]}>
+                      Semua Liga
+                    </Text>
                   </TouchableOpacity>
 
-                  {/* Dropdown Match List ketika Liga Ditekan */}
-                  {isExpanded && (
-                    <View style={styles.dropdownMatchesContainer}>
-                      {group.matches.map((fixture) => (
-                        <CompactMatchCard
-                          key={fixture.id}
-                          fixture={fixture}
-                          onPress={() => setSelectedFixture(fixture)}
-                          showLeagueBadge={false}
-                        />
-                      ))}
-                    </View>
-                  )}
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.league === 'TOP5' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, league: 'TOP5' }))}
+                  >
+                    <Ionicons
+                      name="star"
+                      size={11}
+                      color={filters.league === 'TOP5' ? '#FFFFFF' : '#F59E0B'}
+                    />
+                    <Text style={[styles.filterChipText, filters.league === 'TOP5' && styles.filterChipTextSelected]}>
+                      Top 5 Eropa
+                    </Text>
+                  </TouchableOpacity>
+
+                  {availableLeagues.map((lg) => (
+                    <TouchableOpacity
+                      key={lg}
+                      style={[styles.filterChip, filters.league === lg && styles.filterChipSelected]}
+                      onPress={() => setFilters((p) => ({ ...p, league: lg }))}
+                    >
+                      <Text style={[styles.filterChipText, filters.league === lg && styles.filterChipTextSelected]}>
+                        {lg}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              );
-            })
-          )}
-        </ScrollView>
-      )}
+              </View>
+
+              {/* 2. Filter Rekomendasi Value Bet */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>VALUE BET (MARKET EDGE)</Text>
+                <TouchableOpacity
+                  style={[styles.valueToggleCard, filters.valueOnly && styles.valueToggleCardActive]}
+                  onPress={() => setFilters((p) => ({ ...p, valueOnly: !p.valueOnly }))}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.valueToggleLeft}>
+                    <View
+                      style={[
+                        styles.valueToggleIconBox,
+                        filters.valueOnly && { backgroundColor: '#10B981' },
+                      ]}
+                    >
+                      <Ionicons
+                        name="sparkles"
+                        size={15}
+                        color={filters.valueOnly ? '#FFFFFF' : '#34D399'}
+                      />
+                    </View>
+                    <View style={styles.valueToggleTextCol}>
+                      <Text style={styles.valueToggleTitle}>Hanya Tampilkan Value Bet</Text>
+                      <Text style={styles.valueToggleSubtitle}>
+                        Laga dengan keunggulan matematis atas odds pasar
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons
+                    name={filters.valueOnly ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={filters.valueOnly ? '#10B981' : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* 3. Filter Pasaran Over / Under 2.5 */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>REKOMENDASI PASARAN O/U 2.5</Text>
+                <View style={styles.chipRowWrap}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ouPick === 'ALL' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ouPick: 'ALL' }))}
+                  >
+                    <Text style={[styles.filterChipText, filters.ouPick === 'ALL' && styles.filterChipTextSelected]}>
+                      Semua O/U
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ouPick === 'OVER' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ouPick: 'OVER' }))}
+                  >
+                    <Ionicons
+                      name="arrow-up-circle"
+                      size={12}
+                      color={filters.ouPick === 'OVER' ? '#FFFFFF' : '#10B981'}
+                    />
+                    <Text style={[styles.filterChipText, filters.ouPick === 'OVER' && styles.filterChipTextSelected]}>
+                      Bet Over 2.5
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ouPick === 'UNDER' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ouPick: 'UNDER' }))}
+                  >
+                    <Ionicons
+                      name="arrow-down-circle"
+                      size={12}
+                      color={filters.ouPick === 'UNDER' ? '#FFFFFF' : '#38BDF8'}
+                    />
+                    <Text style={[styles.filterChipText, filters.ouPick === 'UNDER' && styles.filterChipTextSelected]}>
+                      Bet Under 2.5
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 4. Filter Pasaran 1X2 */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>REKOMENDASI 1X2 (HASIL AKHIR)</Text>
+                <View style={styles.chipRowWrap}>
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ftrPick === 'ALL' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'ALL' }))}
+                  >
+                    <Text style={[styles.filterChipText, filters.ftrPick === 'ALL' && styles.filterChipTextSelected]}>
+                      Semua
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ftrPick === 'H' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'H' }))}
+                  >
+                    <Text style={[styles.filterChipText, filters.ftrPick === 'H' && styles.filterChipTextSelected]}>
+                      Pick Home (1)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ftrPick === 'D' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'D' }))}
+                  >
+                    <Text style={[styles.filterChipText, filters.ftrPick === 'D' && styles.filterChipTextSelected]}>
+                      Pick Seri (X)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.filterChip, filters.ftrPick === 'A' && styles.filterChipSelected]}
+                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'A' }))}
+                  >
+                    <Text style={[styles.filterChipText, filters.ftrPick === 'A' && styles.filterChipTextSelected]}>
+                      Pick Away (2)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 5. Filter Cerdas Tambahan: High Odds */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>FITUR CERDAS TAMBAHAN</Text>
+                <TouchableOpacity
+                  style={[styles.valueToggleCard, filters.highOddsOnly && styles.valueToggleCardActive]}
+                  onPress={() => setFilters((p) => ({ ...p, highOddsOnly: !p.highOddsOnly }))}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.valueToggleLeft}>
+                    <View
+                      style={[
+                        styles.valueToggleIconBox,
+                        filters.highOddsOnly && { backgroundColor: '#F59E0B' },
+                      ]}
+                    >
+                      <Ionicons
+                        name="trending-up"
+                        size={15}
+                        color={filters.highOddsOnly ? '#FFFFFF' : '#F59E0B'}
+                      />
+                    </View>
+                    <View style={styles.valueToggleTextCol}>
+                      <Text style={styles.valueToggleTitle}>Odds Menarik (Odds ≥ 2.00)</Text>
+                      <Text style={styles.valueToggleSubtitle}>
+                        Pilihan taruhan dengan imbalan return tinggi
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons
+                    name={filters.highOddsOnly ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={filters.highOddsOnly ? '#10B981' : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+
+            {/* Modal Bottom Actions */}
+            <View style={styles.filterModalFooter}>
+              <TouchableOpacity
+                style={styles.filterResetBtn}
+                onPress={() => setFilters(INITIAL_FILTERS)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.filterResetBtnText}>Reset</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.filterApplyBtn}
+                onPress={() => setFilterModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.filterApplyBtnText}>
+                  Terapkan ({dateFixtures.length} Laga)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Detail Pertandingan Ketika Card Ditekan */}
       <MatchDetailModal
@@ -468,90 +959,124 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  dateControlCard: {
+  topControlCard: {
     backgroundColor: '#0F172A',
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 8,
     gap: 8,
   },
-  dateNavRow: {
+  controlRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
   },
-  dateArrowBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  filterTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterTriggerBtnActive: {
+    backgroundColor: '#064E3B40',
+    borderColor: '#059669',
+  },
+  filterTriggerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  filterTriggerTextActive: {
+    color: '#34D399',
+  },
+  filterCountBadge: {
+    backgroundColor: '#10B981',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  dateNavigatorRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dateNavArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#334155',
   },
-  dateTitleCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  dateMainRow: {
+  dateCenterBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
-  dateMainText: {
-    fontSize: 14,
+  dateCenterText: {
+    fontSize: 12,
     fontWeight: '800',
     color: colors.textPrimary,
   },
-  dateMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  relativeBadge: {
-    backgroundColor: '#064E3B40',
-    paddingHorizontal: 6,
+  relativePill: {
+    backgroundColor: '#064E3B60',
+    paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#05966950',
+    borderWidth: 0.5,
+    borderColor: '#10B98150',
   },
-  relativeBadgeText: {
-    fontSize: 9,
+  relativePillText: {
+    fontSize: 8.5,
     fontWeight: '700',
-    color: '#10B981',
-  },
-  dateHintText: {
-    fontSize: 9.5,
-    color: colors.textMuted,
+    color: '#34D399',
   },
   datePillsScroll: {
     paddingHorizontal: 12,
-    gap: 8,
-    paddingTop: 4,
+    gap: 7,
+    paddingTop: 2,
     alignItems: 'center',
   },
   datePill: {
-    minWidth: 46,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    minWidth: 44,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+    borderRadius: 8,
     backgroundColor: '#1E293B',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#334155',
     position: 'relative',
-    gap: 2,
+    gap: 1.5,
   },
   datePillSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   datePillDay: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '600',
     color: colors.textMuted,
   },
@@ -560,7 +1085,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   datePillNum: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
     color: colors.textPrimary,
   },
@@ -573,29 +1098,67 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#10B981',
     position: 'absolute',
-    bottom: 3,
+    bottom: 2,
   },
   searchContainer: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: colors.background,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 10,
-    height: 38,
+    height: 36,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
     color: colors.textPrimary,
     paddingVertical: 0,
+  },
+  activeFiltersRow: {
+    paddingVertical: 4,
+    backgroundColor: colors.background,
+  },
+  activeFilterChipsScroll: {
+    paddingHorizontal: 12,
+    gap: 6,
+    alignItems: 'center',
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#064E3B30',
+    borderWidth: 0.8,
+    borderColor: '#05966980',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+  },
+  activeFilterChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  resetFilterChip: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+  },
+  resetFilterChipText: {
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+  animatedContainer: {
+    flex: 1,
   },
   centerContainer: {
     flex: 1,
@@ -612,15 +1175,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    padding: 14,
+    paddingHorizontal: 12,
+    paddingTop: 8,
     paddingBottom: 36,
-    gap: 12,
+    gap: 10,
   },
   summaryBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 2,
+    marginBottom: 2,
   },
   summaryText: {
     fontSize: 11,
@@ -642,7 +1207,7 @@ const styles = StyleSheet.create({
     color: colors.primaryLight,
   },
   leagueCardContainer: {
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#0F172A',
     borderWidth: 1,
     borderColor: '#1E293B',
@@ -652,8 +1217,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: '#0F172A',
   },
   leagueAccordionHeaderActive: {
@@ -668,7 +1233,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   leagueAccordionTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
     color: colors.textPrimary,
   },
@@ -681,62 +1246,219 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   topLeagueBadgeText: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: '900',
     color: '#F59E0B',
   },
   leagueHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   matchCountPill: {
     backgroundColor: '#1E293B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#334155',
   },
   matchCountPillText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: colors.textSecondary,
   },
   dropdownMatchesContainer: {
-    padding: 10,
+    padding: 8,
     gap: 8,
     backgroundColor: '#0A0F1D',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: 40,
     paddingHorizontal: 20,
     gap: 8,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   emptyDesc: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   jumpDateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 7,
+    marginTop: 6,
   },
   jumpDateBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* Filter Modal Styles */
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  filterModalCard: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderColor: '#334155',
+    maxHeight: '82%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  filterModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  filterModalTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  filterModalBody: {
+    flexGrow: 0,
+  },
+  filterModalContent: {
+    padding: 16,
+    gap: 16,
+  },
+  filterSection: {
+    gap: 8,
+  },
+  filterSectionTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  chipRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  filterChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  filterChipTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  valueToggleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  valueToggleCardActive: {
+    backgroundColor: '#064E3B30',
+    borderColor: '#059669',
+  },
+  valueToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  valueToggleIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#064E3B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  valueToggleTextCol: {
+    flex: 1,
+  },
+  valueToggleTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  valueToggleSubtitle: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+    backgroundColor: '#090D1A',
+  },
+  filterResetBtn: {
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterResetBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  filterApplyBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterApplyBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',

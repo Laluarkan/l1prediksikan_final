@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { Fixture } from '../services/api';
+import { formatWitaKickoff } from '../utils/dateUtils';
 
 interface CompactMatchCardProps {
   fixture: Fixture;
@@ -15,18 +16,7 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
   onPress,
   showLeagueBadge = true,
 }) => {
-  const formatKickoff = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr);
-      const day = d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
-      const h = d.getHours().toString().padStart(2, '0');
-      const m = d.getMinutes().toString().padStart(2, '0');
-      return `${day} • ${h}:${m} WIB`;
-    } catch {
-      return dateStr;
-    }
-  };
+  const kickoffLabel = formatWitaKickoff(fixture.date);
 
   // 1. Sanitasi Rekomendasi 1X2 (HDA)
   const rawFtr = (fixture.rl_pick_ftr || '').trim().toUpperCase();
@@ -92,7 +82,7 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
       <View style={styles.topMetaBar}>
         <View style={styles.timeWrapper}>
           <Ionicons name="time-outline" size={11} color={colors.primaryLight} />
-          <Text style={styles.timeText}>{formatKickoff(fixture.date)}</Text>
+          <Text style={styles.timeText}>{kickoffLabel}</Text>
         </View>
 
         {showLeagueBadge ? (
@@ -146,13 +136,13 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
           <View style={[styles.pickRow, fixture.has_value_bet && styles.pickRowValue]}>
             <View style={styles.pickLabelRow}>
               <Text style={styles.pickTag}>1X2</Text>
-              <Text style={styles.pickText}>
+              <Text style={styles.pickText} numberOfLines={1}>
                 {hdaPick} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
               </Text>
             </View>
             {fixture.has_value_bet ? (
               <View style={styles.valueBadge}>
-                <Ionicons name="diamond" size={8} color="#F59E0B" />
+                <Ionicons name="sparkles" size={8} color="#34D399" />
                 <Text style={styles.valueBadgeText}>VALUE</Text>
               </View>
             ) : null}
@@ -162,21 +152,18 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
           <View style={[styles.pickRow, fixture.has_value_bet_ou && styles.pickRowValue]}>
             <View style={styles.pickLabelRow}>
               <Text style={styles.pickTag}>O/U</Text>
-              <Text style={styles.pickText}>
+              <Text style={styles.pickText} numberOfLines={1}>
                 {ouPickShort} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
               </Text>
             </View>
             {fixture.has_value_bet_ou ? (
               <View style={styles.valueBadge}>
-                <Ionicons name="diamond" size={8} color="#F59E0B" />
+                <Ionicons name="sparkles" size={8} color="#34D399" />
                 <Text style={styles.valueBadgeText}>VALUE</Text>
               </View>
             ) : null}
           </View>
         </View>
-
-        {/* Small Chevron indicator */}
-        <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.chevron} />
       </View>
     </TouchableOpacity>
   );
@@ -230,7 +217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   teamsCol: {
-    flex: 1.25,
+    flex: 1,
     gap: 6,
     paddingRight: 6,
   },
@@ -253,20 +240,20 @@ const styles = StyleSheet.create({
   },
   teamName: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   colDivider: {
     width: 1,
-    height: '80%',
+    height: '75%',
     backgroundColor: '#1E293B',
-    marginHorizontal: 4,
+    marginHorizontal: 3,
   },
   picksCol: {
-    flex: 1.05,
-    gap: 5,
-    paddingLeft: 4,
+    flex: 1.15,
+    gap: 4,
+    paddingLeft: 3,
   },
   pickRow: {
     flexDirection: 'row',
@@ -286,19 +273,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flex: 1,
+    marginRight: 4,
   },
   pickTag: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '800',
     color: colors.textMuted,
   },
   pickText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
     color: colors.textPrimary,
+    flexShrink: 1,
   },
   oddsText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#F59E0B',
   },
@@ -306,17 +296,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#F59E0B25',
+    backgroundColor: '#065F46',
+    borderWidth: 0.5,
+    borderColor: '#10B981',
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
+    flexShrink: 0,
   },
   valueBadgeText: {
     fontSize: 7.5,
-    fontWeight: '800',
-    color: '#F59E0B',
-  },
-  chevron: {
-    marginLeft: 4,
+    fontWeight: '900',
+    color: '#34D399',
+    letterSpacing: 0.2,
   },
 });

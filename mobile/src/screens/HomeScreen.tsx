@@ -21,6 +21,7 @@ import {
 } from '../services/api';
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
+import { getWitaDateKey } from '../utils/dateUtils';
 
 interface HomeScreenProps {
   onNavigate: (tab: TabType) => void;
@@ -88,7 +89,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   };
 
   // Filter 5 Laga Mendatang: Tepat 1 laga per liga dari Top 5 Liga Eropa.
-  // Dimulai dari tanggal match terbaru (terdekat). Jika ada beberapa match di tanggal tersebut,
+  // Dimulai dari tanggal match terbaru (terdekat dalam WITA). Jika ada beberapa match di tanggal tersebut,
   // pilih 1 match yang timnya memiliki posisi klasemen tertinggi.
   const top5Fixtures = useMemo(() => {
     if (!fixtures || fixtures.length === 0) return [];
@@ -103,12 +104,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
       // 2. Urutkan berdasarkan tanggal & jam kickoff (terdekat lebih dulu)
       leagueMatches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      // 3. Ambil tanggal paling awal yang ada (match terbaru yang belum dimainkan)
-      const earliestDateStr = leagueMatches[0].date ? leagueMatches[0].date.split('T')[0] : '';
+      // 3. Ambil tanggal paling awal yang ada dalam zona WITA
+      const earliestDateStr = leagueMatches[0].date ? getWitaDateKey(leagueMatches[0].date) : '';
 
-      // 4. Ambil semua match pada tanggal tersebut (misal tanggal 17 ada 3 match)
+      // 4. Ambil semua match pada tanggal WITA tersebut (misal tanggal 17 ada 3 match)
       const matchesOnEarliestDate = earliestDateStr
-        ? leagueMatches.filter((f) => (f.date || '').startsWith(earliestDateStr))
+        ? leagueMatches.filter((f) => getWitaDateKey(f.date) === earliestDateStr)
         : [leagueMatches[0]];
 
       // 5. Dari match pada tanggal tersebut, pilih 1 match dengan posisi klasemen tertinggi

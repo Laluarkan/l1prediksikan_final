@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { Fixture } from '../../services/api';
 import { shareMatchPrediction } from '../../services/shareService';
+import { formatWitaFullDate, formatWitaTime } from '../../utils/dateUtils';
 
 interface MatchDetailModalProps {
   visible: boolean;
@@ -27,32 +28,8 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 }) => {
   if (!fixture) return null;
 
-  const formatFullDate = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const formatTime = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr);
-      const h = d.getHours().toString().padStart(2, '0');
-      const m = d.getMinutes().toString().padStart(2, '0');
-      return `${h}:${m} WIB`;
-    } catch {
-      return '-';
-    }
-  };
+  const fullDateLabel = formatWitaFullDate(fixture.date);
+  const timeLabel = formatWitaTime(fixture.date);
 
   const probH = Math.round((fixture.prob_ftr_h || 0.33) * 100);
   const probD = Math.round((fixture.prob_ftr_d || 0.33) * 100);
@@ -139,10 +116,10 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             {/* Match Kickoff Banner */}
             <View style={styles.kickoffBanner}>
               <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
-              <Text style={styles.kickoffDate}>{formatFullDate(fixture.date)}</Text>
+              <Text style={styles.kickoffDate}>{fullDateLabel}</Text>
               <Text style={styles.kickoffBullet}>•</Text>
               <Ionicons name="time-outline" size={13} color={colors.primaryLight} />
-              <Text style={styles.kickoffTime}>{formatTime(fixture.date)}</Text>
+              <Text style={styles.kickoffTime}>{timeLabel}</Text>
             </View>
 
             {/* Teams VS Section */}
