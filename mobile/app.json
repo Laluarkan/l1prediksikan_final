@@ -1,30 +1,30 @@
 {
   "expo": {
-    "name": "L1Prediksikan",
+    "name": "L1",
     "slug": "L1prediksikan",
     "scheme": "l1prediksikan",
     "version": "1.3.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "id.prediksikan.app",
-      "buildNumber": "4"
+      "buildNumber": "5"
     },
     "android": {
       "package": "id.prediksikan.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/logo.png",
         "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "monochromeImage": "./assets/logo.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -38,7 +38,8 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.1074921761810-iaubtmm76ghmv9dq3vhmeegfi80co25a"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

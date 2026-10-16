@@ -1,10 +1,30 @@
-import { Share, Alert } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import { Share, Alert, Platform } from 'react-native';
 import { Fixture, ParlayTicket } from './api';
 
 /**
- * Service Berbagi Prediksi Sepak Bola ke Media Sosial (WhatsApp, Telegram, dll)
- * Menggunakan API native Share dari OS Android / iOS.
+ * Service Berbagi Gambar & Prediksi Sepak Bola ke Media Sosial (WhatsApp, Telegram, dll)
+ * Menggunakan expo-sharing untuk mengirimkan output berupa GAMBAR (Image/PNG).
  */
+
+export const shareImageFile = async (imageUri: string, dialogTitle?: string): Promise<void> => {
+  try {
+    const isAvailable = await Sharing.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('Perangkat Tidak Mendukung', 'Fitur berbagi file gambar tidak tersedia pada perangkat ini.');
+      return;
+    }
+    await Sharing.shareAsync(imageUri, {
+      mimeType: 'image/png',
+      dialogTitle: dialogTitle || 'Bagikan Gambar Tiket L1',
+      UTI: 'public.png',
+    });
+  } catch (error: any) {
+    if (error?.message && !error.message.includes('User did not share') && !error.message.includes('dismiss')) {
+      console.warn('Share image error:', error);
+    }
+  }
+};
 
 export const shareMatchPrediction = async (match: Fixture): Promise<void> => {
   try {

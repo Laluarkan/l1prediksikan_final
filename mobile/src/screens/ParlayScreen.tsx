@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,15 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Modal,
+  Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { ParlayTicket, fetchParlayTickets } from '../services/api';
-import { shareParlayTicket } from '../services/shareService';
+import { shareImageFile } from '../services/shareService';
+import { captureRef } from 'react-native-view-shot';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -31,6 +35,43 @@ export const ParlayScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [stake, setStake] = useState<number>(25000);
+  const [ticketToShare, setTicketToShare] = useState<ParlayTicket | null>(null);
+  const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  const shareCardRef = useRef<View>(null);
+
+  const handleShareTicketAsImage = (ticket: ParlayTicket) => {
+    setTicketToShare(ticket);
+  };
+
+  const captureAndShare = async () => {
+    if (!shareCardRef.current || !ticketToShare) return;
+    try {
+      setIsCapturing(true);
+      // Tunggu layout ter-render dengan sempurna
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
+      });
+      await shareImageFile(uri, `Tiket Parlay #${ticketToShare.ticket_id || ticketToShare.id}`);
+    } catch (error) {
+      console.error('Gagal mengambil snapshot tiket parlay:', error);
+      Alert.alert('Gagal Membuat Gambar', 'Tidak dapat mengambil snapshot tiket parlay.');
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  // Otomatis memicu share dialog saat modal tiket parlay terbuka
+  useEffect(() => {
+    if (ticketToShare) {
+      const timer = setTimeout(() => {
+        captureAndShare();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [ticketToShare]);
 
   const loadData = useCallback(async () => {
     try {
@@ -269,15 +310,19 @@ export const ParlayScreen: React.FC = () => {
                 >
                   <View style={styles.ticketHeaderLeft}>
                     <View style={styles.ticketIdRow}>
-                      <Ionicons name="ticket" size={18} color={colors.primary} />
-                      <Text style={styles.ticketIdText}>
+                      <Ionicons name="ticket" size={16} color={colors.primary} />
+                      <Text style={styles.ticketIdText} numberOfLines={1} ellipsizeMode="tail">
                         #{ticket.ticket_id || `PARLAY-${ticket.id}`}
                       </Text>
+                    </View>
+                    <View style={styles.ticketMetaRow}>
                       <View style={styles.legCountBadge}>
                         <Text style={styles.legCountText}>{legs.length || 3}-Fold</Text>
                       </View>
+                      <Text style={styles.metaBullet}>•</Text>
+                      <Ionicons name="calendar-outline" size={11} color={colors.textMuted} />
+                      <Text style={styles.ticketDateText}>{formatDate(ticket.date)}</Text>
                     </View>
-                    <Text style={styles.ticketDateText}>{formatDate(ticket.date)}</Text>
                   </View>
 
                   <View style={styles.ticketHeaderRight}>
@@ -287,7 +332,7 @@ export const ParlayScreen: React.FC = () => {
                         { backgroundColor: statusBadge.bg, borderColor: statusBadge.border },
                       ]}
                     >
-                      <Ionicons name={statusBadge.icon} size={12} color={statusBadge.color} />
+                      <Ionicons name={statusBadge.icon} size={11} color={statusBadge.color} />
                       <Text style={[styles.statusText, { color: statusBadge.color }]}>
                         {statusBadge.text}
                       </Text>
@@ -325,11 +370,11 @@ export const ParlayScreen: React.FC = () => {
                       <Text style={styles.legsHeaderTitle}>KOMBINASI PERTANDINGAN ({legs.length})</Text>
                       <TouchableOpacity
                         style={styles.shareBtn}
-                        onPress={() => shareParlayTicket(ticket)}
+                        onPress={() => handleShareTicketAsImage(ticket)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="share-social-outline" size={14} color={colors.primaryLight} />
-                        <Text style={styles.shareBtnText}>Bagikan</Text>
+                        <Ionicons name="image-outline" size={13} color={colors.primaryLight} />
+                        <Text style={styles.shareBtnText}>Bagikan Gambar</Text>
                       </TouchableOpacity>
                     </View>
 
@@ -378,6 +423,206 @@ export const ParlayScreen: React.FC = () => {
           })}
         </ScrollView>
       )}
+
+      {/* MODAL PREVIEW & SHARE GAMBAR SLIP PARLAY */}
+      <Modal
+        visible={!!ticketToShare}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isCapturing) setTicketToShare(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCardWrapper}>
+            {/* Action Bar Above Preview */}
+            <View style={styles.modalTopBar}>
+              <View style={styles.modalTopBarLeft}>
+                <Ionicons name="image" size={18} color={colors.primaryLight} />
+                <Text style={styles.modalTitle}>Preview Gambar Tiket</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setTicketToShare(null)}
+                style={styles.modalCloseIconBtn}
+                disabled={isCapturing}
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Scrollable Container containing the captured slip card */}
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {ticketToShare && (
+                <View
+                  ref={shareCardRef}
+                  collapsable={false}
+                  style={styles.slipCard}
+                >
+                  {/* Slip Header with L1 Logo & Brand */}
+                  <View style={styles.slipHeader}>
+                    <Image
+                      source={require('../../assets/logo.png')}
+                      style={styles.slipLogo}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.slipBrandCol}>
+                      <Text style={styles.slipBrandTitle}>L1 PREDIKSI-KAN</Text>
+                      <Text style={styles.slipBrandSubtitle}>AI PARLAY RECOMMENDATION SLIP</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.slipStatusBadge,
+                        ticketToShare.is_won === true
+                          ? styles.slipStatusWon
+                          : ticketToShare.is_won === false
+                          ? styles.slipStatusLost
+                          : styles.slipStatusPending,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.slipStatusText,
+                          ticketToShare.is_won === true
+                            ? styles.slipStatusTextWon
+                            : ticketToShare.is_won === false
+                            ? styles.slipStatusTextLost
+                            : styles.slipStatusTextPending,
+                        ]}
+                      >
+                        {ticketToShare.is_won === true
+                          ? 'PARLAY WON'
+                          : ticketToShare.is_won === false
+                          ? 'PARLAY LOST'
+                          : 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Slip Ticket Meta */}
+                  <View style={styles.slipMetaRow}>
+                    <View style={styles.slipMetaLeft}>
+                      <Ionicons name="ticket" size={14} color={colors.primaryLight} />
+                      <Text style={styles.slipTicketId}>
+                        #{ticketToShare.ticket_id || `PARLAY-${ticketToShare.id}`}
+                      </Text>
+                    </View>
+                    <View style={styles.slipMetaRight}>
+                      <View style={styles.slipFoldBadge}>
+                        <Text style={styles.slipFoldText}>
+                          {(ticketToShare.legs_details || []).length}-Fold
+                        </Text>
+                      </View>
+                      <Text style={styles.slipDateText}>{formatDate(ticketToShare.date)}</Text>
+                    </View>
+                  </View>
+
+                  {/* Slip Metrics Box */}
+                  <View style={styles.slipMetricsBox}>
+                    <View style={styles.slipMetricItem}>
+                      <Text style={styles.slipMetricLabel}>TOTAL ODDS</Text>
+                      <Text style={styles.slipMetricOdds}>
+                        @{Number(ticketToShare.total_odds || 0).toFixed(2)}
+                      </Text>
+                    </View>
+                    <View style={styles.slipMetricDivider} />
+                    <View style={styles.slipMetricItem}>
+                      <Text style={styles.slipMetricLabel}>PROBABILITAS AI</Text>
+                      <Text style={styles.slipMetricProb}>
+                        {(Number(ticketToShare.total_prob || 0) * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={styles.slipMetricDivider} />
+                    <View style={styles.slipMetricItem}>
+                      <Text style={styles.slipMetricLabel}>TOTAL LAGA</Text>
+                      <Text style={styles.slipMetricLegs}>
+                        {(ticketToShare.legs_details || []).length} Match
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Slip Matches List */}
+                  <View style={styles.slipLegsContainer}>
+                    <Text style={styles.slipLegsTitle}>DETAIL KOMBINASI PERTANDINGAN</Text>
+                    {(ticketToShare.legs_details || []).map((leg, idx) => (
+                      <View key={idx} style={styles.slipLegRow}>
+                        <View style={styles.slipLegIndex}>
+                          <Text style={styles.slipLegIndexText}>{idx + 1}</Text>
+                        </View>
+                        <View style={styles.slipLegMain}>
+                          <Text style={styles.slipLegMatch} numberOfLines={1}>
+                            {leg.match}
+                          </Text>
+                          <View style={styles.slipLegMeta}>
+                            <View style={styles.slipPickBadge}>
+                              <Text style={styles.slipPickText}>
+                                {leg.pick.toUpperCase()}
+                              </Text>
+                            </View>
+                            <Text style={styles.slipOddsText}>@{Number(leg.odds).toFixed(2)}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.slipLegResult}>
+                          {leg.is_won === true ? (
+                            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                          ) : leg.is_won === false ? (
+                            <Ionicons name="close-circle" size={16} color="#EF4444" />
+                          ) : (
+                            <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Slip Watermark Footer */}
+                  <View style={styles.slipFooter}>
+                    <View style={styles.slipFooterLeft}>
+                      <Ionicons name="shield-checkmark" size={12} color="#10B981" />
+                      <Text style={styles.slipFooterBrand}>Dianalisis oleh AI L1</Text>
+                    </View>
+                    <Text style={styles.slipFooterUrl}>l1prediksikan.my.id</Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Modal Bottom Action Buttons */}
+            <View style={styles.modalBottomBar}>
+              <TouchableOpacity
+                style={[styles.modalShareBtn, isCapturing && styles.modalShareBtnDisabled]}
+                onPress={captureAndShare}
+                disabled={isCapturing}
+                activeOpacity={0.8}
+              >
+                {isCapturing ? (
+                  <>
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <Text style={styles.modalShareBtnText}>Memproses Gambar...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="share-social" size={16} color="#FFFFFF" />
+                    <Text style={styles.modalShareBtnText}>Bagikan Gambar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setTicketToShare(null)}
+                disabled={isCapturing}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelBtnText}>Tutup</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -563,7 +808,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   ticketHeaderLeft: {
+    flex: 1,
+    marginRight: 8,
     gap: 4,
+    justifyContent: 'center',
   },
   ticketIdRow: {
     flexDirection: 'row',
@@ -571,17 +819,27 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   ticketIdText: {
+    flexShrink: 1,
     fontSize: 14,
     fontWeight: '800',
     color: colors.textPrimary,
+  },
+  ticketMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaBullet: {
+    fontSize: 10,
+    color: colors.textMuted,
   },
   legCountBadge: {
     backgroundColor: '#2563EB25',
     borderWidth: 1,
     borderColor: '#3B82F650',
     paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 6,
+    paddingVertical: 1.5,
+    borderRadius: 5,
   },
   legCountText: {
     fontSize: 10,
@@ -596,18 +854,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
     borderRadius: 6,
     borderWidth: 1,
+    flexShrink: 0,
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   metricsStrip: {
@@ -744,5 +1004,338 @@ const styles = StyleSheet.create({
   },
   legStatusWrapper: {
     marginLeft: 4,
+  },
+
+  // STYLES UNTUK MODAL & GAMBAR SLIP PARLAY
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCardWrapper: {
+    width: '100%',
+    maxHeight: '92%',
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+    overflow: 'hidden',
+  },
+  modalTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    backgroundColor: '#0F172A',
+  },
+  modalTopBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  modalCloseIconBtn: {
+    padding: 4,
+  },
+  modalScroll: {
+    flexGrow: 0,
+  },
+  modalScrollContent: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  slipCard: {
+    width: '100%',
+    backgroundColor: '#090D1A',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#10B98140',
+    padding: 16,
+    gap: 12,
+  },
+  slipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+  },
+  slipLogo: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+  },
+  slipBrandCol: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  slipBrandTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  slipBrandSubtitle: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#10B981',
+    letterSpacing: 0.8,
+    marginTop: 1,
+  },
+  slipStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  slipStatusWon: {
+    backgroundColor: '#065F4640',
+    borderColor: '#10B981',
+  },
+  slipStatusLost: {
+    backgroundColor: '#7F1D1D30',
+    borderColor: '#EF444460',
+  },
+  slipStatusPending: {
+    backgroundColor: '#064E3B40',
+    borderColor: '#05966950',
+  },
+  slipStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  slipStatusTextWon: {
+    color: '#34D399',
+  },
+  slipStatusTextLost: {
+    color: '#F87171',
+  },
+  slipStatusTextPending: {
+    color: '#10B981',
+  },
+  slipMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#131D33',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  slipMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  slipTicketId: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primaryLight,
+  },
+  slipMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slipFoldBadge: {
+    backgroundColor: '#2563EB25',
+    borderWidth: 1,
+    borderColor: '#3B82F660',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  slipFoldText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#60A5FA',
+  },
+  slipDateText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  slipMetricsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B40',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  slipMetricItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  slipMetricDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: '#334155',
+  },
+  slipMetricLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  slipMetricOdds: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#F59E0B',
+  },
+  slipMetricProb: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  slipMetricLegs: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#38BDF8',
+  },
+  slipLegsContainer: {
+    gap: 8,
+  },
+  slipLegsTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  slipLegRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    gap: 8,
+  },
+  slipLegIndex: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slipLegIndexText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textSecondary,
+  },
+  slipLegMain: {
+    flex: 1,
+    gap: 2,
+  },
+  slipLegMatch: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  slipLegMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  slipPickBadge: {
+    backgroundColor: '#064E3B40',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  slipPickText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  slipOddsText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#F59E0B',
+  },
+  slipLegResult: {
+    marginLeft: 2,
+  },
+  slipFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+  },
+  slipFooterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  slipFooterBrand: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  slipFooterUrl: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primaryLight,
+  },
+  modalBottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+    backgroundColor: '#0F172A',
+  },
+  modalShareBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  modalShareBtnDisabled: {
+    opacity: 0.7,
+  },
+  modalShareBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  modalCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
 });
