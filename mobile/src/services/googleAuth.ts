@@ -1,4 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
+import { NativeModules, TurboModuleRegistry } from 'react-native';
 import Constants, { AppOwnership } from 'expo-constants';
 import { syncGoogleAccount, UserSession } from './auth';
 
@@ -36,10 +37,31 @@ export interface GoogleSignInResult {
 let isConfigured = false;
 
 /**
- * Inisialisasi konfigurasi modul native Google Sign-In
+ * Memeriksa apakah modul native biner 'RNGoogleSignin' tersedia pada runtime saat ini.
+ * Sangat penting untuk mencegah Invariant Violation crash saat dijalankan di Expo Go.
+ */
+export const isNativeGoogleSignInAvailable = (): boolean => {
+  // Jika sedang berjalan di Expo Go, modul biner native pasti tidak tersedia
+  if (Constants.appOwnership === AppOwnership.Expo) {
+    return false;
+  }
+
+  try {
+    const hasTurbo = TurboModuleRegistry?.get ? TurboModuleRegistry.get('RNGoogleSignin') != null : false;
+    const hasBridge = NativeModules?.RNGoogleSignin != null;
+    return hasTurbo || hasBridge;
+  } catch (_) {
+    return false;
+  }
+};
+
+/**
+ * Inisialisasi konfigurasi modul native Google Sign-In dengan aman.
  */
 export const configureNativeGoogleSignIn = () => {
   if (isConfigured) return;
+  if (!isNativeGoogleSignInAvailable()) return;
+
   try {
     const { GoogleSignin } = require('@react-native-google-signin/google-signin');
     GoogleSignin.configure({
@@ -57,18 +79,17 @@ export const configureNativeGoogleSignIn = () => {
  * Memunculkan One-Tap Account Picker bawaan Android tanpa perlu mengetik email
  */
 export const signInWithNativeGoogle = async (): Promise<GoogleSignInResult> => {
-  // Deteksi lingkungan Expo Go (development tanpa modul native biner)
-  const isExpoGo = Constants.appOwnership === AppOwnership.Expo;
-  if (isExpoGo) {
+  // Cek apakah modul native tersedia
+  if (!isNativeGoogleSignInAvailable()) {
     return {
       success: false,
       requiresFallback: true,
-      message: 'Native Google Sign-In memerlukan build standalone.',
+      message: 'Native Google Sign-In memerlukan build standalone Android.',
     };
   }
 
   try {
-    const { GoogleSignin, statusCodes } = require('@react-native-google-signin/google-signin');
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
 
     configureNativeGoogleSignIn();
 
