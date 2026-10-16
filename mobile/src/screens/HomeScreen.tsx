@@ -19,6 +19,7 @@ import {
   fetchPerformanceMetrics,
   getCurrentSeason,
 } from '../services/api';
+import { shareMatchPrediction } from '../services/shareService';
 
 interface HomeScreenProps {
   onNavigate: (tab: TabType) => void;
@@ -225,17 +226,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
             </View>
           </TouchableOpacity>
 
-          {/* Card 4: Peluang Pasar */}
+          {/* Card 4: Tiket Parlay AI */}
           <TouchableOpacity
             style={styles.menuCard}
-            onPress={() => onNavigate('fixtures')}
+            onPress={() => onNavigate('parlay')}
             activeOpacity={0.8}
           >
-            <View style={[styles.menuIconContainer, { backgroundColor: '#78350F30' }]}>
-              <Ionicons name="trending-up-outline" size={22} color="#F59E0B" />
+            <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
+              <Ionicons name="sparkles" size={22} color="#10B981" />
             </View>
-            <Text style={styles.menuCardTitle}>Peluang Pasar</Text>
-            <Text style={styles.menuCardDesc}>Laga dengan indikasi nilai</Text>
+            <Text style={styles.menuCardTitle}>Tiket Parlay AI</Text>
+            <Text style={styles.menuCardDesc}>Kombinasi multi-leg odds tinggi</Text>
             <View style={styles.menuArrow}>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
             </View>
@@ -272,7 +273,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
               <View key={fixture.id} style={styles.matchCard}>
                 <View style={styles.leagueTagRow}>
                   <Text style={styles.leagueText}>{fixture.league_name}</Text>
-                  <Text style={styles.matchTimeBadge}>{formatMatchTime(fixture.date)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.matchTimeBadge}>{formatMatchTime(fixture.date)}</Text>
+                    <TouchableOpacity
+                      onPress={() => shareMatchPrediction(fixture)}
+                      style={{ padding: 4, backgroundColor: '#1E293B', borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="share-social-outline" size={13} color={colors.primaryLight} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {/* Teams Row */}

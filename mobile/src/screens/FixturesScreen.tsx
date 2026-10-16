@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { Fixture, League, fetchLeagues, fetchUpcomingFixtures } from '../services/api';
+import { shareMatchPrediction } from '../services/shareService';
 
 export const FixturesScreen: React.FC = () => {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
@@ -187,15 +188,24 @@ export const FixturesScreen: React.FC = () => {
                 >
                   {/* Top Bar: League & Kickoff Time */}
                   <View style={styles.cardHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.leagueName}>{fixture.league_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
+                      <Text style={styles.leagueName} numberOfLines={1}>{fixture.league_name}</Text>
                       {Boolean(fixture.has_value_bet || fixture.has_value_bet_ou) ? (
                         <View style={styles.valueBadgePill}>
                           <Text style={styles.valueBadgePillText}>VALUE</Text>
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.kickoffTime}>{formatMatchTime(fixture.date)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.kickoffTime}>{formatMatchTime(fixture.date)}</Text>
+                      <TouchableOpacity
+                        onPress={() => shareMatchPrediction(fixture)}
+                        style={{ padding: 4, backgroundColor: '#0F172A', borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="share-social-outline" size={13} color={colors.primaryLight} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Match Teams & Logos */}

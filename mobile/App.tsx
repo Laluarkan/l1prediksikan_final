@@ -9,14 +9,17 @@ import { BottomNav, TabType } from './src/components/BottomNav';
 import { Sidebar } from './src/components/Sidebar';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { FixturesScreen } from './src/screens/FixturesScreen';
+import { ParlayScreen } from './src/screens/ParlayScreen';
 import { StandingsScreen } from './src/screens/StandingsScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { OfflineBanner } from './src/components/OfflineBanner';
 import { ProfileModal } from './src/components/modals/ProfileModal';
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { OddsGuideModal } from './src/components/modals/OddsGuideModal';
 import { AboutModal } from './src/components/modals/AboutModal';
+import { checkServerHealth } from './src/services/api';
 import {
   UserSession,
   getHasSeenOnboarding,
@@ -38,6 +41,23 @@ export default function App() {
   const [guideVisible, setGuideVisible] = useState(false);
   const [aboutVisible, setAboutVisible] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+
+  // Verifikasi konektivitas server secara berkala
+  const verifyConnectivity = async () => {
+    try {
+      const isHealthy = await checkServerHealth();
+      setIsOffline(!isHealthy);
+    } catch {
+      setIsOffline(true);
+    }
+  };
+
+  useEffect(() => {
+    verifyConnectivity();
+    const interval = setInterval(verifyConnectivity, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Periksa status onboarding & sesi login saat aplikasi dibuka
   useEffect(() => {
@@ -95,6 +115,8 @@ export default function App() {
         return <HomeScreen onNavigate={setActiveTab} />;
       case 'fixtures':
         return <FixturesScreen />;
+      case 'parlay':
+        return <ParlayScreen />;
       case 'standings':
         return <StandingsScreen />;
       case 'history':
@@ -140,6 +162,9 @@ export default function App() {
               onOpenGuide={() => setGuideVisible(true)}
               onOpenAbout={() => setAboutVisible(true)}
             />
+
+            {/* Offline Alert Banner */}
+            <OfflineBanner visible={isOffline} onRetry={verifyConnectivity} />
 
             {/* Dynamic Screen Content */}
             <View style={styles.contentContainer}>{renderScreen()}</View>

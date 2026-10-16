@@ -9,10 +9,11 @@ import {
   TextInput,
   Image,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import { UserSession, saveUserSession } from '../../services/auth';
+import { UserSession, saveUserSession, deleteUserAccount } from '../../services/auth';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -84,6 +85,45 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         },
       ]
     );
+  };
+
+  const handleDeleteAccount = () => {
+    if (!user) return;
+    Alert.alert(
+      'Hapus Akun & Data Permanen',
+      'Tindakan ini akan menghapus sesi login, data tersimpan, dan preferensi akun Anda secara permanen sesuai kebijakan privasi Google Play. Apakah Anda yakin?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Ya, Hapus Akun',
+          style: 'destructive',
+          onPress: async () => {
+            const res = await deleteUserAccount(user);
+            if (res.success) {
+              Alert.alert('Akun Dihapus', res.message, [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    onClose();
+                    onLogout();
+                  },
+                },
+              ]);
+            } else {
+              Alert.alert('Gagal', res.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenPrivacyPolicy = async () => {
+    try {
+      await Linking.openURL('https://l1prediksikan.my.id/legal');
+    } catch {
+      Alert.alert('Tautan Eksternal', 'Buka peramban dan kunjungi: https://l1prediksikan.my.id/legal');
+    }
   };
 
   const isGoogle = user?.provider === 'google' || user?.email?.includes('@gmail.com');
@@ -237,6 +277,25 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </View>
             )}
 
+            {/* Legal & Privacy Compliance */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>KEBIJAKAN PRIVASI & HUKUM</Text>
+              <TouchableOpacity
+                style={styles.legalBtn}
+                onPress={handleOpenPrivacyPolicy}
+                activeOpacity={0.7}
+              >
+                <View style={styles.legalBtnLeft}>
+                  <Ionicons name="document-text-outline" size={20} color={colors.primaryLight} />
+                  <View style={{ gap: 2 }}>
+                    <Text style={styles.legalBtnTitle}>Kebijakan Privasi & Ketentuan</Text>
+                    <Text style={styles.legalBtnSub}>Sesuai Regulasi Google Play Store 2024</Text>
+                  </View>
+                </View>
+                <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
             {/* Logout Button */}
             <TouchableOpacity
               style={styles.logoutBtn}
@@ -245,6 +304,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             >
               <Ionicons name="log-out-outline" size={18} color="#EF4444" />
               <Text style={styles.logoutBtnText}>Keluar dari Akun</Text>
+            </TouchableOpacity>
+
+            {/* Delete Account (Mandatory Google Play 2024 Requirement) */}
+            <TouchableOpacity
+              style={styles.deleteAccountBtn}
+              onPress={handleDeleteAccount}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={15} color="#94A3B8" />
+              <Text style={styles.deleteAccountText}>Hapus Akun & Data Saya</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -515,11 +584,49 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     gap: 8,
     marginTop: 6,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   logoutBtnText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#EF4444',
+  },
+  legalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0F172A',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  legalBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  legalBtnTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  legalBtnSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 6,
+    marginBottom: 24,
+  },
+  deleteAccountText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

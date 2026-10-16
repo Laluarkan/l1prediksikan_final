@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -98,6 +99,22 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                 </View>
               </View>
             </View>
+
+            {/* Privacy Policy Link Card */}
+            <TouchableOpacity
+              style={styles.privacyLinkCard}
+              onPress={() => Linking.openURL('https://l1prediksikan.my.id/legal')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.privacyLinkLeft}>
+                <Ionicons name="document-text-outline" size={20} color={colors.primaryLight} />
+                <View style={{ gap: 2 }}>
+                  <Text style={styles.privacyLinkTitle}>Kebijakan Privasi & Ketentuan</Text>
+                  <Text style={styles.privacyLinkSub}>l1prediksikan.my.id/legal</Text>
+                </View>
+              </View>
+              <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
 
             {/* Disclaimer */}
             <View style={styles.disclaimerCard}>
@@ -283,5 +300,29 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginVertical: 12,
+  },
+  privacyLinkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  privacyLinkLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  privacyLinkTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  privacyLinkSub: {
+    fontSize: 11,
+    color: colors.primaryLight,
   },
 });

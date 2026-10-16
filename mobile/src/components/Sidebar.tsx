@@ -170,6 +170,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={[styles.menuItem, currentTab === 'parlay' ? styles.menuItemActive : null]}
+                onPress={() => handleSelectTab('parlay')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={currentTab === 'parlay' ? 'ticket' : 'ticket-outline'}
+                  size={20}
+                  color={currentTab === 'parlay' ? colors.primary : colors.textMuted}
+                />
+                <Text
+                  style={[styles.menuItemText, currentTab === 'parlay' ? styles.menuItemTextActive : null]}
+                >
+                  Tiket Parlay AI
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.menuItem, currentTab === 'standings' ? styles.menuItemActive : null]}
                 onPress={() => handleSelectTab('standings')}
                 activeOpacity={0.7}

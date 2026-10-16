@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSecureItem, setSecureItem, deleteSecureItem } from './secureStorage';
 
 export interface UserSession {
   username?: string;
@@ -56,10 +57,10 @@ export const resetOnboardingState = async (): Promise<void> => {
   }
 };
 
-// ================= USER SESSION =================
+// ================= USER SESSION (ENCRYPTED SECURE STORE) =================
 export const getUserSession = async (): Promise<UserSession | null> => {
   try {
-    const json = await AsyncStorage.getItem(STORAGE_KEYS.USER_SESSION);
+    const json = await getSecureItem(STORAGE_KEYS.USER_SESSION);
     if (!json) return null;
     return JSON.parse(json);
   } catch {
@@ -69,17 +70,48 @@ export const getUserSession = async (): Promise<UserSession | null> => {
 
 export const saveUserSession = async (session: UserSession): Promise<void> => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_SESSION, JSON.stringify(session));
+    await setSecureItem(STORAGE_KEYS.USER_SESSION, JSON.stringify(session));
   } catch (err) {
-    console.error('Failed to save user session:', err);
+    console.error('Failed to save user session to secure store:', err);
   }
 };
 
 export const clearUserSession = async (): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(STORAGE_KEYS.USER_SESSION);
+    await deleteSecureItem(STORAGE_KEYS.USER_SESSION);
   } catch (err) {
     console.error('Failed to clear user session:', err);
+  }
+};
+
+/**
+ * Fitur Hapus Akun & Data Pengguna (Kepatuhan Wajib Google Play Store 2024)
+ * Menghapus seluruh data sesi terenkripsi, cache lokal pengguna, dan me-reset status login.
+ */
+export const deleteUserAccount = async (session: UserSession): Promise<AuthResult> => {
+  try {
+    // 1. Bersihkan session dari SecureStore
+    await clearUserSession();
+
+    // 2. Bersihkan user dari cache lokal jika terdaftar
+    try {
+      const users = await getRegisteredUsers();
+      const updated = users.filter((u) => u.email.toLowerCase() !== session.email.toLowerCase());
+      await AsyncStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Gagal membersihkan cache lokal akun:', e);
+    }
+
+    return {
+      success: true,
+      message: 'Akun dan seluruh data lokal Anda berhasil dihapus sesuai kebijakan privasi.',
+    };
+  } catch (err) {
+    console.error('Gagal menghapus akun:', err);
+    return {
+      success: false,
+      message: 'Gagal memproses penghapusan akun. Silakan coba kembali.',
+    };
   }
 };
 

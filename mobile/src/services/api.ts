@@ -284,3 +284,77 @@ export const fetchMatchHistory = async (params?: {
   }
   return { results: [], count: 0 };
 };
+
+// ================= PARLAY TICKETS (AI RECOMENDATIONS) =================
+export interface ParlayLeg {
+  match: string;
+  pick: string;
+  odds: number;
+  date?: string;
+  is_won?: boolean | null;
+}
+
+export interface ParlayTicket {
+  id: number;
+  ticket_id: string;
+  date: string;
+  total_odds: number;
+  total_prob: number;
+  is_won: boolean | null;
+  is_historical: boolean;
+  legs_details?: ParlayLeg[];
+}
+
+export const fetchParlayTickets = async (params?: {
+  is_historical?: boolean;
+  search?: string;
+  page_size?: number;
+}): Promise<ParlayTicket[]> => {
+  const query = new URLSearchParams();
+  query.append('ordering', '-date');
+  query.append('is_historical', params?.is_historical ? 'true' : 'false');
+  query.append('page_size', String(params?.page_size || 100));
+  if (params?.search) query.append('search', params.search);
+
+  const url = `${BASE_URL}/parlays/?${query.toString()}`;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        if (attempt === 1 && response.status >= 500) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (data && data.results) return data.results;
+      if (Array.isArray(data)) return data;
+      return [];
+    } catch (error) {
+      if (attempt === 2) {
+        console.warn('Parlays unavailable:', error);
+        return [];
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+  return [];
+};
+
+// ================= SERVER HEALTH & CONNECTIVITY =================
+export const checkServerHealth = async (): Promise<boolean> => {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch('https://l1prediksi-api.onrender.com/health/', {
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+

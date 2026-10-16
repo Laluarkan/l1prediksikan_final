@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
-export type TabType = 'home' | 'fixtures' | 'standings' | 'history';
+export type TabType = 'home' | 'fixtures' | 'parlay' | 'standings' | 'history';
 
 interface BottomNavProps {
   currentTab: TabType;
@@ -29,6 +29,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Jadwal',
     iconActive: 'calendar',
     iconInactive: 'calendar-outline',
+  },
+  {
+    id: 'parlay',
+    label: 'Parlay AI',
+    iconActive: 'ticket',
+    iconInactive: 'ticket-outline',
   },
   {
     id: 'standings',
