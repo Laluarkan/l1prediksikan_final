@@ -139,22 +139,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     return result;
   }, [fixtures, standingsMap]);
 
-  // Kalkulasi statistik dari data backend riil musim terbaru saja untuk semua liga
+  // 1. Kalkulasi statistik riil HDA (1X2)
   const ftrWins = performance?.ftr.wins ?? 0;
   const ftrLosses = performance?.ftr.losses ?? 0;
-  const totalMatchesCount = ftrWins + ftrLosses;
-  const totalMatches = performance ? totalMatchesCount.toLocaleString('id-ID') : '-';
-  const winRate = performance
-    ? totalMatchesCount > 0
-      ? ((ftrWins / totalMatchesCount) * 100).toFixed(1) + '%'
+  const ftrTotalCount = ftrWins + ftrLosses;
+  const ftrTotalLabel = performance ? ftrTotalCount.toLocaleString('id-ID') : '-';
+  const ftrWinsLabel = performance ? ftrWins.toLocaleString('id-ID') : '-';
+  const ftrWinRateLabel = performance
+    ? ftrTotalCount > 0
+      ? ((ftrWins / ftrTotalCount) * 100).toFixed(1) + '%'
       : '0.0%'
     : '-';
 
-  const profitVal = performance?.ftr.unit_profit;
-  const profitUnit =
-    profitVal !== undefined
-      ? `${profitVal >= 0 ? '+' : ''}${Math.abs(profitVal) < 10 ? profitVal.toFixed(2) : Math.round(profitVal).toLocaleString('id-ID')}u`
-      : '-';
+  // 2. Kalkulasi statistik riil O/U (Over / Under 2.5)
+  const ouWins = performance?.ou.wins ?? 0;
+  const ouLosses = performance?.ou.losses ?? 0;
+  const ouTotalCount = ouWins + ouLosses;
+  const ouTotalLabel = performance ? ouTotalCount.toLocaleString('id-ID') : '-';
+  const ouWinsLabel = performance ? ouWins.toLocaleString('id-ID') : '-';
+  const ouWinRateLabel = performance
+    ? ouTotalCount > 0
+      ? ((ouWins / ouTotalCount) * 100).toFixed(1) + '%'
+      : '0.0%'
+    : '-';
 
   return (
     <>
@@ -171,63 +178,64 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
           />
         }
       >
-        {/* ================= HERO CARD ================= */}
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Baca pertandingan sebelum peluit dibunyikan.</Text>
-          <Text style={styles.heroSubtitle}>
-            Data odds pasar dan probabilitas statistik 11 liga Eropa untuk referensi pertandingan Anda.
-          </Text>
-
-          <View style={styles.heroButtonRow}>
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => onNavigate('fixtures')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.primaryButtonText}>Jadwal Pertandingan</Text>
-              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => onNavigate('standings')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.secondaryButtonText}>Klasemen</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ================= STATISTIK RIIL MUSIM TERBARU ================= */}
+        {/* ================= STATISTIK RIIL MUSIM TERBARU (HDA & O/U) ================= */}
         <View style={styles.statsContainer}>
           <View style={styles.statsHeaderRow}>
             <View style={styles.statsBadge}>
               <View style={styles.liveDot} />
-              <Text style={styles.statsBadgeText}>Performa Musim {seasonLabel} • Semua Liga</Text>
+              <Text style={styles.statsBadgeText}>Performa Musim {seasonLabel}</Text>
             </View>
           </View>
 
-          <View style={styles.statsStrip}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{totalMatches}</Text>
-              <Text style={styles.statLabel}>Total Laga</Text>
+          {/* Card 1: HDA (1X2) */}
+          <View style={styles.perfCard}>
+            <View style={styles.perfCardHeader}>
+              <View style={styles.perfLabelBadgeHda}>
+                <Text style={styles.perfLabelTextHda}>HDA (1X2)</Text>
+              </View>
+              <Text style={styles.perfCardSubText}>Hasil Akhir Pertandingan</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: colors.primary }]}>{winRate}</Text>
-              <Text style={styles.statLabel}>Win Rate</Text>
+
+            <View style={styles.statsStrip}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{ftrTotalLabel}</Text>
+                <Text style={styles.statLabel}>Total Laga</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: '#34D399' }]}>{ftrWinsLabel}</Text>
+                <Text style={styles.statLabel}>Menang</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: colors.primary }]}>{ftrWinRateLabel}</Text>
+                <Text style={styles.statLabel}>Win Rate</Text>
+              </View>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text
-                style={[
-                  styles.statNumber,
-                  { color: profitVal !== undefined && profitVal < 0 ? '#F87171' : colors.primaryLight },
-                ]}
-              >
-                {profitUnit}
-              </Text>
-              <Text style={styles.statLabel}>Net Profit</Text>
+
+          {/* Card 2: O/U (Over / Under 2.5) */}
+            <View style={styles.perfCardHeader}>
+              <View style={styles.perfLabelBadgeOu}>
+                <Text style={styles.perfLabelTextOu}>O/U (Over / Under 2.5)</Text>
+              </View>
+              <Text style={styles.perfCardSubText}>Total Gol Laga</Text>
+            </View>
+
+            <View style={styles.statsStrip}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{ouTotalLabel}</Text>
+                <Text style={styles.statLabel}>Total Laga</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: '#34D399' }]}>{ouWinsLabel}</Text>
+                <Text style={styles.statLabel}>Menang</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: '#34D399' }]}>{ouWinRateLabel}</Text>
+                <Text style={styles.statLabel}>Win Rate</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -255,6 +263,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
               <TouchableOpacity
                 style={styles.menuCard}
+                onPress={() => onNavigate('parlay')}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
+                  <Ionicons name="ticket" size={20} color="#10B981" />
+                </View>
+                <View style={styles.menuTextCol}>
+                  <Text style={styles.menuCardTitle} numberOfLines={1}>Parlay</Text>
+                  <Text style={styles.menuCardDesc} numberOfLines={1}>Tiket multi-leg</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
+              </TouchableOpacity>
+
+            </View>
+
+            <View style={styles.menuRow}>
+              <TouchableOpacity
+                style={styles.menuCard}
                 onPress={() => onNavigate('standings')}
                 activeOpacity={0.8}
               >
@@ -267,9 +293,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 </View>
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
               </TouchableOpacity>
-            </View>
 
-            <View style={styles.menuRow}>
               <TouchableOpacity
                 style={styles.menuCard}
                 onPress={() => onNavigate('history')}
@@ -285,20 +309,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                 <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.menuCard}
-                onPress={() => onNavigate('parlay')}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
-                  <Ionicons name="sparkles" size={20} color="#10B981" />
-                </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuCardTitle} numberOfLines={1}>Parlay AI</Text>
-                  <Text style={styles.menuCardDesc} numberOfLines={1}>Tiket multi-leg</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={14} color={colors.textMuted} style={styles.menuArrow} />
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -417,9 +427,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  /* Stats Strip */
+  /* Stats Strip & Performance Cards */
   statsContainer: {
-    gap: 8,
+    gap: 10,
   },
   statsHeaderRow: {
     flexDirection: 'row',
@@ -449,12 +459,65 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '600',
   },
+  perfCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 10,
+  },
+  perfCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  perfLabelBadgeHda: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#0284C720',
+    borderWidth: 1,
+    borderColor: '#38BDF860',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+  },
+  perfLabelTextHda: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.5,
+  },
+  perfLabelBadgeOu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#0284C720',
+    borderWidth: 1,
+    borderColor: '#38BDF860',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 7,
+  },
+  perfLabelTextOu: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#38BDF8',
+    letterSpacing: 0.5,
+  },
+  perfCardSubText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500',
+  },
   statsStrip: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -465,7 +528,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statNumber: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     color: colors.textPrimary,
   },
@@ -476,7 +539,7 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    height: 28,
+    height: 26,
     backgroundColor: colors.border,
   },
 

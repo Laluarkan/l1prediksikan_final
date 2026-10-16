@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     id: 'parlay',
-    label: 'Parlay AI',
+    label: 'Parlay',
     iconActive: 'ticket',
     iconInactive: 'ticket-outline',
   },
