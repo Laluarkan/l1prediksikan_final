@@ -34,7 +34,7 @@ export const ParlayScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [stake, setStake] = useState<number>(25000);
+  const [stake, setStake] = useState<number>(10000);
   const [ticketToShare, setTicketToShare] = useState<ParlayTicket | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const shareCardRef = useRef<View>(null);

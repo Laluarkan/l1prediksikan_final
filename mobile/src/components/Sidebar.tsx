@@ -311,7 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Text style={styles.logoutText}>Keluar Akun</Text>
               </TouchableOpacity>
             )}
-            <Text style={styles.versionText}>{APP_NAME} v{APP_VERSION}</Text>
+            <Text style={styles.versionText}>L1 {APP_NAME} v{APP_VERSION}</Text>
           </View>
         </View>
       </View>

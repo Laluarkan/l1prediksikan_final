@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import { Fixture } from '../../services/api';
+import { Fixture, MatchHistory } from '../../services/api';
 import { shareMatchPrediction } from '../../services/shareService';
 import { formatWitaFullDate, formatWitaTime } from '../../utils/dateUtils';
 
 interface MatchDetailModalProps {
   visible: boolean;
-  fixture: Fixture | null;
+  fixture: Fixture | MatchHistory | null;
   onClose: () => void;
 }
 
@@ -139,11 +139,22 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 </View>
               </View>
 
-              {/* VS Center */}
+              {/* VS Center or Final Score */}
               <View style={styles.vsCol}>
-                <View style={styles.vsBadge}>
-                  <Text style={styles.vsText}>VS</Text>
-                </View>
+                {typeof fixture.fthg === 'number' && typeof fixture.ftag === 'number' ? (
+                  <View style={styles.ftScoreBox}>
+                    <Text style={styles.ftScoreText}>
+                      {fixture.fthg} - {fixture.ftag}
+                    </Text>
+                    <View style={styles.ftPill}>
+                      <Text style={styles.ftPillText}>FULL TIME</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.vsBadge}>
+                    <Text style={styles.vsText}>VS</Text>
+                  </View>
+                )}
               </View>
 
               {/* Away Team */}
@@ -444,6 +455,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     color: colors.textMuted,
+  },
+  ftScoreBox: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+    gap: 2,
+  },
+  ftScoreText: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  ftPill: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  ftPillText: {
+    fontSize: 7.5,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
   },
   aiBox: {
     backgroundColor: '#064E3B15',

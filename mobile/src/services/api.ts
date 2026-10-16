@@ -29,6 +29,8 @@ export interface Fixture {
   home_team_logo?: string | null;
   away_team_logo?: string | null;
   date: string;
+  fthg?: number | null;
+  ftag?: number | null;
   avg_h: number;
   avg_d: number;
   avg_a: number;
@@ -244,6 +246,7 @@ export const fetchMatchHistory = async (params?: {
   page?: number;
   page_size?: number;
   league?: string;
+  season?: string;
   search?: string;
   filter_result?: string;
 }): Promise<HistoryResponse> => {
@@ -251,10 +254,17 @@ export const fetchMatchHistory = async (params?: {
   query.append('page', String(params?.page || 1));
   query.append('page_size', String(params?.page_size || 20));
   query.append('ordering', '-date');
+  if (params?.season && params.season !== 'ALL') query.append('season', params.season);
   if (params?.league) query.append('league__code', params.league);
   if (params?.search) query.append('search', params.search);
   if (params?.filter_result && params.filter_result !== 'ALL') {
-    query.append('filter_result', params.filter_result);
+    const resVal =
+      params.filter_result === 'WIN'
+        ? 'WON'
+        : params.filter_result === 'LOSE'
+        ? 'LOST'
+        : params.filter_result;
+    query.append('filter_result', resVal);
   }
 
   const url = `${BASE_URL}/history/?${query.toString()}`;

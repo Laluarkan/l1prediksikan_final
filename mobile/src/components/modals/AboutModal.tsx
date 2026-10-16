@@ -58,7 +58,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
             <View style={styles.infoCard}>
               <Text style={styles.cardHeader}>TENTANG PLATFORM</Text>
               <Text style={styles.cardParagraph}>
-                {APP_NAME} adalah sistem analitik prediktif dan machine learning mandiri yang dirancang untuk memproses puluhan ribu rekaman data pertandingan, pergerakan odds pasar historis, dan formasi tim di 11 liga teratas Eropa.
+                L1 {APP_NAME} adalah sistem analitik prediktif dan machine learning mandiri yang dirancang untuk memproses puluhan ribu rekaman data pertandingan, pergerakan odds pasar historis, dan formasi tim di 11 liga teratas Eropa.
               </Text>
               <Text style={styles.cardParagraph}>
                 Platform ini bertujuan memberikan transparansi penuh terhadap probabilitas matematika sepak bola sebelum pertandingan dimulai.
@@ -132,7 +132,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
 
             {/* Copyright */}
             <Text style={styles.copyrightText}>
-              © 2026 {APP_NAME}. Hak Cipta Dilindungi Undang-Undang.
+              © 2026 L1 {APP_NAME}. Hak Cipta Dilindungi Undang-Undang.
             </Text>
           </ScrollView>
         </View>

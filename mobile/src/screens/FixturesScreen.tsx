@@ -431,34 +431,6 @@ export const FixturesScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Deretan Strip Tanggal Horizontal Ringkas */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.datePillsScroll}
-        >
-          {dateStrip.map((item) => (
-            <TouchableOpacity
-              key={item.key}
-              style={[styles.datePill, item.isSelected && styles.datePillSelected]}
-              onPress={() => {
-                if (item.key !== selectedDateKey) {
-                  animateDateTransition(item.key > selectedDateKey ? 1 : -1, item.key);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.datePillDay, item.isSelected && styles.datePillDaySelected]}>
-                {item.dayName}
-              </Text>
-              <Text style={[styles.datePillNum, item.isSelected && styles.datePillNumSelected]}>
-                {item.dayNum}
-              </Text>
-              {item.isToday && !item.isSelected ? <View style={styles.todayDot} /> : null}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       {/* ================= SEARCH BAR ================= */}
