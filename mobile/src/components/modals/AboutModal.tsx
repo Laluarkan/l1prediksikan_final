@@ -94,7 +94,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={styles.securityTitle}>Koneksi API Aman (SSL/TLS)</Text>
                   <Text style={styles.securityDesc}>
-                    Seluruh komunikasi antara aplikasi mobile dan backend Render dilindungi enkripsi end-to-end HTTPS.
+                    Seluruh komunikasi data antara aplikasi mobile dan server cloud dilindungi enkripsi end-to-end HTTPS.
                   </Text>
                 </View>
               </View>

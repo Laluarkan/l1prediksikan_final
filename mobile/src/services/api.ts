@@ -1,4 +1,25 @@
 const BASE_URL = 'https://l1prediksi-api.onrender.com/api';
+const APP_CLIENT_KEY = 'Laluarkan123@';
+
+/**
+ * appFetch: Custom fetch wrapper yang secara otomatis menyertakan header autentikasi klien resmi
+ * (X-App-Client-Key & X-Sync-Secret) agar request lolos validasi security middleware backend.
+ */
+export const appFetch = (url: string, options: RequestInit = {}): Promise<Response> => {
+  const customHeaders: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'X-App-Client-Key': APP_CLIENT_KEY,
+    'X-Sync-Secret': APP_CLIENT_KEY,
+  };
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...customHeaders,
+      ...(options.headers || {}),
+    },
+  });
+};
 
 export interface League {
   id: number;
@@ -76,7 +97,7 @@ export interface PerformanceData {
 export const fetchLeagues = async (): Promise<League[]> => {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(`${BASE_URL}/leagues/`);
+      const response = await appFetch(`${BASE_URL}/leagues/`);
       if (!response.ok) {
         if (attempt === 1 && response.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500));
@@ -103,7 +124,7 @@ export const fetchStandings = async (
 ): Promise<TeamStanding[]> => {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(
+      const response = await appFetch(
         `${BASE_URL}/standings/?league=${encodeURIComponent(leagueCode)}&season=${encodeURIComponent(season)}`
       );
       if (!response.ok) {
@@ -140,7 +161,7 @@ export const fetchUpcomingFixtures = async (params?: {
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await appFetch(url);
       if (!response.ok) {
         if (attempt === 1 && response.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500));
@@ -183,7 +204,7 @@ export const fetchPerformanceMetrics = async (
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await appFetch(url);
       if (!response.ok) {
         if (attempt === 1 && response.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500));
@@ -271,7 +292,7 @@ export const fetchMatchHistory = async (params?: {
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await appFetch(url);
       if (!response.ok) {
         if (attempt === 1 && response.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500));
@@ -338,7 +359,7 @@ export const fetchParlayTickets = async (params?: {
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const response = await fetch(url);
+      const response = await appFetch(url);
       if (!response.ok) {
         if (attempt === 1 && response.status >= 500) {
           await new Promise((r) => setTimeout(r, 1500));
@@ -366,7 +387,7 @@ export const checkServerHealth = async (): Promise<boolean> => {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch('https://l1prediksi-api.onrender.com/health/', {
+    const res = await appFetch('https://l1prediksi-api.onrender.com/health/', {
       signal: controller.signal,
     });
     clearTimeout(timer);

@@ -34,6 +34,7 @@ export const authOptions: NextAuthOptions = {
             headers: {
               "Content-Type": "application/json",
               "X-Sync-Secret": SYNC_SECRET,
+              "X-App-Client-Key": SYNC_SECRET,
             },
             body: JSON.stringify({
               email: cleanEmail,
@@ -83,6 +84,7 @@ export const authOptions: NextAuthOptions = {
             headers: {
               "Content-Type": "application/json",
               "X-Sync-Secret": SYNC_SECRET,
+              "X-App-Client-Key": SYNC_SECRET,
             },
             body: JSON.stringify({
               email: user.email,

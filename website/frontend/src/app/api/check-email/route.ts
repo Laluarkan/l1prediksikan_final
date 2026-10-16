@@ -16,6 +16,7 @@ export async function GET(request: Request) {
       method: "GET",
       headers: {
         "X-Sync-Secret": SYNC_SECRET,
+        "X-App-Client-Key": SYNC_SECRET,
       },
       cache: "no-store",
     });

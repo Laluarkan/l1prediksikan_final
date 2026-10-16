@@ -9,11 +9,21 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-
-const NOTIFS_STORAGE_KEY = '@prediksikan_notif_settings';
+import {
+  AppNotification,
+  NotificationSettings,
+  getNotifications,
+  addNotification,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  clearAllNotifications,
+  getNotificationSettings,
+  saveNotificationSettings,
+  formatNotificationTime,
+} from '../../services/notificationService';
 
 interface NotificationsModalProps {
   visible: boolean;
@@ -24,47 +34,97 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   visible,
   onClose,
 }) => {
-  const [matchReminder, setMatchReminder] = useState(true);
-  const [valueBetAlert, setValueBetAlert] = useState(true);
-  const [scoreUpdate, setScoreUpdate] = useState(false);
-  const [weeklyDigest, setWeeklyDigest] = useState(true);
-  const [dndMode, setDndMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inbox' | 'settings'>('inbox');
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [settings, setSettings] = useState<NotificationSettings>({
+    matchReminder: true,
+    valueBetAlert: true,
+    scoreUpdate: false,
+    weeklyDigest: true,
+    dndMode: false,
+  });
 
-  // Load preferences from AsyncStorage
+  const loadData = async () => {
+    const notifs = await getNotifications();
+    setNotifications(notifs);
+    const setts = await getNotificationSettings();
+    setSettings(setts);
+  };
+
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(NOTIFS_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.matchReminder !== undefined) setMatchReminder(parsed.matchReminder);
-          if (parsed.valueBetAlert !== undefined) setValueBetAlert(parsed.valueBetAlert);
-          if (parsed.scoreUpdate !== undefined) setScoreUpdate(parsed.scoreUpdate);
-          if (parsed.weeklyDigest !== undefined) setWeeklyDigest(parsed.weeklyDigest);
-          if (parsed.dndMode !== undefined) setDndMode(parsed.dndMode);
-        }
-      } catch (e) {
-        console.warn('Failed to load notif settings', e);
-      }
-    };
     if (visible) {
-      loadSettings();
+      loadData();
     }
   }, [visible]);
 
-  // Save changes
-  const updateSetting = async (key: string, val: boolean) => {
-    try {
-      const updated = {
-        matchReminder: key === 'matchReminder' ? val : matchReminder,
-        valueBetAlert: key === 'valueBetAlert' ? val : valueBetAlert,
-        scoreUpdate: key === 'scoreUpdate' ? val : scoreUpdate,
-        weeklyDigest: key === 'weeklyDigest' ? val : weeklyDigest,
-        dndMode: key === 'dndMode' ? val : dndMode,
-      };
-      await AsyncStorage.setItem(NOTIFS_STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.warn('Failed to save notif settings', e);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const handleToggleSetting = async (key: keyof NotificationSettings, val: boolean) => {
+    const updated = { ...settings, [key]: val };
+    setSettings(updated);
+    await saveNotificationSettings(updated);
+  };
+
+  const handleMarkAsRead = async (id: string) => {
+    const updated = await markNotificationAsRead(id);
+    setNotifications(updated);
+  };
+
+  const handleMarkAllRead = async () => {
+    const updated = await markAllNotificationsAsRead();
+    setNotifications(updated);
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    const updated = await deleteNotification(id);
+    setNotifications(updated);
+  };
+
+  const handleClearAllConfirm = () => {
+    Alert.alert(
+      'Bersihkan Notifikasi',
+      'Apakah Anda yakin ingin menghapus semua riwayat pemberitahuan?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus Semua',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAllNotifications();
+            setNotifications([]);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSendTestNotification = async () => {
+    const updated = await addNotification({
+      title: 'Pemberitahuan Tes 🔔',
+      message: 'Sistem notifikasi Prediksikan berfungsi aktif dan siap mengirimkan sinyal pertandingan.',
+      type: 'system',
+    });
+    setNotifications(updated);
+    setActiveTab('inbox');
+    Alert.alert(
+      'Notifikasi Terkirim',
+      'Notifikasi baru telah berhasil dibuat dan ditambahkan ke daftar pesan masuk Anda.',
+      [{ text: 'Lihat', style: 'default' }]
+    );
+  };
+
+  const getNotifIcon = (type: AppNotification['type']) => {
+    switch (type) {
+      case 'value_bet':
+        return { name: 'flash' as const, color: '#F59E0B', bg: '#78350F35' };
+      case 'match':
+        return { name: 'football' as const, color: colors.primaryLight, bg: '#064E3B40' };
+      case 'score':
+        return { name: 'checkmark-circle' as const, color: '#38BDF8', bg: '#0C4A6E40' };
+      case 'parlay':
+        return { name: 'layers' as const, color: '#818CF8', bg: '#1E1B4B' };
+      default:
+        return { name: 'notifications' as const, color: colors.primary, bg: '#064E3B40' };
     }
   };
 
@@ -78,156 +138,283 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               <View style={styles.headerIconContainer}>
                 <Ionicons name="notifications" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.headerTitle}>Pengaturan Notifikasi</Text>
+              <Text style={styles.headerTitle}>Notifikasi & Pemberitahuan</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.leadText}>
-              Pilih peringatan pertandingan dan sinyal odds AI yang ingin Anda terima secara langsung di perangkat Anda.
-            </Text>
-
-            {/* List Item 1: Kick-off reminder */}
-            <View style={styles.toggleItem}>
-              <View style={styles.toggleIconCol}>
-                <View style={[styles.iconCircle, { backgroundColor: '#064E3B40' }]}>
-                  <Ionicons name="alarm-outline" size={20} color={colors.primary} />
-                </View>
-              </View>
-              <View style={styles.toggleTextCol}>
-                <Text style={styles.toggleTitle}>Pengingat Kick-Off Pertandingan</Text>
-                <Text style={styles.toggleDesc}>
-                  Pemberitahuan 30 menit sebelum laga tim unggulan dan 11 liga top Eropa dimulai.
-                </Text>
-              </View>
-              <Switch
-                value={matchReminder}
-                onValueChange={(val) => {
-                  setMatchReminder(val);
-                  updateSetting('matchReminder', val);
-                }}
-                trackColor={{ false: '#334155', true: colors.primaryDark }}
-                thumbColor={matchReminder ? colors.primary : '#94A3B8'}
-              />
-            </View>
-
-            {/* List Item 2: Value Bet Alert */}
-            <View style={styles.toggleItem}>
-              <View style={styles.toggleIconCol}>
-                <View style={[styles.iconCircle, { backgroundColor: '#78350F35' }]}>
-                  <Ionicons name="flash-outline" size={20} color="#F59E0B" />
-                </View>
-              </View>
-              <View style={styles.toggleTextCol}>
-                <View style={styles.titleBadgeRow}>
-                  <Text style={styles.toggleTitle}>Peringatan Value Bet AI</Text>
-                  <View style={styles.hotBadge}>
-                    <Text style={styles.hotBadgeText}>UNGGULAN</Text>
-                  </View>
-                </View>
-                <Text style={styles.toggleDesc}>
-                  Dapatkan notifikasi seketika saat model mendeteksi ketidaksesuaian odds bandar (Expected Value positif).
-                </Text>
-              </View>
-              <Switch
-                value={valueBetAlert}
-                onValueChange={(val) => {
-                  setValueBetAlert(val);
-                  updateSetting('valueBetAlert', val);
-                }}
-                trackColor={{ false: '#334155', true: '#B45309' }}
-                thumbColor={valueBetAlert ? '#F59E0B' : '#94A3B8'}
-              />
-            </View>
-
-            {/* List Item 3: Skor & Evaluasi Pasca Laga */}
-            <View style={styles.toggleItem}>
-              <View style={styles.toggleIconCol}>
-                <View style={[styles.iconCircle, { backgroundColor: '#0C4A6E40' }]}>
-                  <Ionicons name="checkmark-done-circle-outline" size={20} color="#38BDF8" />
-                </View>
-              </View>
-              <View style={styles.toggleTextCol}>
-                <Text style={styles.toggleTitle}>Update Skor & Evaluasi Hasil</Text>
-                <Text style={styles.toggleDesc}>
-                  Laporan rekapitulasi skor akhir dan status menang/kalah (Won/Lost) untuk laga yang Anda ikuti.
-                </Text>
-              </View>
-              <Switch
-                value={scoreUpdate}
-                onValueChange={(val) => {
-                  setScoreUpdate(val);
-                  updateSetting('scoreUpdate', val);
-                }}
-                trackColor={{ false: '#334155', true: colors.primaryDark }}
-                thumbColor={scoreUpdate ? colors.primary : '#94A3B8'}
-              />
-            </View>
-
-            {/* List Item 4: Rangkuman Mingguan Parlay */}
-            <View style={styles.toggleItem}>
-              <View style={styles.toggleIconCol}>
-                <View style={[styles.iconCircle, { backgroundColor: '#1E1B4B' }]}>
-                  <Ionicons name="layers-outline" size={20} color="#818CF8" />
-                </View>
-              </View>
-              <View style={styles.toggleTextCol}>
-                <Text style={styles.toggleTitle}>Rangkuman Tiket Parlay Mingguan</Text>
-                <Text style={styles.toggleDesc}>
-                  Analisis performa kombinasi tiket ganda dan akumulasi profit mingguan setiap hari Senin.
-                </Text>
-              </View>
-              <Switch
-                value={weeklyDigest}
-                onValueChange={(val) => {
-                  setWeeklyDigest(val);
-                  updateSetting('weeklyDigest', val);
-                }}
-                trackColor={{ false: '#334155', true: colors.primaryDark }}
-                thumbColor={weeklyDigest ? colors.primary : '#94A3B8'}
-              />
-            </View>
-
-            {/* Section: Jam Tenang (Do Not Disturb) */}
-            <View style={styles.dndCard}>
-              <View style={styles.dndHeaderRow}>
-                <View style={styles.dndTitleRow}>
-                  <Ionicons name="moon-outline" size={18} color="#A78BFA" />
-                  <Text style={styles.dndTitle}>Mode Malam (Jam Tenang)</Text>
-                </View>
-                <Switch
-                  value={dndMode}
-                  onValueChange={(val) => {
-                    setDndMode(val);
-                    updateSetting('dndMode', val);
-                  }}
-                  trackColor={{ false: '#334155', true: '#6D28D9' }}
-                  thumbColor={dndMode ? '#A78BFA' : '#94A3B8'}
-                />
-              </View>
-              <Text style={styles.dndDesc}>
-                Bisukan seluruh nada dering dan getaran notifikasi antara pukul 23:00 s/d 06:00 WIB.
-              </Text>
-            </View>
-
-            {/* Test Notification Button */}
+          {/* Segmented Tabs Switcher */}
+          <View style={styles.tabsContainer}>
             <TouchableOpacity
-              style={styles.testBtn}
-              onPress={() => {
-                Alert.alert(
-                  'Tes Notifikasi Berhasil',
-                  'Sistem notifikasi Prediksikan aktif dan terhubung ke perangkat Anda.',
-                  [{ text: 'Bagus' }]
-                );
-              }}
-              activeOpacity={0.8}
+              style={[styles.tabButton, activeTab === 'inbox' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('inbox')}
+              activeOpacity={0.7}
             >
-              <Ionicons name="paper-plane-outline" size={16} color={colors.primaryLight} />
-              <Text style={styles.testBtnText}>Kirim Tes Notifikasi</Text>
+              <View style={styles.tabContentRow}>
+                <Ionicons
+                  name="mail-unread-outline"
+                  size={16}
+                  color={activeTab === 'inbox' ? colors.primaryLight : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.tabButtonText,
+                    activeTab === 'inbox' && styles.tabButtonTextActive,
+                  ]}
+                >
+                  Pemberitahuan
+                </Text>
+                {unreadCount > 0 && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'settings' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('settings')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.tabContentRow}>
+                <Ionicons
+                  name="options-outline"
+                  size={16}
+                  color={activeTab === 'settings' ? colors.primaryLight : colors.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.tabButtonText,
+                    activeTab === 'settings' && styles.tabButtonTextActive,
+                  ]}
+                >
+                  Pengaturan
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Content Body */}
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {activeTab === 'inbox' ? (
+              <>
+                {/* Inbox Action Row */}
+                {notifications.length > 0 && (
+                  <View style={styles.inboxActionsRow}>
+                    {unreadCount > 0 && (
+                      <TouchableOpacity
+                        style={styles.actionBtnSmall}
+                        onPress={handleMarkAllRead}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="checkmark-done" size={14} color={colors.primaryLight} />
+                        <Text style={styles.actionBtnSmallText}>Tandai Dibaca</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={[styles.actionBtnSmall, { backgroundColor: '#7F1D1D20', borderColor: '#EF444440' }]}
+                      onPress={handleClearAllConfirm}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={14} color="#EF4444" />
+                      <Text style={[styles.actionBtnSmallText, { color: '#EF4444' }]}>Hapus Semua</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Notifications List */}
+                {notifications.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconCircle}>
+                      <Ionicons name="notifications-off-outline" size={32} color={colors.textMuted} />
+                    </View>
+                    <Text style={styles.emptyTitle}>Belum Ada Pemberitahuan</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Pemberitahuan jadwal pertandingan, sinyal odds AI, dan rangkuman mingguan akan tampil di sini.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptyActionBtn}
+                      onPress={handleSendTestNotification}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="paper-plane-outline" size={15} color="#FFFFFF" />
+                      <Text style={styles.emptyActionBtnText}>Kirim Tes Notifikasi</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  notifications.map((item) => {
+                    const iconConfig = getNotifIcon(item.type);
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[
+                          styles.notifCard,
+                          !item.isRead && styles.notifCardUnread,
+                        ]}
+                        onPress={() => handleMarkAsRead(item.id)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.notifIconCircle, { backgroundColor: iconConfig.bg }]}>
+                          <Ionicons name={iconConfig.name} size={18} color={iconConfig.color} />
+                        </View>
+                        <View style={styles.notifBody}>
+                          <View style={styles.notifTitleRow}>
+                            <Text style={styles.notifTitle} numberOfLines={1}>
+                              {item.title}
+                            </Text>
+                            {!item.isRead && <View style={styles.notifDot} />}
+                          </View>
+                          <Text style={styles.notifMessage}>{item.message}</Text>
+                          <View style={styles.notifFooter}>
+                            <Text style={styles.notifTime}>
+                              {formatNotificationTime(item.timestamp)}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteNotif(item.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.deleteNotifBtn}
+                            >
+                              <Ionicons name="trash-outline" size={13} color={colors.textMuted} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.leadText}>
+                  Pilih jenis sinyal pertandingan dan preferensi peringatan yang ingin Anda terima secara langsung.
+                </Text>
+
+                {/* List Item 1: Kick-off reminder */}
+                <View style={styles.toggleItem}>
+                  <View style={styles.toggleIconCol}>
+                    <View style={[styles.iconCircle, { backgroundColor: '#064E3B40' }]}>
+                      <Ionicons name="alarm-outline" size={20} color={colors.primary} />
+                    </View>
+                  </View>
+                  <View style={styles.toggleTextCol}>
+                    <Text style={styles.toggleTitle}>Pengingat Kick-Off Pertandingan</Text>
+                    <Text style={styles.toggleDesc}>
+                      Pemberitahuan 30 menit sebelum laga tim unggulan dan 11 liga top Eropa dimulai.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.matchReminder}
+                    onValueChange={(val) => handleToggleSetting('matchReminder', val)}
+                    trackColor={{ false: '#334155', true: colors.primaryDark }}
+                    thumbColor={settings.matchReminder ? colors.primary : '#94A3B8'}
+                  />
+                </View>
+
+                {/* List Item 2: Value Bet Alert */}
+                <View style={styles.toggleItem}>
+                  <View style={styles.toggleIconCol}>
+                    <View style={[styles.iconCircle, { backgroundColor: '#78350F35' }]}>
+                      <Ionicons name="flash-outline" size={20} color="#F59E0B" />
+                    </View>
+                  </View>
+                  <View style={styles.toggleTextCol}>
+                    <View style={styles.titleBadgeRow}>
+                      <Text style={styles.toggleTitle}>Peringatan Value Bet AI</Text>
+                      <View style={styles.hotBadge}>
+                        <Text style={styles.hotBadgeText}>UNGGULAN</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.toggleDesc}>
+                      Dapatkan notifikasi seketika saat model mendeteksi ketidaksesuaian odds bandar (Expected Value positif).
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.valueBetAlert}
+                    onValueChange={(val) => handleToggleSetting('valueBetAlert', val)}
+                    trackColor={{ false: '#334155', true: '#B45309' }}
+                    thumbColor={settings.valueBetAlert ? '#F59E0B' : '#94A3B8'}
+                  />
+                </View>
+
+                {/* List Item 3: Skor & Evaluasi Pasca Laga */}
+                <View style={styles.toggleItem}>
+                  <View style={styles.toggleIconCol}>
+                    <View style={[styles.iconCircle, { backgroundColor: '#0C4A6E40' }]}>
+                      <Ionicons name="checkmark-done-circle-outline" size={20} color="#38BDF8" />
+                    </View>
+                  </View>
+                  <View style={styles.toggleTextCol}>
+                    <Text style={styles.toggleTitle}>Update Skor & Evaluasi Hasil</Text>
+                    <Text style={styles.toggleDesc}>
+                      Laporan rekapitulasi skor akhir dan status menang/kalah (Won/Lost) untuk laga yang Anda ikuti.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.scoreUpdate}
+                    onValueChange={(val) => handleToggleSetting('scoreUpdate', val)}
+                    trackColor={{ false: '#334155', true: colors.primaryDark }}
+                    thumbColor={settings.scoreUpdate ? colors.primary : '#94A3B8'}
+                  />
+                </View>
+
+                {/* List Item 4: Rangkuman Mingguan Parlay */}
+                <View style={styles.toggleItem}>
+                  <View style={styles.toggleIconCol}>
+                    <View style={[styles.iconCircle, { backgroundColor: '#1E1B4B' }]}>
+                      <Ionicons name="layers-outline" size={20} color="#818CF8" />
+                    </View>
+                  </View>
+                  <View style={styles.toggleTextCol}>
+                    <Text style={styles.toggleTitle}>Rangkuman Tiket Parlay Mingguan</Text>
+                    <Text style={styles.toggleDesc}>
+                      Analisis performa kombinasi tiket ganda dan akumulasi profit mingguan setiap hari Senin.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settings.weeklyDigest}
+                    onValueChange={(val) => handleToggleSetting('weeklyDigest', val)}
+                    trackColor={{ false: '#334155', true: colors.primaryDark }}
+                    thumbColor={settings.weeklyDigest ? colors.primary : '#94A3B8'}
+                  />
+                </View>
+
+                {/* Section: Jam Tenang (Do Not Disturb) */}
+                <View style={styles.dndCard}>
+                  <View style={styles.dndHeaderRow}>
+                    <View style={styles.dndTitleRow}>
+                      <Ionicons name="moon-outline" size={18} color="#A78BFA" />
+                      <Text style={styles.dndTitle}>Mode Malam (Jam Tenang)</Text>
+                    </View>
+                    <Switch
+                      value={settings.dndMode}
+                      onValueChange={(val) => handleToggleSetting('dndMode', val)}
+                      trackColor={{ false: '#334155', true: '#6D28D9' }}
+                      thumbColor={settings.dndMode ? '#A78BFA' : '#94A3B8'}
+                    />
+                  </View>
+                  <Text style={styles.dndDesc}>
+                    Bisukan seluruh nada dering dan getaran notifikasi antara pukul 23:00 s/d 06:00 WIB.
+                  </Text>
+                </View>
+
+                {/* Test Notification Button */}
+                <TouchableOpacity
+                  style={styles.testBtn}
+                  onPress={handleSendTestNotification}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="paper-plane-outline" size={16} color={colors.primaryLight} />
+                  <Text style={styles.testBtnText}>Kirim Tes Notifikasi Baru</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -281,15 +468,186 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#1E293B',
   },
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: '#0B1120',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabButtonActive: {
+    borderBottomColor: colors.primary,
+  },
+  tabContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tabButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  tabButtonTextActive: {
+    color: colors.primaryLight,
+    fontWeight: '700',
+  },
+  unreadBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
   body: {
     paddingHorizontal: 18,
   },
   bodyContent: {
-    paddingVertical: 18,
-    gap: 14,
+    paddingVertical: 16,
+    gap: 12,
+    paddingBottom: 32,
+  },
+  inboxActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginBottom: 4,
+  },
+  actionBtnSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionBtnSmallText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primaryLight,
+  },
+  notifCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
+  },
+  notifCardUnread: {
+    borderColor: colors.primaryDark,
+    backgroundColor: '#0F261E50',
+  },
+  notifIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notifBody: {
+    flex: 1,
+    gap: 4,
+  },
+  notifTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notifTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  notifDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.primary,
+    marginLeft: 6,
+  },
+  notifMessage: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
+  },
+  notifFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  notifTime: {
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+  deleteNotifBtn: {
+    padding: 2,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 280,
+  },
+  emptyActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  emptyActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   leadText: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 4,
@@ -298,19 +656,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 14,
     padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
   },
   toggleIconCol: {
+    alignItems: 'center',
     justifyContent: 'center',
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -329,28 +688,26 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   hotBadge: {
-    backgroundColor: '#F59E0B20',
-    borderColor: '#F59E0B60',
-    borderWidth: 1,
-    paddingHorizontal: 6,
+    backgroundColor: '#78350F',
+    paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 4,
   },
   hotBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: '#FDE68A',
   },
   toggleDesc: {
     fontSize: 11,
     color: colors.textMuted,
-    lineHeight: 15,
+    lineHeight: 16,
   },
   dndCard: {
     backgroundColor: '#1E1B4B30',
     borderWidth: 1,
-    borderColor: '#4338CA50',
-    borderRadius: 14,
+    borderColor: '#4338CA40',
+    borderRadius: 12,
     padding: 14,
     gap: 6,
     marginTop: 4,
@@ -368,25 +725,24 @@ const styles = StyleSheet.create({
   dndTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#C4B5FD',
+    color: '#C7D2FE',
   },
   dndDesc: {
     fontSize: 11,
     color: '#94A3B8',
-    lineHeight: 15,
+    lineHeight: 16,
   },
   testBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#064E3B30',
     borderWidth: 1,
-    borderColor: colors.borderLight,
-    borderRadius: 12,
+    borderColor: colors.primaryDark,
+    borderRadius: 10,
     paddingVertical: 12,
     gap: 8,
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 6,
   },
   testBtnText: {
     fontSize: 13,

@@ -11,9 +11,11 @@ import {
   Alert,
   Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { UserSession, saveUserSession, deleteUserAccount } from '../../services/auth';
+import { FULL_VERSION_STRING } from '../../config/version';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -21,6 +23,8 @@ interface ProfileModalProps {
   user: UserSession | null;
   onLogout: () => void;
   onUpdateUser?: (updated: UserSession) => void;
+  onOpenNotifications?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -29,10 +33,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   user,
   onLogout,
   onUpdateUser,
+  onOpenNotifications,
+  onOpenAuth,
 }) => {
   const [displayName, setDisplayName] = useState(user?.name || '');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
 
   const getInitials = (name?: string) => {
     if (!name) return 'P';
@@ -67,6 +74,43 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleClearCache = async () => {
+    Alert.alert(
+      'Bersihkan Cache Aplikasi',
+      'Apakah Anda ingin membersihkan data cache sementara untuk mengoptimalkan ruang penyimpanan?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Bersihkan',
+          style: 'default',
+          onPress: async () => {
+            setClearingCache(true);
+            try {
+              const allKeys = await AsyncStorage.getAllKeys();
+              const cacheKeys = allKeys.filter(
+                (k) =>
+                  k.startsWith('@prediksikan_fixtures_cache') ||
+                  k.startsWith('@prediksikan_cache') ||
+                  k.startsWith('@prediksikan_history_cache')
+              );
+              if (cacheKeys.length > 0) {
+                await AsyncStorage.multiRemove(cacheKeys);
+              }
+              Alert.alert(
+                'Cache Dibersihkan',
+                'Seluruh cache data pertandingan dan riwayat sementara berhasil dibersihkan.'
+              );
+            } catch {
+              Alert.alert('Informasi', 'Penyimpanan cache lokal Anda sudah optimal.');
+            } finally {
+              setClearingCache(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogoutConfirm = () => {
@@ -145,12 +189,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* User Identity Card */}
             <View style={styles.profileCard}>
               <View style={styles.avatarContainer}>
                 {user?.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg as any} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Text style={styles.avatarInitial}>{getInitials(user?.name)}</Text>
@@ -186,13 +234,51 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </View>
             </View>
 
-            {/* Account Details */}
+            {/* Guest Upgrade Card */}
+            {user?.isGuest && onOpenAuth && (
+              <View style={styles.guestUpgradeCard}>
+                <View style={styles.guestUpgradeIconCol}>
+                  <Ionicons name="sparkles" size={24} color="#F59E0B" />
+                </View>
+                <View style={styles.guestUpgradeTextCol}>
+                  <Text style={styles.guestUpgradeTitle}>Simpan Preferensi & Akun</Text>
+                  <Text style={styles.guestUpgradeDesc}>
+                    Masuk atau daftarkan akun gratis untuk mengaktifkan notifikasi laga dan sinkronisasi lintas perangkat.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.guestLoginBtn}
+                    onPress={() => {
+                      onClose();
+                      onOpenAuth();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="log-in-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.guestLoginBtnText}>Masuk / Daftar Akun</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Account Details (Consumer-friendly data only) */}
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>INFORMASI DETAIL AKUN</Text>
 
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Username</Text>
-                <Text style={styles.detailValue}>@{user?.username || user?.name?.toLowerCase().replace(/\s+/g, '_') || 'tamu'}</Text>
+                <Text style={styles.detailValue}>
+                  @{user?.username || user?.name?.toLowerCase().replace(/\s+/g, '_') || 'tamu'}
+                </Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status Akun</Text>
+                <View style={styles.statusBadgeRow}>
+                  <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                  <Text style={styles.statusBadgeText}>Aktif</Text>
+                </View>
               </View>
 
               <View style={styles.divider} />
@@ -213,7 +299,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   ) : (
                     <>
                       <Ionicons name="mail-outline" size={13} color="#10B981" />
-                      <Text style={styles.providerText}>Email & Password Terenkripsi</Text>
+                      <Text style={styles.providerText}>Email & Sandi Terenkripsi</Text>
                     </>
                   )}
                 </View>
@@ -222,12 +308,57 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               <View style={styles.divider} />
 
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Sinkronisasi Server</Text>
-                <View style={styles.syncStatusRow}>
-                  <View style={styles.syncDot} />
-                  <Text style={styles.syncText}>PostgreSQL Render Terhubung</Text>
-                </View>
+                <Text style={styles.detailLabel}>Tipe Keanggotaan</Text>
+                <Text style={styles.detailValue}>
+                  {user?.isGuest ? 'Akses Tamu' : 'Free Member (Akses Penuh)'}
+                </Text>
               </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Versi Aplikasi</Text>
+                <Text style={styles.detailValue}>{FULL_VERSION_STRING}</Text>
+              </View>
+            </View>
+
+            {/* Quick Settings & Storage */}
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>PREFERENSI & PENYIMPANAN</Text>
+
+              {onOpenNotifications && (
+                <TouchableOpacity
+                  style={styles.settingRowBtn}
+                  onPress={() => {
+                    onClose();
+                    onOpenNotifications();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.settingRowLeft}>
+                    <Ionicons name="notifications-outline" size={18} color="#F59E0B" />
+                    <Text style={styles.settingRowText}>Pengaturan Notifikasi & Jadwal</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                style={styles.settingRowBtn}
+                onPress={handleClearCache}
+                disabled={clearingCache}
+                activeOpacity={0.7}
+              >
+                <View style={styles.settingRowLeft}>
+                  <Ionicons name="sparkles-outline" size={18} color="#38BDF8" />
+                  <Text style={styles.settingRowText}>
+                    {clearingCache ? 'Membersihkan Cache...' : 'Bersihkan Cache & Memori Lokal'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
             </View>
 
             {/* Edit Display Name */}
@@ -303,18 +434,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               activeOpacity={0.8}
             >
               <Ionicons name="log-out-outline" size={18} color="#EF4444" />
-              <Text style={styles.logoutBtnText}>Keluar dari Akun</Text>
+              <Text style={styles.logoutBtnText}>
+                {user?.isGuest ? 'Keluar Mode Tamu' : 'Keluar dari Akun'}
+              </Text>
             </TouchableOpacity>
 
-            {/* Delete Account (Mandatory Google Play 2024 Requirement) */}
-            <TouchableOpacity
-              style={styles.deleteAccountBtn}
-              onPress={handleDeleteAccount}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={15} color="#94A3B8" />
-              <Text style={styles.deleteAccountText}>Hapus Akun & Data Saya</Text>
-            </TouchableOpacity>
+            {/* Delete Account (Mandatory Google Play Requirement) */}
+            {!user?.isGuest && (
+              <TouchableOpacity
+                style={styles.deleteAccountBtn}
+                onPress={handleDeleteAccount}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={15} color="#94A3B8" />
+                <Text style={styles.deleteAccountText}>Hapus Akun & Data Saya</Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -374,6 +509,7 @@ const styles = StyleSheet.create({
   bodyContent: {
     paddingVertical: 18,
     gap: 14,
+    paddingBottom: 36,
   },
   profileCard: {
     backgroundColor: colors.surface,
@@ -449,6 +585,48 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  guestUpgradeCard: {
+    flexDirection: 'row',
+    backgroundColor: '#78350F20',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F59E0B50',
+    gap: 12,
+  },
+  guestUpgradeIconCol: {
+    paddingTop: 2,
+  },
+  guestUpgradeTextCol: {
+    flex: 1,
+    gap: 6,
+  },
+  guestUpgradeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FDE68A',
+  },
+  guestUpgradeDesc: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    lineHeight: 17,
+  },
+  guestLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    gap: 6,
+    marginTop: 4,
+  },
+  guestLoginBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   sectionCard: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -478,6 +656,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
+  statusBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  statusBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#10B981',
+  },
   divider: {
     height: 1,
     backgroundColor: colors.border,
@@ -493,21 +681,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
   },
-  syncStatusRow: {
+  settingRowBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
   },
-  syncDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#10B981',
+  settingRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  syncText: {
-    fontSize: 12,
+  settingRowText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#10B981',
+    color: colors.textPrimary,
   },
   readOnlyNameRow: {
     flexDirection: 'row',
@@ -621,7 +809,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     gap: 6,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   deleteAccountText: {
     fontSize: 12,

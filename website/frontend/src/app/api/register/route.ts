@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
         "X-Sync-Secret": SYNC_SECRET,
+        "X-App-Client-Key": SYNC_SECRET,
       },
       body: JSON.stringify({
         username: cleanUsername,

@@ -149,6 +149,7 @@ export const checkEmailExists = async (email: string): Promise<boolean> => {
         method: 'GET',
         headers: {
           'X-Sync-Secret': SYNC_SECRET_KEY,
+          'X-App-Client-Key': SYNC_SECRET_KEY,
         },
         signal: controller.signal,
       }
@@ -190,6 +191,7 @@ export const registerAccount = async (
       headers: {
         'Content-Type': 'application/json',
         'X-Sync-Secret': SYNC_SECRET_KEY,
+        'X-App-Client-Key': SYNC_SECRET_KEY,
       },
       body: JSON.stringify({
         username: cleanUsername,
@@ -277,6 +279,7 @@ export const loginAccount = async (
       headers: {
         'Content-Type': 'application/json',
         'X-Sync-Secret': SYNC_SECRET_KEY,
+        'X-App-Client-Key': SYNC_SECRET_KEY,
       },
       body: JSON.stringify({
         email: cleanEmail,
@@ -342,6 +345,7 @@ export const syncGoogleAccount = async (
       headers: {
         'Content-Type': 'application/json',
         'X-Sync-Secret': SYNC_SECRET_KEY,
+        'X-App-Client-Key': SYNC_SECRET_KEY,
       },
       body: JSON.stringify({
         name: cleanName,

@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'core.middleware.RestrictBackendAccessMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -87,11 +88,18 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 AUTH_USER_MODEL = 'predictions.CustomUser'
 
+from corsheaders.defaults import default_headers
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://www.l1prediksikan.my.id",
     "https://l1prediksikan.my.id",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-app-client-key',
+    'x-sync-secret',
 ]
 
 REST_FRAMEWORK = {

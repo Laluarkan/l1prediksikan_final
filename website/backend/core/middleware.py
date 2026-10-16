@@ -1,0 +1,90 @@
+import os
+import re
+import logging
+from django.http import JsonResponse
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+CLIENT_APP_SECRET = os.environ.get('SYNC_SECRET_KEY', 'Laluarkan123@')
+
+ALLOWED_ORIGINS = {
+    'https://www.l1prediksikan.my.id',
+    'https://l1prediksikan.my.id',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+}
+
+ALLOWED_REFERER_REGEX = re.compile(
+    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|localhost:3000|127\.0\.0\.1:3000|localhost:8000|127\.0\.0\.1:8000)(/.*)?$'
+)
+
+EXEMPT_PREFIXES = (
+    '/health/',
+    '/rahasia-dapur-l1/',
+)
+
+class RestrictBackendAccessMiddleware:
+    """
+    Middleware Keamanan Eksklusif:
+    Membatasi seluruh akses API backend Django HANYA kepada:
+    1. Website resmi (Origin / Referer domain resmi l1prediksikan.my.id)
+    2. Aplikasi mobile resmi (X-App-Client-Key atau X-Sync-Secret valid)
+    3. Lingkungan pengembangan lokal (localhost / 127.0.0.1)
+    
+    Akses luar, scraper liar, atau pihak ketiga tanpa otorisasi akan otomatis
+    ditolak dengan respon HTTP 403 Forbidden.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path
+
+        # 1. Jalur publik/sistem bebas proteksi (Health check Render & Admin Django)
+        if any(path.startswith(prefix) for prefix in EXEMPT_PREFIXES):
+            return self.get_response(request)
+
+        # 2. Izinkan preflight OPTIONS (CORS preflight browser)
+        if request.method == 'OPTIONS':
+            return self.get_response(request)
+
+        # 3. Validasi Origin browser (Website resmi & local web)
+        origin = request.headers.get('Origin') or request.META.get('HTTP_ORIGIN')
+        if origin and origin.rstrip('/') in ALLOWED_ORIGINS:
+            return self.get_response(request)
+
+        # 4. Validasi Referer jika browser tidak menyertakan Origin
+        referer = request.headers.get('Referer') or request.META.get('HTTP_REFERER')
+        if referer and ALLOWED_REFERER_REGEX.match(referer):
+            return self.get_response(request)
+
+        # 5. Validasi Aplikasi Mobile Resmi (Header Kunci Klien Rahasia)
+        client_key = (
+            request.headers.get('X-App-Client-Key')
+            or request.headers.get('X-Sync-Secret')
+            or request.META.get('HTTP_X_APP_CLIENT_KEY')
+            or request.META.get('HTTP_X_SYNC_SECRET')
+        )
+        if client_key and client_key == CLIENT_APP_SECRET:
+            return self.get_response(request)
+
+        # 6. Validasi Request Lokal Internal (Development / loopback)
+        remote_addr = request.META.get('REMOTE_ADDR', '')
+        if remote_addr in ('127.0.0.1', '::1', 'localhost'):
+            return self.get_response(request)
+
+        # 7. Blokir seluruh akses tidak sah
+        logger.warning(
+            f"Akses Ditolak: Path='{path}', Method='{request.method}', "
+            f"Origin='{origin}', Referer='{referer}', IP='{remote_addr}'"
+        )
+        return JsonResponse(
+            {
+                'error': 'Akses Ditolak (Unauthorized Access)',
+                'message': 'API backend ini diproteksi dan hanya dapat diakses melalui website resmi atau aplikasi mobile Prediksikan.'
+            },
+            status=403
+        )

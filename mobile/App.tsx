@@ -195,6 +195,14 @@ export default function App() {
               user={user}
               onLogout={handleLogout}
               onUpdateUser={(updated) => setUser(updated)}
+              onOpenNotifications={() => {
+                setProfileVisible(false);
+                setNotificationsVisible(true);
+              }}
+              onOpenAuth={() => {
+                setProfileVisible(false);
+                setAuthModalVisible(true);
+              }}
             />
 
             <NotificationsModal

@@ -83,32 +83,43 @@ export const Header: React.FC<HeaderProps> = ({
         <Text style={styles.brandTitle}>Prediksikan</Text>
       </View>
 
-      {/* Right Side: Modern "Masuk" Button OR User Avatar with Dropdown */}
-      {!isMember ? (
+      {/* Right Side: Notification Icon & Modern "Masuk" Button OR User Avatar with Dropdown */}
+      <View style={styles.rightActionsRow}>
         <TouchableOpacity
-          style={styles.loginBtn}
-          onPress={onOpenAuth}
-          activeOpacity={0.8}
+          onPress={onOpenNotifications}
+          style={styles.notificationHeaderBtn}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="log-in-outline" size={16} color="#10B981" />
-          <Text style={styles.loginBtnText}>Masuk</Text>
+          <Ionicons name="notifications-outline" size={19} color="#F59E0B" />
         </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={styles.avatarButton}
-          onPress={() => setDropdownVisible(true)}
-          activeOpacity={0.8}
-        >
-          {user.avatarUrl ? (
-            <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>{getInitials(user.name)}</Text>
-            </View>
-          )}
-          <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
-        </TouchableOpacity>
-      )}
+
+        {!isMember ? (
+          <TouchableOpacity
+            style={styles.loginBtn}
+            onPress={onOpenAuth}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-in-outline" size={16} color="#10B981" />
+            <Text style={styles.loginBtnText}>Masuk</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.avatarButton}
+            onPress={() => setDropdownVisible(true)}
+            activeOpacity={0.8}
+          >
+            {user.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarInitial}>{getInitials(user.name)}</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-down" size={13} color={colors.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Floating User Profile Dropdown Modal */}
       {isMember && (
@@ -262,6 +273,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textPrimary,
     letterSpacing: 0.3,
+  },
+  rightActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notificationHeaderBtn: {
+    padding: 7,
+    borderRadius: 10,
+    backgroundColor: '#1E293B70',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#33415560',
   },
   loginBtn: {
     flexDirection: 'row',
