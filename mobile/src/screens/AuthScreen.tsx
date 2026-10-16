@@ -22,6 +22,8 @@ import {
   checkEmailExists,
   saveUserSession,
 } from '../services/auth';
+import * as Google from 'expo-auth-session/providers/google';
+import { GOOGLE_CONFIG, fetchGoogleUserProfile } from '../services/googleAuth';
 import { GoogleAuthModal } from '../components/modals/GoogleAuthModal';
 
 interface AuthScreenProps {
@@ -190,9 +192,62 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
     }
   };
 
+  // Hook OAuth Google menggunakan Web Client ID
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_CONFIG.webClientId,
+  });
+
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const { authentication } = googleResponse;
+      if (authentication?.accessToken) {
+        handleGoogleOAuthSuccess(authentication.accessToken);
+      }
+    }
+  }, [googleResponse]);
+
+  const handleGoogleOAuthSuccess = async (accessToken: string) => {
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      const profile = await fetchGoogleUserProfile(accessToken);
+      if (profile && profile.email) {
+        const googleName = profile.name || profile.email.split('@')[0];
+        const res = await syncGoogleAccount(googleName, profile.email, profile.picture);
+        if (res.success && res.session) {
+          setSuccessMessage('Akun Google berhasil terhubung!');
+          setTimeout(() => {
+            onSuccess(res.session!);
+          }, 400);
+        } else {
+          setErrorMessage(res.message || 'Gagal menyinkronkan akun Google ke server.');
+        }
+      } else {
+        setErrorMessage('Gagal memuat profil akun Google.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Terjadi kesalahan autentikasi Google.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Login Cepat via Google (Gmail) - Password TIDAK disertakan
-  const handleGoogleAuth = () => {
-    setShowGoogleModal(true);
+  const handleGoogleAuth = async () => {
+    setErrorMessage('');
+    try {
+      if (promptGoogleAsync) {
+        const result = await promptGoogleAsync();
+        if (result.type === 'cancel' || result.type === 'dismiss') {
+          return;
+        }
+      } else {
+        setShowGoogleModal(true);
+      }
+    } catch (error) {
+      console.warn('OAuth prompt error, menampilkan modal:', error);
+      setShowGoogleModal(true);
+    }
   };
 
   const executeGoogleSync = async (googleEmail: string) => {

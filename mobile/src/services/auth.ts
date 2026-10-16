@@ -298,7 +298,8 @@ export const loginAccount = async (
  */
 export const syncGoogleAccount = async (
   name: string,
-  email: string
+  email: string,
+  avatarUrl?: string
 ): Promise<AuthResult> => {
   const cleanName = name.trim();
   const cleanEmail = email.trim().toLowerCase();
@@ -314,6 +315,7 @@ export const syncGoogleAccount = async (
         name: cleanName,
         email: cleanEmail,
         username: cleanEmail.split('@')[0],
+        is_google: true,
         // Password TIDAK disertakan
       }),
     });
@@ -336,7 +338,7 @@ export const syncGoogleAccount = async (
       isStaff: data.is_staff ?? false,
       accessToken: data.access,
       refreshToken: data.refresh,
-      avatarUrl: data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName || cleanEmail.split('@')[0])}&background=059669&color=fff&bold=true`,
+      avatarUrl: avatarUrl || data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName || cleanEmail.split('@')[0])}&background=059669&color=fff&bold=true`,
       provider: 'google',
     };
 
