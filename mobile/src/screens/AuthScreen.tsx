@@ -192,8 +192,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
     }
   };
 
-  // Hook OAuth Google menggunakan Web Client ID
+  // Hook OAuth Google menggunakan androidClientId dan webClientId
   const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    androidClientId: GOOGLE_CONFIG.androidClientId,
     webClientId: GOOGLE_CONFIG.webClientId,
   });
 

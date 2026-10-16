@@ -5,7 +5,9 @@ import { syncGoogleAccount, UserSession } from './auth';
 WebBrowser.maybeCompleteAuthSession();
 
 export const GOOGLE_CONFIG = {
-  // Web Client ID dari Google Cloud Console
+  // Android Client ID (dari client L1prediksikan Mobile)
+  androidClientId: '1074921761810-iaubtmm76ghmv9dq3vhmeegfi80co25a.apps.googleusercontent.com',
+  // Web Client ID (dari client Web application l1 Prediksi-kan _ final)
   webClientId: '1074921761810-lmvmtrvsp61fs7rikp1tuj023rgg2lpe.apps.googleusercontent.com',
   // Package name Android
   androidPackageName: 'id.prediksikan.app',
