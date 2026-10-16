@@ -318,13 +318,21 @@ export interface ParlayTicket {
 export const fetchParlayTickets = async (params?: {
   is_historical?: boolean;
   search?: string;
+  season?: string;
+  filter_result?: string;
   page_size?: number;
 }): Promise<ParlayTicket[]> => {
   const query = new URLSearchParams();
   query.append('ordering', '-date');
-  query.append('is_historical', params?.is_historical ? 'true' : 'false');
+  if (params?.is_historical !== undefined) {
+    query.append('is_historical', params.is_historical ? 'true' : 'false');
+  }
   query.append('page_size', String(params?.page_size || 100));
   if (params?.search) query.append('search', params.search);
+  if (params?.season && params.season !== 'ALL') query.append('season', params.season);
+  if (params?.filter_result && params.filter_result !== 'ALL') {
+    query.append('filter_result', params.filter_result);
+  }
 
   const url = `${BASE_URL}/parlays/?${query.toString()}`;
 

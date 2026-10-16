@@ -38,16 +38,12 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   const probOver = Math.round((fixture.prob_ou25_over || 0.5) * 100);
   const probUnder = Math.max(0, 100 - probOver);
 
-  // 1. Sanitasi Rekomendasi 1X2
+  // 1. Sanitasi Rekomendasi 1X2 - Selalu ambil probabilitas tertinggi dari model ML
   const rawFtr = (fixture.rl_pick_ftr || '').trim().toUpperCase();
   let ftrPick: 'H' | 'D' | 'A';
-  if (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') {
-    ftrPick = rawFtr;
-  } else {
-    if (probH >= probD && probH >= probA) ftrPick = 'H';
-    else if (probA >= probH && probA >= probD) ftrPick = 'A';
-    else ftrPick = 'D';
-  }
+  if (probH >= probD && probH >= probA) ftrPick = 'H';
+  else if (probA >= probH && probA >= probD) ftrPick = 'A';
+  else ftrPick = 'D';
 
   let rawFtrOdds = ftrPick === 'H' ? fixture.avg_h : ftrPick === 'A' ? fixture.avg_a : fixture.avg_d;
   if (!rawFtrOdds || isNaN(rawFtrOdds) || rawFtrOdds <= 1.0) {
@@ -55,36 +51,29 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   }
   const ftrOdds = Number(rawFtrOdds).toFixed(2);
 
-  // 2. Sanitasi Rekomendasi O/U
+  // 2. Sanitasi Rekomendasi O/U - Selalu ambil probabilitas ML Over/Under 2.5
   const rawOu = (fixture.rl_pick_ou || '').trim().toUpperCase();
   let ouPickShort: 'O 2.5' | 'U 2.5';
   let ouPickLong: 'OVER 2.5' | 'UNDER 2.5';
   let rawOuOdds: number | undefined;
 
-  if (rawOu.includes('UNDER') || rawOu === 'U') {
-    ouPickShort = 'U 2.5';
-    ouPickLong = 'UNDER 2.5';
-    rawOuOdds = fixture.avg_under_25;
-  } else if (rawOu.includes('OVER') || rawOu === 'O') {
+  if (probOver >= 50) {
     ouPickShort = 'O 2.5';
     ouPickLong = 'OVER 2.5';
     rawOuOdds = fixture.avg_over_25;
   } else {
-    if (probOver >= 50) {
-      ouPickShort = 'O 2.5';
-      ouPickLong = 'OVER 2.5';
-      rawOuOdds = fixture.avg_over_25;
-    } else {
-      ouPickShort = 'U 2.5';
-      ouPickLong = 'UNDER 2.5';
-      rawOuOdds = fixture.avg_under_25;
-    }
+    ouPickShort = 'U 2.5';
+    ouPickLong = 'UNDER 2.5';
+    rawOuOdds = fixture.avg_under_25;
   }
 
   if (!rawOuOdds || isNaN(rawOuOdds) || rawOuOdds <= 1.0) {
     rawOuOdds = ouPickShort === 'O 2.5' ? 1.90 : 1.85;
   }
   const ouOdds = Number(rawOuOdds).toFixed(2);
+
+  const hasValueFtr = fixture.has_value_bet || (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') || (typeof fixture.rl_stake_ftr === 'number' && fixture.rl_stake_ftr > 0);
+  const hasValueOu = fixture.has_value_bet_ou || rawOu.includes('OVER') || rawOu.includes('UNDER') || rawOu === 'O' || rawOu === 'U' || (typeof fixture.rl_stake_ou === 'number' && fixture.rl_stake_ou > 0);
 
   return (
     <Modal
@@ -182,12 +171,12 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
               <View style={styles.aiPicksRow}>
                 {/* Pick 1X2 */}
-                <View style={[styles.aiPickCard, fixture.has_value_bet && styles.aiPickCardValue]}>
+                <View style={[styles.aiPickCard, hasValueFtr && styles.aiPickCardValue]}>
                   <Text style={styles.aiPickLabel}>REKOMENDASI 1X2</Text>
                   <Text style={styles.aiPickMain}>{ftrPick}</Text>
                   <View style={styles.aiPickBadgeRow}>
                     <Text style={styles.aiPickOdds}>@{ftrOdds}</Text>
-                    {fixture.has_value_bet && (
+                    {hasValueFtr && (
                       <View style={styles.valueTag}>
                         <Ionicons name="diamond" size={10} color="#F59E0B" />
                         <Text style={styles.valueTagText}>BEST VALUE</Text>
@@ -197,12 +186,12 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 </View>
 
                 {/* Pick O/U */}
-                <View style={[styles.aiPickCard, fixture.has_value_bet_ou && styles.aiPickCardValue]}>
+                <View style={[styles.aiPickCard, hasValueOu && styles.aiPickCardValue]}>
                   <Text style={styles.aiPickLabel}>REKOMENDASI O/U 2.5</Text>
                   <Text style={styles.aiPickMain}>{ouPickLong}</Text>
                   <View style={styles.aiPickBadgeRow}>
                     <Text style={styles.aiPickOdds}>@{ouOdds}</Text>
-                    {fixture.has_value_bet_ou && (
+                    {hasValueOu && (
                       <View style={styles.valueTag}>
                         <Ionicons name="diamond" size={10} color="#F59E0B" />
                         <Text style={styles.valueTagText}>BEST VALUE</Text>
@@ -212,7 +201,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 </View>
               </View>
 
-              {(fixture.has_value_bet || fixture.has_value_bet_ou) && (
+              {(hasValueFtr || hasValueOu) && (
                 <View style={styles.valueNotice}>
                   <Ionicons name="information-circle-outline" size={14} color="#F59E0B" />
                   <Text style={styles.valueNoticeText}>

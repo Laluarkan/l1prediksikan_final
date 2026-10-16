@@ -211,10 +211,10 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
             except Exception:
                 pass
 
-        filter_result = self.request.query_params.get('filter_result')
-        if filter_result == 'WON':
+        filter_result = (self.request.query_params.get('filter_result') or '').upper()
+        if filter_result in ['WON', 'WIN']:
             queryset = queryset.filter(Q(is_won_ftr=True) | Q(is_won_ou=True))
-        elif filter_result == 'LOST':
+        elif filter_result in ['LOST', 'LOSE']:
             queryset = queryset.filter(Q(is_won_ftr=False) | Q(is_won_ou=False))
             
         filter_ftr = self.request.query_params.get('filter_ftr')
@@ -253,10 +253,47 @@ class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
         queryset = ParlayTicket.objects.all()
         is_historical_param = self.request.query_params.get('is_historical')
         
-        if is_historical_param and is_historical_param.lower() in ['false', '0']:
-            now_date = timezone.now().date()
-            queryset = queryset.filter(date__gte=now_date)
+        if is_historical_param is not None:
+            if is_historical_param.lower() in ['true', '1']:
+                queryset = queryset.filter(is_historical=True)
+            elif is_historical_param.lower() in ['false', '0']:
+                now_date = timezone.now().date()
+                queryset = queryset.filter(is_historical=False, date__gte=now_date)
             
+        season = self.request.query_params.get('season')
+        if season and season != 'ALL':
+            try:
+                if '/' in season:
+                    y1, y2 = season.split('/')
+                    start_year = 2000 + int(y1)
+                    end_year = 2000 + int(y2)
+                    start_date = datetime.date(start_year, 7, 1)
+                    end_date = datetime.date(end_year, 6, 30)
+                else:
+                    year = int(season)
+                    if year < 100:
+                        year += 2000
+                    start_date = datetime.date(year, 1, 1)
+                    end_date = datetime.date(year, 12, 31)
+
+                queryset = queryset.filter(date__gte=start_date, date__lte=end_date)
+            except Exception:
+                pass
+
+        filter_result = (self.request.query_params.get('filter_result') or '').upper()
+        if filter_result in ['WON', 'WIN']:
+            queryset = queryset.filter(is_won=True)
+        elif filter_result in ['LOST', 'LOSE']:
+            queryset = queryset.filter(is_won=False)
+
+        search = self.request.query_params.get('search')
+        if search:
+            search_str = search.strip()
+            if search_str:
+                queryset = queryset.filter(
+                    Q(ticket_id__icontains=search_str) | Q(legs_details__icontains=search_str)
+                )
+
         return queryset
 
 class DatasetPreviewView(APIView):

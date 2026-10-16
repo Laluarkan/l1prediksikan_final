@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { ParlayTicket, fetchParlayTickets } from '../services/api';
+import { ParlayTicket, fetchParlayTickets, getCurrentSeason } from '../services/api';
 import { shareImageFile } from '../services/shareService';
 import { captureRef } from 'react-native-view-shot';
 
@@ -28,6 +28,8 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const PRESET_STAKES = [10000, 25000, 50000, 100000];
 
 export const ParlayScreen: React.FC = () => {
+  const defaultSeason = getCurrentSeason(); // Musim saat ini (misal '26/27')
+
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
   const [tickets, setTickets] = useState<ParlayTicket[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -38,6 +40,40 @@ export const ParlayScreen: React.FC = () => {
   const [ticketToShare, setTicketToShare] = useState<ParlayTicket | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const shareCardRef = useRef<View>(null);
+
+  // Filter & Musim untuk Riwayat Parlay
+  const [selectedSeason, setSelectedSeason] = useState<string>(defaultSeason);
+  const [filterResult, setFilterResult] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
+  const [filterFold, setFilterFold] = useState<'ALL' | '3' | '4' | '5+'>('ALL');
+  const [isSeasonModalVisible, setIsSeasonModalVisible] = useState<boolean>(false);
+
+  // Generate daftar musim yang tersedia (dari musim terkini mundur sampai 2021/2022)
+  const availableSeasons = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    const startYear = 2021;
+    const latestStartYear = currentMonth >= 7 ? currentYear : currentYear - 1;
+
+    const seasons: { id: string; label: string }[] = [];
+    for (let y = latestStartYear; y >= startYear; y--) {
+      const y1 = y.toString().slice(-2);
+      const y2 = (y + 1).toString().slice(-2);
+      const id = `${y1}/${y2}`;
+      const isCurrent = id === defaultSeason;
+      seasons.push({
+        id,
+        label: isCurrent ? `20${y1}/20${y2} (Musim Ini)` : `20${y1}/20${y2}`,
+      });
+    }
+    seasons.push({ id: 'ALL', label: 'Semua Musim' });
+    return seasons;
+  }, [defaultSeason]);
+
+  const seasonDisplayLabel = useMemo(() => {
+    if (selectedSeason === 'ALL') return 'Semua Musim';
+    const parts = selectedSeason.split('/');
+    return parts.length === 2 ? `20${parts[0]}/20${parts[1]}` : selectedSeason;
+  }, [selectedSeason]);
 
   const handleShareTicketAsImage = (ticket: ParlayTicket) => {
     setTicketToShare(ticket);
@@ -79,6 +115,8 @@ export const ParlayScreen: React.FC = () => {
       const isHistorical = activeTab === 'history';
       const data = await fetchParlayTickets({
         is_historical: isHistorical,
+        season: isHistorical ? (selectedSeason !== 'ALL' ? selectedSeason : undefined) : undefined,
+        filter_result: isHistorical && filterResult !== 'ALL' ? filterResult : undefined,
         search: searchQuery.trim() || undefined,
       });
       setTickets(data);
@@ -88,11 +126,11 @@ export const ParlayScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab, searchQuery]);
+  }, [activeTab, selectedSeason, filterResult, searchQuery]);
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [loadData]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -142,6 +180,39 @@ export const ParlayScreen: React.FC = () => {
       return '';
     }
   };
+
+  // Filter client-side untuk status hasil (Menang/Kalah), fold count, dan musim
+  const displayedTickets = useMemo(() => {
+    return tickets.filter((ticket) => {
+      if (activeTab === 'history') {
+        // 1. Filter Status Hasil (Menang / Kalah)
+        if (filterResult === 'WON' && ticket.is_won !== true) return false;
+        if (filterResult === 'LOST' && ticket.is_won !== false) return false;
+
+        // 2. Filter Fold Count
+        if (filterFold !== 'ALL') {
+          const count = (ticket.legs_details || []).length;
+          if (filterFold === '3' && count !== 3) return false;
+          if (filterFold === '4' && count !== 4) return false;
+          if (filterFold === '5+' && count < 5) return false;
+        }
+
+        // 3. Filter Musim (client-side safety)
+        if (selectedSeason !== 'ALL' && ticket.date) {
+          const [y1, y2] = selectedSeason.split('/');
+          if (y1 && y2) {
+            const startYear = 2000 + parseInt(y1, 10);
+            const endYear = 2000 + parseInt(y2, 10);
+            const tDate = new Date(ticket.date);
+            const start = new Date(startYear, 6, 1);
+            const end = new Date(endYear, 5, 30, 23, 59, 59);
+            if (tDate < start || tDate > end) return false;
+          }
+        }
+      }
+      return true;
+    });
+  }, [tickets, activeTab, filterResult, filterFold, selectedSeason]);
 
   return (
     <View style={styles.container}>
@@ -212,12 +283,64 @@ export const ParlayScreen: React.FC = () => {
           </View>
         )}
 
+        {/* Filter Controls (for History) */}
+        {activeTab === 'history' && (
+          <View style={styles.historyFilterBox}>
+            {/* Baris 1: Status Hasil & Tombol Pilihan Musim */}
+            <View style={styles.historyFilterRow}>
+              {/* Status Hasil: Semua / Menang / Kalah */}
+              <View style={styles.statusFilterGroup}>
+                {[
+                  { id: 'ALL', label: 'Semua' },
+                  { id: 'WON', label: 'Menang' },
+                  { id: 'LOST', label: 'Kalah' },
+                ].map((st) => {
+                  const isSelected = filterResult === st.id;
+                  return (
+                    <TouchableOpacity
+                      key={st.id}
+                      style={[
+                        styles.statusFilterPill,
+                        isSelected && styles.statusFilterPillActive,
+                        isSelected && st.id === 'WON' && styles.statusFilterPillWin,
+                        isSelected && st.id === 'LOST' && styles.statusFilterPillLose,
+                      ]}
+                      onPress={() => setFilterResult(st.id as any)}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.statusFilterText,
+                          isSelected && styles.statusFilterTextActive,
+                        ]}
+                      >
+                        {st.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Tombol Pilih Musim */}
+              <TouchableOpacity
+                style={styles.seasonPickerBtn}
+                onPress={() => setIsSeasonModalVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="calendar-outline" size={13} color="#60A5FA" />
+                <Text style={styles.seasonPickerText}>{seasonDisplayLabel}</Text>
+                <Ionicons name="chevron-down" size={13} color="#60A5FA" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Search Input */}
         <View style={styles.searchRow}>
           <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari tim atau laga dalam parlay..."
+            placeholder={activeTab === 'upcoming' ? "Cari tim atau laga dalam parlay..." : "Cari tim, ID parlay, atau laga..."}
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -244,7 +367,7 @@ export const ParlayScreen: React.FC = () => {
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Memuat rekomendasi tiket parlay AI...</Text>
         </View>
-      ) : tickets.length === 0 ? (
+      ) : displayedTickets.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.centerContainer}
           refreshControl={
@@ -262,7 +385,7 @@ export const ParlayScreen: React.FC = () => {
           <Text style={styles.emptyDesc}>
             {activeTab === 'upcoming'
               ? 'Model AI sedang mengalkulasi probabilitas gabungan untuk pertandingan putaran berikutnya.'
-              : 'Belum ada tiket parlay yang selesai dievaluasi.'}
+              : `Belum ada riwayat tiket parlay untuk ${seasonDisplayLabel} dengan filter yang dipilih.`}
           </Text>
           <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh} activeOpacity={0.7}>
             <Ionicons name="refresh" size={16} color="#FFFFFF" />
@@ -278,7 +401,7 @@ export const ParlayScreen: React.FC = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
         >
-          {tickets.map((ticket) => {
+          {displayedTickets.map((ticket) => {
             const isExpanded = expandedId === ticket.id;
             const legs = ticket.legs_details || [];
             const totalOdds = Number(ticket.total_odds || 0);
@@ -647,6 +770,73 @@ export const ParlayScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Pilihan Musim Riwayat Parlay */}
+      <Modal
+        visible={isSeasonModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsSeasonModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.seasonModalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsSeasonModalVisible(false)}
+        >
+          <View style={styles.seasonModalCard} onStartShouldSetResponder={() => true}>
+            <View style={styles.seasonModalHeader}>
+              <View style={styles.seasonModalTitleRow}>
+                <Ionicons name="calendar" size={18} color="#60A5FA" />
+                <Text style={styles.seasonModalTitle}>Pilih Musim Riwayat</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsSeasonModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.seasonModalList} showsVerticalScrollIndicator={false}>
+              {availableSeasons.map((s) => {
+                const isSelected = selectedSeason === s.id;
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.seasonModalItem, isSelected && styles.seasonModalItemActive]}
+                    onPress={() => {
+                      setSelectedSeason(s.id);
+                      setIsSeasonModalVisible(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.seasonModalItemLeft}>
+                      <Ionicons
+                        name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                        size={18}
+                        color={isSelected ? '#3B82F6' : colors.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.seasonModalItemText,
+                          isSelected && styles.seasonModalItemTextActive,
+                        ]}
+                      >
+                        {s.label}
+                      </Text>
+                    </View>
+                    {s.id === defaultSeason && (
+                      <View style={styles.currentSeasonBadge}>
+                        <Text style={styles.currentSeasonBadgeText}>SAAT INI</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -664,6 +854,193 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 12,
     gap: 10,
+  },
+  historyFilterBox: {
+    gap: 8,
+  },
+  historyFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  statusFilterGroup: {
+    flexDirection: 'row',
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statusFilterPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5.5,
+    borderRadius: 7,
+  },
+  statusFilterPillActive: {
+    backgroundColor: '#0F172A',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statusFilterPillWin: {
+    backgroundColor: '#064E3B50',
+    borderColor: '#10B981',
+  },
+  statusFilterPillLose: {
+    backgroundColor: '#7F1D1D40',
+    borderColor: '#EF4444',
+  },
+  statusFilterText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  statusFilterTextActive: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  seasonPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 6.5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#3B82F660',
+  },
+  seasonPickerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#60A5FA',
+  },
+  horizontalChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  chipPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 7,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipPillActive: {
+    backgroundColor: '#2563EB25',
+    borderColor: '#3B82F6',
+  },
+  chipPillSeasonActive: {
+    backgroundColor: '#064E3B30',
+    borderColor: '#10B981',
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  chipTextActive: {
+    color: '#60A5FA',
+    fontWeight: '700',
+  },
+  chipTextSeasonActive: {
+    color: '#34D399',
+    fontWeight: '700',
+  },
+  chipDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#334155',
+    marginHorizontal: 2,
+  },
+  seasonModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  seasonModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    maxHeight: '75%',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#334155',
+    padding: 16,
+    elevation: 10,
+  },
+  seasonModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E293B',
+    marginBottom: 8,
+  },
+  seasonModalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  seasonModalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  seasonModalList: {
+    maxHeight: 280,
+  },
+  seasonModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 4,
+    backgroundColor: '#1E293B30',
+  },
+  seasonModalItemActive: {
+    backgroundColor: '#2563EB20',
+    borderWidth: 1,
+    borderColor: '#3B82F660',
+  },
+  seasonModalItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  seasonModalItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  seasonModalItemTextActive: {
+    color: '#60A5FA',
+    fontWeight: '700',
+  },
+  currentSeasonBadge: {
+    backgroundColor: '#10B98125',
+    borderWidth: 1,
+    borderColor: '#10B98160',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  currentSeasonBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#10B981',
+    letterSpacing: 0.5,
   },
   tabSwitcher: {
     flexDirection: 'row',

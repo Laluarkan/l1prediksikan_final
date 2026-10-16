@@ -18,23 +18,17 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
 }) => {
   const kickoffLabel = formatWitaKickoff(fixture.date);
 
-  // 1. Sanitasi Rekomendasi 1X2 (HDA)
-  const rawFtr = (fixture.rl_pick_ftr || '').trim().toUpperCase();
-  let hdaPick: 'H' | 'D' | 'A';
-  if (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') {
-    hdaPick = rawFtr;
+  // 1. Rekomendasi Utama 1X2 (Berdasarkan Probabilitas ML Tertinggi)
+  const pH = fixture.prob_ftr_h || 0;
+  const pD = fixture.prob_ftr_d || 0;
+  const pA = fixture.prob_ftr_a || 0;
+  let hdaPick: 'H' | 'D' | 'A' = 'H';
+  if (pH >= pD && pH >= pA) {
+    hdaPick = 'H';
+  } else if (pA >= pH && pA >= pD) {
+    hdaPick = 'A';
   } else {
-    // Jika null, undefined, 'NAN', kalkulasi dari probabilitas tertinggi
-    const pH = fixture.prob_ftr_h || 0;
-    const pD = fixture.prob_ftr_d || 0;
-    const pA = fixture.prob_ftr_a || 0;
-    if (pH >= pD && pH >= pA) {
-      hdaPick = 'H';
-    } else if (pA >= pH && pA >= pD) {
-      hdaPick = 'A';
-    } else {
-      hdaPick = 'D';
-    }
+    hdaPick = 'D';
   }
 
   let rawHdaOdds = hdaPick === 'H' ? fixture.avg_h : hdaPick === 'A' ? fixture.avg_a : fixture.avg_d;
@@ -43,27 +37,10 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
   }
   const hdaOdds = Number(rawHdaOdds).toFixed(2);
 
-  // 2. Sanitasi Rekomendasi O/U
-  const rawOu = (fixture.rl_pick_ou || '').trim().toUpperCase();
-  let ouPickShort: 'O 2.5' | 'U 2.5';
-  let rawOuOdds: number | undefined;
-
-  if (rawOu.includes('UNDER') || rawOu === 'U') {
-    ouPickShort = 'U 2.5';
-    rawOuOdds = fixture.avg_under_25;
-  } else if (rawOu.includes('OVER') || rawOu === 'O') {
-    ouPickShort = 'O 2.5';
-    rawOuOdds = fixture.avg_over_25;
-  } else {
-    const pOver = fixture.prob_ou25_over || 0.5;
-    if (pOver >= 0.5) {
-      ouPickShort = 'O 2.5';
-      rawOuOdds = fixture.avg_over_25;
-    } else {
-      ouPickShort = 'U 2.5';
-      rawOuOdds = fixture.avg_under_25;
-    }
-  }
+  // 2. Rekomendasi Utama O/U 2.5
+  const pOver = fixture.prob_ou25_over || 0.5;
+  const ouPickShort: 'O 2.5' | 'U 2.5' = pOver >= 0.5 ? 'O 2.5' : 'U 2.5';
+  let rawOuOdds = ouPickShort === 'O 2.5' ? fixture.avg_over_25 : fixture.avg_under_25;
 
   if (!rawOuOdds || isNaN(rawOuOdds) || rawOuOdds <= 1.0) {
     rawOuOdds = ouPickShort === 'O 2.5' ? 1.90 : 1.85;

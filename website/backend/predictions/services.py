@@ -214,9 +214,12 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
                         rl_s_ftr = best_ftr['kelly_frac'] * ACTIONS[idx_ftr]
                     
                     if pd.notna(row.get('FTR')):
-                        is_won_ftr = (pick_ftr == row['FTR'])
+                        is_won_ftr = (ml_pick_ftr == row['FTR'])
             except Exception:
                 pass
+                
+        if is_won_ftr is None and pd.notna(row.get('FTR')):
+            is_won_ftr = (ml_pick_ftr == row['FTR'])
                 
         data_res['has_value_bet'].append(has_v_ftr)
         data_res['rl_pick_ftr'].append(pick_ftr)
@@ -258,9 +261,13 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
                     
                     if pd.notna(row.get('FTHG')) and pd.notna(row.get('FTAG')):
                         actual_ou = 'Over 2.5' if (row['FTHG'] + row['FTAG'] > 2.5) else 'Under 2.5'
-                        is_won_ou = (pick_ou == actual_ou)
+                        is_won_ou = (ml_pick_ou == actual_ou)
             except Exception:
                 pass
+                
+        if is_won_ou is None and pd.notna(row.get('FTHG')) and pd.notna(row.get('FTAG')):
+            actual_ou = 'Over 2.5' if (row['FTHG'] + row['FTAG'] > 2.5) else 'Under 2.5'
+            is_won_ou = (ml_pick_ou == actual_ou)
                 
         data_res['has_value_bet_ou'].append(has_v_ou)
         data_res['rl_pick_ou'].append(pick_ou)
@@ -407,18 +414,27 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
                 df_hist.at[idx, 'Avg>2.5'] = f_obj.avg_over_25
                 df_hist.at[idx, 'Avg<2.5'] = f_obj.avg_under_25
                 df_hist.at[idx, 'has_value_bet'] = f_obj.has_value_bet
-                df_hist.at[idx, 'rl_pick_ftr'] = f_obj.rl_pick_ftr
+                # Hitung prediksi ML murni untuk 1X2 dan O/U
+                m_probs_ftr = [f_obj.prob_ftr_h or 0.0, f_obj.prob_ftr_d or 0.0, f_obj.prob_ftr_a or 0.0]
+                ml_pick_ftr = ['H', 'D', 'A'][np.argmax(m_probs_ftr)] if sum(m_probs_ftr) > 0 else 'H'
+                
+                clean_rl_ftr = ml_pick_ftr if (f_obj.has_value_bet and f_obj.rl_stake_ftr and f_obj.rl_stake_ftr > 0) else None
+                df_hist.at[idx, 'rl_pick_ftr'] = clean_rl_ftr
                 df_hist.at[idx, 'rl_action_ftr'] = f_obj.rl_action_ftr
                 df_hist.at[idx, 'rl_stake_ftr'] = f_obj.rl_stake_ftr
                 
-                if pd.notna(row.get('FTR')) and f_obj.rl_pick_ftr and f_obj.rl_pick_ftr != 'Skip':
-                    df_hist.at[idx, 'is_won_ftr'] = (f_obj.rl_pick_ftr == row.get('FTR'))
+                if pd.notna(row.get('FTR')):
+                    df_hist.at[idx, 'is_won_ftr'] = (ml_pick_ftr == row.get('FTR'))
                 else:
                     df_hist.at[idx, 'is_won_ftr'] = None
                     
-                if pd.notna(row.get('FTHG')) and pd.notna(row.get('FTAG')) and f_obj.rl_pick_ou and f_obj.rl_pick_ou != 'Skip':
+                ml_pick_ou = 'Over 2.5' if (f_obj.prob_ou25_over or 0.5) >= 0.5 else 'Under 2.5'
+                clean_rl_ou = ml_pick_ou if (f_obj.has_value_bet_ou and f_obj.rl_stake_ou and f_obj.rl_stake_ou > 0) else None
+                df_hist.at[idx, 'rl_pick_ou'] = clean_rl_ou
+                
+                if pd.notna(row.get('FTHG')) and pd.notna(row.get('FTAG')):
                     actual_ou = 'Over 2.5' if (row.get('FTHG') + row.get('FTAG') > 2.5) else 'Under 2.5'
-                    df_hist.at[idx, 'is_won_ou'] = (f_obj.rl_pick_ou == actual_ou)
+                    df_hist.at[idx, 'is_won_ou'] = (ml_pick_ou == actual_ou)
                 else:
                     df_hist.at[idx, 'is_won_ou'] = None
                 
@@ -660,20 +676,25 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
                 df_hist.at[idx, 'Avg>2.5'] = f_obj.avg_over_25
                 df_hist.at[idx, 'Avg<2.5'] = f_obj.avg_under_25
                 df_hist.at[idx, 'has_value_bet'] = f_obj.has_value_bet
-                df_hist.at[idx, 'rl_pick_ftr'] = f_obj.rl_pick_ftr
+                m_probs_ftr = [f_obj.prob_ftr_h or 0.0, f_obj.prob_ftr_d or 0.0, f_obj.prob_ftr_a or 0.0]
+                ml_pick_ftr = ['H', 'D', 'A'][np.argmax(m_probs_ftr)] if sum(m_probs_ftr) > 0 else 'H'
+                clean_rl_ftr = ml_pick_ftr if (f_obj.has_value_bet and f_obj.rl_stake_ftr and f_obj.rl_stake_ftr > 0) else None
+                df_hist.at[idx, 'rl_pick_ftr'] = clean_rl_ftr
                 df_hist.at[idx, 'rl_action_ftr'] = f_obj.rl_action_ftr
                 df_hist.at[idx, 'rl_stake_ftr'] = f_obj.rl_stake_ftr
-                if pd.notna(row.get('FTR')) and f_obj.rl_pick_ftr and f_obj.rl_pick_ftr != 'Skip':
-                    df_hist.at[idx, 'is_won_ftr'] = (f_obj.rl_pick_ftr == row.get('FTR'))
+                if pd.notna(row.get('FTR')):
+                    df_hist.at[idx, 'is_won_ftr'] = (ml_pick_ftr == row.get('FTR'))
                 else:
                     df_hist.at[idx, 'is_won_ftr'] = None
                 df_hist.at[idx, 'has_value_bet_ou'] = f_obj.has_value_bet_ou
-                df_hist.at[idx, 'rl_pick_ou'] = f_obj.rl_pick_ou
+                ml_pick_ou = 'Over 2.5' if (f_obj.prob_ou25_over or 0.5) >= 0.5 else 'Under 2.5'
+                clean_rl_ou = ml_pick_ou if (f_obj.has_value_bet_ou and f_obj.rl_stake_ou and f_obj.rl_stake_ou > 0) else None
+                df_hist.at[idx, 'rl_pick_ou'] = clean_rl_ou
                 df_hist.at[idx, 'rl_action_ou'] = f_obj.rl_action_ou
                 df_hist.at[idx, 'rl_stake_ou'] = f_obj.rl_stake_ou
-                if pd.notna(row.get('FTHG')) and pd.notna(row.get('FTAG')) and f_obj.rl_pick_ou and f_obj.rl_pick_ou != 'Skip':
+                if pd.notna(row.get('FTHG')) and pd.notna(row.get('FTAG')):
                     actual_ou = 'Over 2.5' if (row.get('FTHG') + row.get('FTAG') > 2.5) else 'Under 2.5'
-                    df_hist.at[idx, 'is_won_ou'] = (f_obj.rl_pick_ou == actual_ou)
+                    df_hist.at[idx, 'is_won_ou'] = (ml_pick_ou == actual_ou)
                 else:
                     df_hist.at[idx, 'is_won_ou'] = None
                 df_hist.at[idx, 'part_of_parlay'] = f_obj.part_of_parlay

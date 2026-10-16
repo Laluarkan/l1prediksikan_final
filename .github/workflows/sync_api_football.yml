@@ -1,9 +1,6 @@
-name: Sync API-Football Teams Daily
+name: Sync API-Football Teams
 
 on:
-  schedule:
-    # Berjalan setiap hari pada jam 01:00 UTC (08:00 WIB), sesaat setelah limit harian API di-reset
-    - cron: '0 1 * * *'
   workflow_dispatch: # Mengizinkan Anda memicunya secara manual dari tab Actions di GitHub
 
 jobs:

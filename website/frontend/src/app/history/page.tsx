@@ -430,6 +430,8 @@ export default function HistoryPage() {
                                 <span className="text-[10px] text-slate-400 bg-slate-700/50 border border-slate-600/50 px-1.5 py-0.5 rounded font-medium">
                                   ({(mlFtrPick.value * 100).toFixed(1)}%)
                                 </span>
+                                {match.is_won_ftr === true && <span className="text-[9px] bg-emerald-900/80 border border-emerald-500/50 text-emerald-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(16,185,129,0.3)]">MENANG</span>}
+                                {match.is_won_ftr === false && <span className="text-[9px] bg-rose-900/80 border border-rose-500/50 text-rose-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(244,63,94,0.3)]">KALAH</span>}
                               </div>
                             </div>
                             <div className="text-right">
@@ -480,6 +482,8 @@ export default function HistoryPage() {
                                 <span className="text-[10px] text-slate-400 bg-slate-700/50 border border-slate-600/50 px-1.5 py-0.5 rounded font-medium">
                                   ({(mlOuPick.value * 100).toFixed(1)}%)
                                 </span>
+                                {match.is_won_ou === true && <span className="text-[9px] bg-emerald-900/80 border border-emerald-500/50 text-emerald-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(16,185,129,0.3)]">MENANG</span>}
+                                {match.is_won_ou === false && <span className="text-[9px] bg-rose-900/80 border border-rose-500/50 text-rose-400 px-1.5 py-0.5 rounded font-bold shadow-[0_0_8px_rgba(244,63,94,0.3)]">KALAH</span>}
                               </div>
                             </div>
                             <div className="text-right">

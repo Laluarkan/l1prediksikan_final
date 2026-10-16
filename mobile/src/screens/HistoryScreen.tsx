@@ -22,19 +22,18 @@ import {
 import { formatWitaKickoff } from '../utils/dateUtils';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
 
-// Sanitasi rekomendasi 1X2 dan O/U
+// Sanitasi rekomendasi 1X2 dan O/U (berdasarkan probabilitas model ML tertinggi)
 const getSanitizedPicks = (match: MatchHistory) => {
-  const rawFtr = (match.rl_pick_ftr || '').trim().toUpperCase();
-  let hdaPick: 'H' | 'D' | 'A';
-  if (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') {
-    hdaPick = rawFtr;
+  const pH = match.prob_ftr_h || 0;
+  const pD = match.prob_ftr_d || 0;
+  const pA = match.prob_ftr_a || 0;
+  let hdaPick: 'H' | 'D' | 'A' = 'H';
+  if (pH >= pD && pH >= pA) {
+    hdaPick = 'H';
+  } else if (pA >= pH && pA >= pD) {
+    hdaPick = 'A';
   } else {
-    const pH = match.prob_ftr_h || 0;
-    const pD = match.prob_ftr_d || 0;
-    const pA = match.prob_ftr_a || 0;
-    if (pH >= pD && pH >= pA) hdaPick = 'H';
-    else if (pA >= pH && pA >= pD) hdaPick = 'A';
-    else hdaPick = 'D';
+    hdaPick = 'D';
   }
 
   let rawHdaOdds = hdaPick === 'H' ? match.avg_h : hdaPick === 'A' ? match.avg_a : match.avg_d;
@@ -43,26 +42,9 @@ const getSanitizedPicks = (match: MatchHistory) => {
   }
   const hdaOdds = Number(rawHdaOdds).toFixed(2);
 
-  const rawOu = (match.rl_pick_ou || '').trim().toUpperCase();
-  let ouPickShort: 'O 2.5' | 'U 2.5';
-  let rawOuOdds: number | undefined;
-
-  if (rawOu.includes('UNDER') || rawOu === 'U') {
-    ouPickShort = 'U 2.5';
-    rawOuOdds = match.avg_under_25;
-  } else if (rawOu.includes('OVER') || rawOu === 'O') {
-    ouPickShort = 'O 2.5';
-    rawOuOdds = match.avg_over_25;
-  } else {
-    const pOver = match.prob_ou25_over || 0.5;
-    if (pOver >= 0.5) {
-      ouPickShort = 'O 2.5';
-      rawOuOdds = match.avg_over_25;
-    } else {
-      ouPickShort = 'U 2.5';
-      rawOuOdds = match.avg_under_25;
-    }
-  }
+  const pOver = match.prob_ou25_over || 0.5;
+  const ouPickShort: 'O 2.5' | 'U 2.5' = pOver >= 0.5 ? 'O 2.5' : 'U 2.5';
+  let rawOuOdds = ouPickShort === 'O 2.5' ? match.avg_over_25 : match.avg_under_25;
 
   if (!rawOuOdds || isNaN(rawOuOdds) || rawOuOdds <= 1.0) {
     rawOuOdds = ouPickShort === 'O 2.5' ? 1.9 : 1.85;
@@ -319,6 +301,17 @@ export const HistoryScreen: React.FC = () => {
               const isHomeWin = (match.fthg ?? 0) > (match.ftag ?? 0);
               const isAwayWin = (match.ftag ?? 0) > (match.fthg ?? 0);
 
+              // Evaluasi kemenangan 1X2 secara presisi terhadap hasil nyata pertandingan
+              const isFtrWin = match.ftr ? hdaPick === match.ftr : match.is_won_ftr;
+
+              // Evaluasi kemenangan O/U 2.5 secara presisi terhadap jumlah gol nyata
+              const totalGoals =
+                typeof match.fthg === 'number' && typeof match.ftag === 'number'
+                  ? match.fthg + match.ftag
+                  : null;
+              const actualOu = totalGoals !== null ? (totalGoals > 2.5 ? 'O 2.5' : 'U 2.5') : null;
+              const isOuWin = actualOu !== null ? ouPickShort === actualOu : match.is_won_ou;
+
               return (
                 <TouchableOpacity
                   key={match.id}
@@ -413,8 +406,8 @@ export const HistoryScreen: React.FC = () => {
                       <View
                         style={[
                           styles.pickRow,
-                          match.is_won_ftr === true && styles.pickRowWin,
-                          match.is_won_ftr === false && styles.pickRowLose,
+                          isFtrWin === true && styles.pickRowWin,
+                          isFtrWin === false && styles.pickRowLose,
                         ]}
                       >
                         <View style={styles.pickLabelRow}>
@@ -423,12 +416,12 @@ export const HistoryScreen: React.FC = () => {
                             {hdaPick} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
                           </Text>
                         </View>
-                        {match.is_won_ftr === true ? (
+                        {isFtrWin === true ? (
                           <View style={styles.badgeWin}>
                             <Ionicons name="checkmark-circle" size={9} color="#10B981" />
                             <Text style={styles.badgeWinText}>MENANG</Text>
                           </View>
-                        ) : match.is_won_ftr === false ? (
+                        ) : isFtrWin === false ? (
                           <View style={styles.badgeLose}>
                             <Ionicons name="close-circle" size={9} color="#EF4444" />
                             <Text style={styles.badgeLoseText}>KALAH</Text>
@@ -444,8 +437,8 @@ export const HistoryScreen: React.FC = () => {
                       <View
                         style={[
                           styles.pickRow,
-                          match.is_won_ou === true && styles.pickRowWin,
-                          match.is_won_ou === false && styles.pickRowLose,
+                          isOuWin === true && styles.pickRowWin,
+                          isOuWin === false && styles.pickRowLose,
                         ]}
                       >
                         <View style={styles.pickLabelRow}>
@@ -454,12 +447,12 @@ export const HistoryScreen: React.FC = () => {
                             {ouPickShort} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
                           </Text>
                         </View>
-                        {match.is_won_ou === true ? (
+                        {isOuWin === true ? (
                           <View style={styles.badgeWin}>
                             <Ionicons name="checkmark-circle" size={9} color="#10B981" />
                             <Text style={styles.badgeWinText}>MENANG</Text>
                           </View>
-                        ) : match.is_won_ou === false ? (
+                        ) : isOuWin === false ? (
                           <View style={styles.badgeLose}>
                             <Ionicons name="close-circle" size={9} color="#EF4444" />
                             <Text style={styles.badgeLoseText}>KALAH</Text>
