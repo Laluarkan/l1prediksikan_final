@@ -32,12 +32,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Prioritas Urutan Liga Top 5 Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
+// Prioritas Urutan Murni Liga Top 5 Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
 const getLeaguePriority = (leagueName: string): { priority: number; label: string } => {
   const l = (leagueName || '').toLowerCase();
   if (l.includes('bundes')) return { priority: 1, label: 'Bundesliga' };
-  if (l.includes('premier') || l.includes('epl')) return { priority: 2, label: 'Premier League' };
-  if (l.includes('la liga') || l.includes('laliga') || l.includes('primera')) return { priority: 3, label: 'La Liga' };
+  if (!l.includes('scottish') && (l.includes('premier') || l.includes('epl'))) return { priority: 2, label: 'Premier League' };
+  if (l.includes('la liga') || l.includes('laliga')) return { priority: 3, label: 'La Liga' };
   if (l.includes('ligue 1') || l.includes('ligue1')) return { priority: 4, label: 'Ligue 1' };
   if (l.includes('serie a')) return { priority: 5, label: 'Serie A' };
   return { priority: 99, label: leagueName };
@@ -283,9 +283,10 @@ export const FixturesScreen: React.FC = () => {
         if (!matchSearch) return false;
       }
 
-      // 3. Filter Liga
+      // 3. Filter Liga (Hanya Bundesliga, EPL, La Liga, Ligue 1, Serie A)
       if (filters.league === 'TOP5') {
-        const isTop5 = /bundes|premier|epl|la liga|primera|serie a|ligue 1/i.test(f.league_name);
+        const isScottish = /scottish/i.test(f.league_name);
+        const isTop5 = !isScottish && /bundes|premier|epl|la liga|laliga|serie a|ligue 1/i.test(f.league_name);
         if (!isTop5) return false;
       } else if (filters.league !== 'ALL') {
         if (f.league_name !== filters.league) return false;

@@ -1,11 +1,18 @@
 from django.contrib import admin
-from .models import CustomUser, UserProfile, League, Team, MatchHistory, UpcomingFixture, SavedPrediction, ParlayTicket
+from .models import CustomUser, UserProfile, League, Team, MatchHistory, UpcomingFixture, SavedPrediction, ParlayTicket, BroadcastNotification
 
 admin.site.register(CustomUser)
 admin.site.register(UserProfile)
 admin.site.register(League)
 admin.site.register(Team)
 admin.site.register(SavedPrediction)
+
+@admin.register(BroadcastNotification)
+class BroadcastNotificationAdmin(admin.ModelAdmin):
+    list_display = ('title', 'notif_type', 'is_active', 'created_at')
+    list_filter = ('notif_type', 'is_active', 'created_at')
+    search_fields = ('title', 'message')
+    ordering = ('-created_at',)
 
 @admin.register(ParlayTicket)
 class ParlayTicketAdmin(admin.ModelAdmin):

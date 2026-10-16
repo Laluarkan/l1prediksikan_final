@@ -47,6 +47,9 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
   }
   const ouOdds = Number(rawOuOdds).toFixed(2);
 
+  const hdaLabel = hdaPick === 'H' ? 'Home' : hdaPick === 'A' ? 'Away' : 'Draw';
+  const ouLabel = ouPickShort === 'O 2.5' ? 'Over 2.5' : 'Under 2.5';
+
   const hasAnyValue = Boolean(fixture.has_value_bet || fixture.has_value_bet_ou);
 
   return (
@@ -114,7 +117,7 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
             <View style={styles.pickLabelRow}>
               <Text style={styles.pickTag}>1X2</Text>
               <Text style={styles.pickText} numberOfLines={1}>
-                {hdaPick} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
+                {hdaLabel} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
               </Text>
             </View>
             {fixture.has_value_bet ? (
@@ -130,7 +133,7 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
             <View style={styles.pickLabelRow}>
               <Text style={styles.pickTag}>O/U</Text>
               <Text style={styles.pickText} numberOfLines={1}>
-                {ouPickShort} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
+                {ouLabel} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
               </Text>
             </View>
             {fixture.has_value_bet_ou ? (
@@ -228,7 +231,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   picksCol: {
-    flex: 1.15,
+    flex: 1.25,
     gap: 4,
     paddingLeft: 3,
   },

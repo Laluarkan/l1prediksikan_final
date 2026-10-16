@@ -58,9 +58,9 @@ export default function HotFixturesSection() {
                 <span className="text-[9px] md:text-xs text-slate-400">Rekomendasi:</span>
                 <span className="text-[10px] md:text-sm font-mono font-bold text-white bg-slate-800 px-2 py-1 rounded">
                   {fixture.rl_stake_ftr > 0
-                    ? `FTR ${fixture.rl_pick_ftr}`
+                    ? (fixture.rl_pick_ftr === 'H' ? 'Home' : fixture.rl_pick_ftr === 'A' ? 'Away' : 'Draw')
                     : fixture.rl_stake_ou > 0
-                    ? `O/U ${fixture.rl_pick_ou}`
+                    ? (fixture.rl_pick_ou?.toUpperCase().includes('OVER') || fixture.rl_pick_ou === 'O' || fixture.rl_pick_ou === 'O 2.5' ? 'Over 2.5' : fixture.rl_pick_ou?.toUpperCase().includes('UNDER') || fixture.rl_pick_ou === 'U' || fixture.rl_pick_ou === 'U 2.5' ? 'Under 2.5' : fixture.rl_pick_ou)
                     : 'SKIP'}
                 </span>
               </div>

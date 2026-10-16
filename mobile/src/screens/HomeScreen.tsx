@@ -22,18 +22,19 @@ import {
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
 import { getWitaDateKey } from '../utils/dateUtils';
+import { syncDynamicNotifications, fetchRemoteBroadcasts } from '../services/notificationService';
 
 interface HomeScreenProps {
   onNavigate: (tab: TabType) => void;
 }
 
-// Definisi Top 5 Liga Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
+// Definisi Murni Top 5 Liga Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
 const TOP_5_LEAGUES_CONFIG = [
   { code: 'D1', pattern: /bundes/i, name: 'Bundesliga' },
-  { code: 'E0', pattern: /premier|epl/i, name: 'Premier League' },
-  { code: 'SP1', pattern: /la liga|primera/i, name: 'La Liga' },
-  { code: 'F1', pattern: /ligue 1/i, name: 'Ligue 1' },
-  { code: 'I1', pattern: /serie a/i, name: 'Serie A' },
+  { code: 'E0', pattern: /^(?!.*scottish).*(premier|epl)/i, name: 'Premier League' },
+  { code: 'SP1', pattern: /la\s*liga/i, name: 'La Liga' },
+  { code: 'F1', pattern: /ligue\s*1/i, name: 'Ligue 1' },
+  { code: 'I1', pattern: /serie\s*a/i, name: 'Serie A' },
 ];
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
@@ -71,6 +72,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         }
       });
       setStandingsMap(newStandingsMap);
+
+      // Sinkronisasi otomatis notifikasi cerdas berbasis data pertandingan & broadcast remote
+      syncDynamicNotifications(fixturesData).catch((e) => console.warn('Sync notif dynamic error:', e));
+      fetchRemoteBroadcasts().catch((e) => console.warn('Fetch broadcasts error:', e));
     } catch (err) {
       console.error('Failed to load home data:', err);
     } finally {
@@ -97,8 +102,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     const result: Fixture[] = [];
 
     TOP_5_LEAGUES_CONFIG.forEach((league) => {
-      // 1. Ambil laga yang cocok dengan liga ini
-      const leagueMatches = fixtures.filter((f) => league.pattern.test(f.league_name));
+      // 1. Ambil laga yang cocok dengan liga ini (utamakan league_code, tolak scottish secara eksplisit)
+      const leagueMatches = fixtures.filter((f) => {
+        if (/scottish/i.test(f.league_name)) return false;
+        if (f.league_code) return f.league_code === league.code;
+        return league.pattern.test(f.league_name);
+      });
       if (leagueMatches.length === 0) return;
 
       // 2. Urutkan berdasarkan tanggal & jam kickoff (terdekat lebih dulu)

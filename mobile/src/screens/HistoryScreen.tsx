@@ -297,6 +297,8 @@ export const HistoryScreen: React.FC = () => {
           ) : (
             history.map((match) => {
               const { hdaPick, hdaOdds, ouPickShort, ouOdds } = getSanitizedPicks(match);
+              const hdaLabel = hdaPick === 'H' ? 'Home' : hdaPick === 'A' ? 'Away' : 'Draw';
+              const ouLabel = ouPickShort === 'O 2.5' ? 'Over 2.5' : 'Under 2.5';
               const kickoffLabel = formatWitaKickoff(match.date);
               const isHomeWin = (match.fthg ?? 0) > (match.ftag ?? 0);
               const isAwayWin = (match.ftag ?? 0) > (match.fthg ?? 0);
@@ -413,7 +415,7 @@ export const HistoryScreen: React.FC = () => {
                         <View style={styles.pickLabelRow}>
                           <Text style={styles.pickTag}>1X2</Text>
                           <Text style={styles.pickText} numberOfLines={1}>
-                            {hdaPick} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
+                            {hdaLabel} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
                           </Text>
                         </View>
                         {isFtrWin === true ? (
@@ -444,7 +446,7 @@ export const HistoryScreen: React.FC = () => {
                         <View style={styles.pickLabelRow}>
                           <Text style={styles.pickTag}>O/U</Text>
                           <Text style={styles.pickText} numberOfLines={1}>
-                            {ouPickShort} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
+                            {ouLabel} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
                           </Text>
                         </View>
                         {isOuWin === true ? (
@@ -790,7 +792,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   picksCol: {
-    flex: 1.15,
+    flex: 1.25,
     gap: 4,
     paddingLeft: 3,
   },

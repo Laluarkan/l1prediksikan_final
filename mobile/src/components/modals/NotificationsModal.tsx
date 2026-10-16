@@ -8,6 +8,8 @@ import {
   ScrollView,
   Switch,
   Alert,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -23,7 +25,10 @@ import {
   getNotificationSettings,
   saveNotificationSettings,
   formatNotificationTime,
+  fetchRemoteBroadcasts,
+  createRemoteBroadcast,
 } from '../../services/notificationService';
+import { getUserSession, UserSession } from '../../services/auth';
 
 interface NotificationsModalProps {
   visible: boolean;
@@ -34,8 +39,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   visible,
   onClose,
 }) => {
-  const [activeTab, setActiveTab] = useState<'inbox' | 'settings'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'settings' | 'admin'>('inbox');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [userSession, setUserSession] = useState<UserSession | null>(null);
+  const [adminTitle, setAdminTitle] = useState('');
+  const [adminMessage, setAdminMessage] = useState('');
+  const [adminType, setAdminType] = useState<'system' | 'match' | 'value_bet' | 'parlay'>('system');
+  const [isSubmittingBroadcast, setIsSubmittingBroadcast] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings>({
     matchReminder: true,
     valueBetAlert: true,
@@ -45,10 +55,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   });
 
   const loadData = async () => {
-    const notifs = await getNotifications();
-    setNotifications(notifs);
-    const setts = await getNotificationSettings();
-    setSettings(setts);
+    try {
+      const sess = await getUserSession();
+      setUserSession(sess);
+      const notifs = await fetchRemoteBroadcasts();
+      setNotifications(notifs);
+      const setts = await getNotificationSettings();
+      setSettings(setts);
+    } catch (err) {
+      console.warn('Gagal memuat data notifikasi:', err);
+    }
   };
 
   useEffect(() => {
@@ -111,6 +127,36 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       'Notifikasi baru telah berhasil dibuat dan ditambahkan ke daftar pesan masuk Anda.',
       [{ text: 'Lihat', style: 'default' }]
     );
+  };
+
+  const handleSendBroadcast = async () => {
+    if (!adminTitle.trim() || !adminMessage.trim()) {
+      Alert.alert('Form Belum Lengkap', 'Silakan isi judul dan pesan siaran notifikasi.');
+      return;
+    }
+
+    setIsSubmittingBroadcast(true);
+    try {
+      const res = await createRemoteBroadcast({
+        title: adminTitle.trim(),
+        message: adminMessage.trim(),
+        notif_type: adminType,
+        admin_email: userSession?.email,
+      });
+
+      if (res.success) {
+        Alert.alert('Siaran Notifikasi Terkirim', res.message);
+        setAdminTitle('');
+        setAdminMessage('');
+        setActiveTab('inbox');
+        const updated = await fetchRemoteBroadcasts();
+        setNotifications(updated);
+      } else {
+        Alert.alert('Gagal Mengirim', res.message);
+      }
+    } finally {
+      setIsSubmittingBroadcast(false);
+    }
   };
 
   const getNotifIcon = (type: AppNotification['type']) => {
@@ -195,6 +241,30 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {userSession?.isStaff && (
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'admin' && styles.tabButtonActive]}
+                onPress={() => setActiveTab('admin')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.tabContentRow}>
+                  <Ionicons
+                    name="megaphone-outline"
+                    size={16}
+                    color={activeTab === 'admin' ? colors.primaryLight : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.tabButtonText,
+                      activeTab === 'admin' && styles.tabButtonTextActive,
+                    ]}
+                  >
+                    Siaran Admin
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Content Body */}
@@ -290,7 +360,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   })
                 )}
               </>
-            ) : (
+            ) : activeTab === 'settings' ? (
               <>
                 <Text style={styles.leadText}>
                   Pilih jenis sinyal pertandingan dan preferensi peringatan yang ingin Anda terima secara langsung.
@@ -414,6 +484,88 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   <Text style={styles.testBtnText}>Kirim Tes Notifikasi Baru</Text>
                 </TouchableOpacity>
               </>
+            ) : (
+              /* ================= PANEL SIARAN ADMIN ================= */
+              <View style={styles.adminPanel}>
+                <View style={styles.adminNotice}>
+                  <Ionicons name="shield-checkmark" size={18} color={colors.primaryLight} />
+                  <Text style={styles.adminNoticeText}>
+                    Anda masuk sebagai <Text style={{ fontWeight: '700', color: colors.primaryLight }}>Staf Admin</Text>. Siaran notifikasi manual yang dikirimkan dari sini akan disimpan ke database server dan langsung terdistribusi ke seluruh pengguna aplikasi mobile & web.
+                  </Text>
+                </View>
+
+                {/* Kategori Siaran */}
+                <Text style={styles.inputLabel}>Kategori Notifikasi</Text>
+                <View style={styles.catPickerRow}>
+                  {(
+                    [
+                      { id: 'system', label: 'Sistem 📢' },
+                      { id: 'match', label: 'Match ⚽' },
+                      { id: 'value_bet', label: 'Value Bet ⚡' },
+                      { id: 'parlay', label: 'Parlay 🎯' },
+                    ] as const
+                  ).map((cat) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.catChip,
+                        adminType === cat.id && styles.catChipActive,
+                      ]}
+                      onPress={() => setAdminType(cat.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.catChipText,
+                          adminType === cat.id && styles.catChipTextActive,
+                        ]}
+                      >
+                        {cat.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Input Judul */}
+                <Text style={styles.inputLabel}>Judul Notifikasi</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Misal: Sinyal Value Bet Pekan Ini ⚡"
+                  placeholderTextColor={colors.textMuted}
+                  value={adminTitle}
+                  onChangeText={setAdminTitle}
+                />
+
+                {/* Input Pesan */}
+                <Text style={styles.inputLabel}>Isi Pesan Notifikasi</Text>
+                <TextInput
+                  style={[styles.textInput, styles.textArea]}
+                  placeholder="Tuliskan isi pengumuman atau info pertandingan..."
+                  placeholderTextColor={colors.textMuted}
+                  value={adminMessage}
+                  onChangeText={setAdminMessage}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+
+                {/* Tombol Kirim Siaran */}
+                <TouchableOpacity
+                  style={[styles.adminSubmitBtn, isSubmittingBroadcast && styles.adminSubmitBtnDisabled]}
+                  onPress={handleSendBroadcast}
+                  disabled={isSubmittingBroadcast}
+                  activeOpacity={0.8}
+                >
+                  {isSubmittingBroadcast ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={15} color="#FFFFFF" />
+                      <Text style={styles.adminSubmitBtnText}>Terbitkan Siaran ke Semua User</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             )}
           </ScrollView>
         </View>
@@ -749,4 +901,97 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primaryLight,
   },
+  /* Styles Panel Siaran Admin */
+  adminPanel: {
+    gap: 12,
+    paddingTop: 4,
+  },
+  adminNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#064E3B25',
+    borderWidth: 1,
+    borderColor: '#05966950',
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+  },
+  adminNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#D1FAE5',
+    lineHeight: 18,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginTop: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  catPickerRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  catChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  catChipActive: {
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primary,
+  },
+  catChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  catChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  textInput: {
+    backgroundColor: '#0B1120',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: colors.textPrimary,
+    fontSize: 13,
+  },
+  textArea: {
+    height: 100,
+    paddingTop: 10,
+  },
+  adminSubmitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    gap: 8,
+    marginTop: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  adminSubmitBtnDisabled: {
+    opacity: 0.6,
+  },
+  adminSubmitBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
+

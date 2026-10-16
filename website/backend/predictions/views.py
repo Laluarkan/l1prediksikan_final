@@ -19,9 +19,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 
-from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
+from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
-                          UpcomingFixtureSerializer, ParlayTicketSerializer)
+                          UpcomingFixtureSerializer, ParlayTicketSerializer, BroadcastNotificationSerializer)
 from .services import preview_uploaded_data, commit_uploaded_data
 
 logger = logging.getLogger(__name__)
@@ -537,6 +537,35 @@ class LeagueStandingsAPIView(APIView):
             team['rank'] = i + 1
 
         return Response(sorted_standings)
+
+class BroadcastNotificationViewSet(viewsets.ModelViewSet):
+    queryset = BroadcastNotification.objects.filter(is_active=True).order_by('-created_at')
+    serializer_class = BroadcastNotificationSerializer
+    permission_classes = []
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ['notif_type', 'is_active']
+    ordering_fields = ['created_at']
+
+    def create(self, request, *args, **kwargs):
+        is_staff = request.user and request.user.is_authenticated and request.user.is_staff
+        has_secret = is_valid_server_request(request)
+        admin_email = request.data.get('admin_email')
+
+        if admin_email and not is_staff:
+            try:
+                user = User.objects.get(email__iexact=admin_email)
+                if user.is_staff:
+                    is_staff = True
+            except User.DoesNotExist:
+                pass
+
+        if not (is_staff or has_secret):
+            return Response(
+                {'error': 'Akses Ditolak. Hanya staf admin yang dapat menyiarkan notifikasi manual.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        return super().create(request, *args, **kwargs)
 
 class CronTriggerAPIView(APIView):
     permission_classes = [] 

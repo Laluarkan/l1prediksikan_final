@@ -1,5 +1,5 @@
-const BASE_URL = 'https://l1prediksi-api.onrender.com/api';
-const APP_CLIENT_KEY = 'Laluarkan123@';
+export const BASE_URL = 'https://l1prediksi-api.onrender.com/api';
+export const APP_CLIENT_KEY = 'Laluarkan123@';
 
 /**
  * appFetch: Custom fetch wrapper yang secara otomatis menyertakan header autentikasi klien resmi
@@ -45,6 +45,7 @@ export interface TeamStanding {
 export interface Fixture {
   id: number;
   league_name: string;
+  league_code?: string;
   home_team_name: string;
   away_team_name: string;
   home_team_logo?: string | null;
@@ -232,6 +233,7 @@ export interface MatchHistory {
   home_team_logo?: string | null;
   away_team_logo?: string | null;
   league_name: string;
+  league_code?: string;
   fthg: number | null;
   ftag: number | null;
   ftr: string | null;

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
+from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification
 
 class LeagueSerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,6 +15,7 @@ class TeamSerializer(serializers.ModelSerializer):
 
 class MatchHistorySerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
+    league_code = serializers.CharField(source='league.code', read_only=True)
     home_team_name = serializers.CharField(source='home_team.name', read_only=True)
     away_team_name = serializers.CharField(source='away_team.name', read_only=True)
     home_team_logo = serializers.URLField(source='home_team.logo_url', read_only=True)
@@ -26,6 +27,7 @@ class MatchHistorySerializer(serializers.ModelSerializer):
 
 class UpcomingFixtureSerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
+    league_code = serializers.CharField(source='league.code', read_only=True)
     home_team_name = serializers.CharField(source='home_team.name', read_only=True)
     away_team_name = serializers.CharField(source='away_team.name', read_only=True)
     home_team_logo = serializers.URLField(source='home_team.logo_url', read_only=True)
@@ -38,4 +40,9 @@ class UpcomingFixtureSerializer(serializers.ModelSerializer):
 class ParlayTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParlayTicket
+        fields = '__all__'
+
+class BroadcastNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BroadcastNotification
         fields = '__all__'

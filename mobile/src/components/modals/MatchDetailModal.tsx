@@ -45,6 +45,8 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   else if (probA >= probH && probA >= probD) ftrPick = 'A';
   else ftrPick = 'D';
 
+  const ftrPickLong = ftrPick === 'H' ? 'HOME WIN' : ftrPick === 'A' ? 'AWAY WIN' : 'DRAW';
+
   let rawFtrOdds = ftrPick === 'H' ? fixture.avg_h : ftrPick === 'A' ? fixture.avg_a : fixture.avg_d;
   if (!rawFtrOdds || isNaN(rawFtrOdds) || rawFtrOdds <= 1.0) {
     rawFtrOdds = ftrPick === 'H' ? 1.85 : ftrPick === 'A' ? 2.45 : 3.20;
@@ -173,7 +175,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 {/* Pick 1X2 */}
                 <View style={[styles.aiPickCard, hasValueFtr && styles.aiPickCardValue]}>
                   <Text style={styles.aiPickLabel}>REKOMENDASI 1X2</Text>
-                  <Text style={styles.aiPickMain}>{ftrPick}</Text>
+                  <Text style={styles.aiPickMain}>{ftrPickLong}</Text>
                   <View style={styles.aiPickBadgeRow}>
                     <Text style={styles.aiPickOdds}>@{ftrOdds}</Text>
                     {hasValueFtr && (

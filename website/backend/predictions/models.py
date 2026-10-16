@@ -116,3 +116,24 @@ class SavedPrediction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} saved {self.fixture}"
+
+class BroadcastNotification(models.Model):
+    NOTIF_TYPES = (
+        ('system', 'Pengumuman Sistem'),
+        ('match', 'Info Jadwal & Match'),
+        ('value_bet', 'Sinyal Value Bet'),
+        ('parlay', 'Rekomendasi Parlay'),
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    notif_type = models.CharField(max_length=20, choices=NOTIF_TYPES, default='system')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Siaran Notifikasi'
+        verbose_name_plural = 'Siaran Notifikasi'
+
+    def __str__(self):
+        return f"[{self.notif_type}] {self.title}"
