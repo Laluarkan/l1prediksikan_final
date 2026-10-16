@@ -234,21 +234,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
   };
 
   // Login Cepat via Google (Gmail) - Password TIDAK disertakan
-  const handleGoogleAuth = async () => {
+  const handleGoogleAuth = () => {
     setErrorMessage('');
-    try {
-      if (promptGoogleAsync) {
-        const result = await promptGoogleAsync();
-        if (result.type === 'cancel' || result.type === 'dismiss') {
-          return;
-        }
-      } else {
-        setShowGoogleModal(true);
-      }
-    } catch (error) {
-      console.warn('OAuth prompt error, menampilkan modal:', error);
-      setShowGoogleModal(true);
-    }
+    setShowGoogleModal(true);
   };
 
   const executeGoogleSync = async (googleEmail: string) => {
