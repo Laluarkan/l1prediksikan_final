@@ -219,7 +219,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               onPress={() => {
                 Alert.alert(
                   'Tes Notifikasi Berhasil',
-                  'Sistem notifikasi L1Prediksikan aktif dan terhubung ke perangkat Anda.',
+                  'Sistem notifikasi Prediksikan aktif dan terhubung ke perangkat Anda.',
                   [{ text: 'Bagus' }]
                 );
               }}

@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={styles.brandTitle}>L1Prediksikan</Text>
+        <Text style={styles.brandTitle}>Prediksikan</Text>
       </View>
 
       {/* Right Side: Modern "Masuk" Button OR User Avatar with Dropdown */}

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "L1",
+    "name": "Prediksikan",
     "slug": "L1prediksikan",
     "scheme": "l1prediksikan",
     "version": "1.3.0",
@@ -15,11 +15,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "id.prediksikan.app",
-      "buildNumber": "5"
+      "buildNumber": "6"
     },
     "android": {
       "package": "id.prediksikan.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/logo.png",
@@ -45,7 +45,7 @@
         "expo-build-properties",
         {
           "android": {
-            "buildArchs": ["arm64-v8a", "armeabi-v7a"]
+            "buildArchs": ["arm64-v8a"]
           }
         }
       ]

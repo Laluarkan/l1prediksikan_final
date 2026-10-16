@@ -126,6 +126,23 @@ export const ParlayScreen: React.FC = () => {
     }
   };
 
+  const formatLegKickoff = (dateStr?: string, fallbackDateStr?: string) => {
+    const target = dateStr || fallbackDateStr;
+    if (!target) return '';
+    try {
+      const d = new Date(target);
+      if (isNaN(d.getTime())) return '';
+      const h = d.getHours().toString().padStart(2, '0');
+      const m = d.getMinutes().toString().padStart(2, '0');
+      if (target.includes(':') || target.includes('T')) {
+        return `${h}:${m} WIB`;
+      }
+      return `${d.getDate()} ${d.toLocaleDateString('id-ID', { month: 'short' })}`;
+    } catch {
+      return '';
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header Info & Tab Switcher */}
@@ -316,12 +333,10 @@ export const ParlayScreen: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.ticketMetaRow}>
-                      <View style={styles.legCountBadge}>
-                        <Text style={styles.legCountText}>{legs.length || 3}-Fold</Text>
-                      </View>
-                      <Text style={styles.metaBullet}>•</Text>
                       <Ionicons name="calendar-outline" size={11} color={colors.textMuted} />
                       <Text style={styles.ticketDateText}>{formatDate(ticket.date)}</Text>
+                      <Text style={styles.metaBullet}>•</Text>
+                      <Text style={styles.ticketDateText}>{legs.length || 3} Laga</Text>
                     </View>
                   </View>
 
@@ -401,7 +416,13 @@ export const ParlayScreen: React.FC = () => {
                               <Text style={styles.legIndexText}>{idx + 1}</Text>
                             </View>
                             <View style={styles.legContent}>
-                              <Text style={styles.legMatchName}>{leg.match}</Text>
+                              <View style={styles.legHeaderRow}>
+                                <Text style={styles.legMatchName} numberOfLines={1}>{leg.match}</Text>
+                                <View style={styles.legTimePill}>
+                                  <Ionicons name="time-outline" size={10} color={colors.primaryLight} />
+                                  <Text style={styles.legTimeText}>{formatLegKickoff(leg.date, ticket.date)}</Text>
+                                </View>
+                              </View>
                               <View style={styles.legMetaRow}>
                                 <View style={styles.pickBadge}>
                                   <Text style={styles.pickBadgeText}>
@@ -462,7 +483,7 @@ export const ParlayScreen: React.FC = () => {
                   collapsable={false}
                   style={styles.slipCard}
                 >
-                  {/* Slip Header with L1 Logo & Brand */}
+                  {/* Slip Header with Logo & Brand */}
                   <View style={styles.slipHeader}>
                     <Image
                       source={require('../../assets/logo.png')}
@@ -470,7 +491,7 @@ export const ParlayScreen: React.FC = () => {
                       resizeMode="contain"
                     />
                     <View style={styles.slipBrandCol}>
-                      <Text style={styles.slipBrandTitle}>L1 PREDIKSI-KAN</Text>
+                      <Text style={styles.slipBrandTitle}>PREDIKSIKAN</Text>
                       <Text style={styles.slipBrandSubtitle}>AI PARLAY RECOMMENDATION SLIP</Text>
                     </View>
                     <View
@@ -502,49 +523,45 @@ export const ParlayScreen: React.FC = () => {
                     </View>
                   </View>
 
-                  {/* Slip Ticket Meta */}
+                  {/* Slip Ticket Meta (Tanpa badge 4-Fold agar tidak menimpa ID tiket) */}
                   <View style={styles.slipMetaRow}>
                     <View style={styles.slipMetaLeft}>
                       <Ionicons name="ticket" size={14} color={colors.primaryLight} />
-                      <Text style={styles.slipTicketId}>
+                      <Text style={styles.slipTicketId} numberOfLines={1} ellipsizeMode="tail">
                         #{ticketToShare.ticket_id || `PARLAY-${ticketToShare.id}`}
                       </Text>
                     </View>
                     <View style={styles.slipMetaRight}>
-                      <View style={styles.slipFoldBadge}>
-                        <Text style={styles.slipFoldText}>
-                          {(ticketToShare.legs_details || []).length}-Fold
-                        </Text>
-                      </View>
+                      <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
                       <Text style={styles.slipDateText}>{formatDate(ticketToShare.date)}</Text>
                     </View>
                   </View>
 
-                  {/* Slip Metrics Box */}
+                  {/* Slip Metrics Box (Probabilitas AI Rapi & Seimbang) */}
                   <View style={styles.slipMetricsBox}>
                     <View style={styles.slipMetricItem}>
-                      <Text style={styles.slipMetricLabel}>TOTAL ODDS</Text>
+                      <Text style={styles.slipMetricLabel} numberOfLines={1}>TOTAL ODDS</Text>
                       <Text style={styles.slipMetricOdds}>
                         @{Number(ticketToShare.total_odds || 0).toFixed(2)}
                       </Text>
                     </View>
                     <View style={styles.slipMetricDivider} />
-                    <View style={styles.slipMetricItem}>
-                      <Text style={styles.slipMetricLabel}>PROBABILITAS AI</Text>
+                    <View style={styles.slipMetricItemMiddle}>
+                      <Text style={styles.slipMetricLabel} numberOfLines={1}>PROBABILITAS AI</Text>
                       <Text style={styles.slipMetricProb}>
                         {(Number(ticketToShare.total_prob || 0) * 100).toFixed(1)}%
                       </Text>
                     </View>
                     <View style={styles.slipMetricDivider} />
                     <View style={styles.slipMetricItem}>
-                      <Text style={styles.slipMetricLabel}>TOTAL LAGA</Text>
+                      <Text style={styles.slipMetricLabel} numberOfLines={1}>TOTAL LAGA</Text>
                       <Text style={styles.slipMetricLegs}>
                         {(ticketToShare.legs_details || []).length} Match
                       </Text>
                     </View>
                   </View>
 
-                  {/* Slip Matches List */}
+                  {/* Slip Matches List dengan Jam Bermain */}
                   <View style={styles.slipLegsContainer}>
                     <Text style={styles.slipLegsTitle}>DETAIL KOMBINASI PERTANDINGAN</Text>
                     {(ticketToShare.legs_details || []).map((leg, idx) => (
@@ -553,9 +570,17 @@ export const ParlayScreen: React.FC = () => {
                           <Text style={styles.slipLegIndexText}>{idx + 1}</Text>
                         </View>
                         <View style={styles.slipLegMain}>
-                          <Text style={styles.slipLegMatch} numberOfLines={1}>
-                            {leg.match}
-                          </Text>
+                          <View style={styles.slipLegTopRow}>
+                            <Text style={styles.slipLegMatch} numberOfLines={1}>
+                              {leg.match}
+                            </Text>
+                            <View style={styles.slipTimeBadge}>
+                              <Ionicons name="time-outline" size={10} color={colors.primaryLight} />
+                              <Text style={styles.slipTimeText}>
+                                {formatLegKickoff(leg.date, ticketToShare.date)}
+                              </Text>
+                            </View>
+                          </View>
                           <View style={styles.slipLegMeta}>
                             <View style={styles.slipPickBadge}>
                               <Text style={styles.slipPickText}>
@@ -571,7 +596,7 @@ export const ParlayScreen: React.FC = () => {
                           ) : leg.is_won === false ? (
                             <Ionicons name="close-circle" size={16} color="#EF4444" />
                           ) : (
-                            <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+                            <Ionicons name="hourglass-outline" size={14} color="#10B981" />
                           )}
                         </View>
                       </View>
@@ -582,9 +607,9 @@ export const ParlayScreen: React.FC = () => {
                   <View style={styles.slipFooter}>
                     <View style={styles.slipFooterLeft}>
                       <Ionicons name="shield-checkmark" size={12} color="#10B981" />
-                      <Text style={styles.slipFooterBrand}>Dianalisis oleh AI L1</Text>
+                      <Text style={styles.slipFooterBrand}>Dianalisis oleh AI Prediksikan</Text>
                     </View>
-                    <Text style={styles.slipFooterUrl}>l1prediksikan.my.id</Text>
+                    <Text style={styles.slipFooterUrl}>prediksikan.my.id</Text>
                   </View>
                 </View>
               )}
@@ -976,10 +1001,31 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  legHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
   legMatchName: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.textPrimary,
+    flex: 1,
+  },
+  legTimePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  legTimeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primaryLight,
   },
   legMetaRow: {
     flexDirection: 'row',
@@ -1132,12 +1178,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
   slipMetaLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     flex: 1,
+    marginRight: 10,
   },
   slipTicketId: {
     fontSize: 12,
@@ -1147,24 +1196,12 @@ const styles = StyleSheet.create({
   slipMetaRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  slipFoldBadge: {
-    backgroundColor: '#2563EB25',
-    borderWidth: 1,
-    borderColor: '#3B82F660',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  slipFoldText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#60A5FA',
+    gap: 4,
   },
   slipDateText: {
     fontSize: 11,
-    color: colors.textMuted,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   slipMetricsBox: {
     flexDirection: 'row',
@@ -1172,7 +1209,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#1E293B40',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#1E293B',
@@ -1180,18 +1217,26 @@ const styles = StyleSheet.create({
   slipMetricItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  slipMetricItemMiddle: {
+    flex: 1.3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
   },
   slipMetricDivider: {
     width: 1,
-    height: 22,
+    height: 24,
     backgroundColor: '#334155',
   },
   slipMetricLabel: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '700',
     color: colors.textMuted,
-    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   slipMetricOdds: {
     fontSize: 14,
@@ -1199,13 +1244,13 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
   },
   slipMetricProb: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
     color: '#10B981',
   },
   slipMetricLegs: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
     color: '#38BDF8',
   },
   slipLegsContainer: {
@@ -1242,12 +1287,33 @@ const styles = StyleSheet.create({
   },
   slipLegMain: {
     flex: 1,
-    gap: 2,
+    gap: 3,
+  },
+  slipLegTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
   },
   slipLegMatch: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.textPrimary,
+    flex: 1,
+  },
+  slipTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  slipTimeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.primaryLight,
   },
   slipLegMeta: {
     flexDirection: 'row',

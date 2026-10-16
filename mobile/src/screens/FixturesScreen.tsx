@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,25 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { Fixture, League, fetchLeagues, fetchUpcomingFixtures } from '../services/api';
-import { shareMatchPrediction } from '../services/shareService';
+import { CompactMatchCard } from '../components/CompactMatchCard';
+import { MatchDetailModal } from '../components/modals/MatchDetailModal';
+
+// Prioritas Urutan Liga Top 5 Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
+const getLeaguePriority = (leagueName: string): { priority: number; label: string } => {
+  const l = leagueName.toLowerCase();
+  if (l.includes('bundes')) return { priority: 1, label: 'Bundesliga' };
+  if (l.includes('premier') || l.includes('epl')) return { priority: 2, label: 'Premier League' };
+  if (l.includes('la liga') || l.includes('laliga') || l.includes('primera')) return { priority: 3, label: 'La Liga' };
+  if (l.includes('ligue 1') || l.includes('ligue1')) return { priority: 4, label: 'Ligue 1' };
+  if (l.includes('serie a')) return { priority: 5, label: 'Serie A' };
+  return { priority: 99, label: leagueName };
+};
 
 export const FixturesScreen: React.FC = () => {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
@@ -22,7 +33,7 @@ export const FixturesScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [expandedMatchId, setExpandedMatchId] = useState<number | null>(null);
+  const [selectedFixture, setSelectedFixture] = useState<Fixture | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -49,39 +60,52 @@ export const FixturesScreen: React.FC = () => {
     loadData();
   };
 
-  const toggleExpand = (id: number) => {
-    setExpandedMatchId(expandedMatchId === id ? null : id);
-  };
+  // 1. Filter awal berdasarkan pencarian nama tim & filter chip liga
+  const filteredFixtures = useMemo(() => {
+    return fixtures.filter((item) => {
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        item.home_team_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.away_team_name.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const formatMatchTime = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return (
-        d.toLocaleDateString('id-ID', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short',
-          hour: '2-digit',
-          minute: '2-digit',
-        }) + ' WIB'
-      );
-    } catch {
-      return dateStr;
-    }
-  };
+      const matchesLeague =
+        !selectedLeague || item.league_name.toLowerCase() === selectedLeague.toLowerCase();
 
-  // Filter jadwal berdasarkan pencarian nama tim & filter liga yang dipilih
-  const filteredFixtures = fixtures.filter((item) => {
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      item.home_team_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.away_team_name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch && matchesLeague;
+    });
+  }, [fixtures, searchQuery, selectedLeague]);
 
-    const matchesLeague =
-      !selectedLeague || item.league_name.toLowerCase() === selectedLeague.toLowerCase();
+  // 2. Kelompokkan jadwal per Liga dan urutkan: Top 5 Liga Eropa di paling atas, sisanya berdasarkan abjad
+  const groupedLeagues = useMemo(() => {
+    const groups: Record<string, Fixture[]> = {};
 
-    return matchesSearch && matchesLeague;
-  });
+    filteredFixtures.forEach((f) => {
+      const lName = f.league_name || 'Lainnya';
+      if (!groups[lName]) {
+        groups[lName] = [];
+      }
+      groups[lName].push(f);
+    });
+
+    const entries = Object.keys(groups).map((leagueName) => {
+      const info = getLeaguePriority(leagueName);
+      return {
+        leagueName,
+        priority: info.priority,
+        matches: groups[leagueName],
+      };
+    });
+
+    // Urutkan: prioritas 1-5 terlebih dahulu, lalu sisanya (99) diurutkan alfabetis
+    entries.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.leagueName.localeCompare(b.leagueName);
+    });
+
+    return entries;
+  }, [filteredFixtures]);
 
   return (
     <View style={styles.container}>
@@ -91,7 +115,7 @@ export const FixturesScreen: React.FC = () => {
           <Ionicons name="search" size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari tim sepak bola..."
+            placeholder="Cari klub atau pertandingan..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -140,7 +164,7 @@ export const FixturesScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* ================= FIXTURES LIST ================= */}
+      {/* ================= FIXTURES LIST (GROUPED BY LEAGUE) ================= */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -160,286 +184,65 @@ export const FixturesScreen: React.FC = () => {
             />
           }
         >
+          {/* Summary Count */}
           <View style={styles.countRow}>
             <Text style={styles.countText}>
-              Menampilkan <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{filteredFixtures.length}</Text> pertandingan
+              Total <Text style={{ color: colors.textPrimary, fontWeight: '800' }}>{filteredFixtures.length}</Text> pertandingan dalam {groupedLeagues.length} liga
             </Text>
           </View>
 
-          {filteredFixtures.length === 0 ? (
+          {groupedLeagues.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="football-outline" size={44} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>Tidak ada pertandingan ditemukan</Text>
-              <Text style={styles.emptyDesc}>Coba ganti filter liga atau kata kunci pencarian tim.</Text>
+              <Text style={styles.emptyDesc}>Coba ubah kata kunci pencarian atau filter liga.</Text>
             </View>
           ) : (
-            filteredFixtures.map((fixture) => {
-              const isExpanded = expandedMatchId === fixture.id;
-              const probH = Math.round((fixture.prob_ftr_h || 0.33) * 100);
-              const probD = Math.round((fixture.prob_ftr_d || 0.33) * 100);
-              const probA = Math.max(0, 100 - probH - probD);
-
-              return (
-                <TouchableOpacity
-                  key={fixture.id}
-                  style={styles.card}
-                  onPress={() => toggleExpand(fixture.id)}
-                  activeOpacity={0.9}
-                >
-                  {/* Top Bar: League & Kickoff Time */}
-                  <View style={styles.cardHeader}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
-                      <Text style={styles.leagueName} numberOfLines={1}>{fixture.league_name}</Text>
-                      {Boolean(fixture.has_value_bet || fixture.has_value_bet_ou) ? (
-                        <View style={styles.valueBadgePill}>
-                          <Text style={styles.valueBadgePillText}>VALUE</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={styles.kickoffTime}>{formatMatchTime(fixture.date)}</Text>
-                      <TouchableOpacity
-                        onPress={() => shareMatchPrediction(fixture)}
-                        style={{ padding: 4, backgroundColor: '#0F172A', borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="share-social-outline" size={13} color={colors.primaryLight} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Match Teams & Logos */}
-                  <View style={styles.teamsRow}>
-                    <View style={styles.teamBox}>
-                      {fixture.home_team_logo ? (
-                        <Image
-                          source={{ uri: fixture.home_team_logo }}
-                          style={styles.teamLogo}
-                          resizeMode="contain"
-                        />
-                      ) : (
-                        <View style={styles.teamLogoFallback}>
-                          <Ionicons name="shield-outline" size={20} color={colors.textPrimary} />
-                        </View>
-                      )}
-                      <Text style={styles.teamName} numberOfLines={2}>
-                        {fixture.home_team_name}
-                      </Text>
-                    </View>
-
-                    <View style={styles.vsBox}>
-                      <Text style={styles.vsText}>VS</Text>
-                    </View>
-
-                    <View style={styles.teamBox}>
-                      {fixture.away_team_logo ? (
-                        <Image
-                          source={{ uri: fixture.away_team_logo }}
-                          style={styles.teamLogo}
-                          resizeMode="contain"
-                        />
-                      ) : (
-                        <View style={styles.teamLogoFallback}>
-                          <Ionicons name="shield-outline" size={20} color={colors.textPrimary} />
-                        </View>
-                      )}
-                      <Text style={styles.teamName} numberOfLines={2}>
-                        {fixture.away_team_name}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Market Odds (1 X 2) */}
-                  <View style={styles.oddsGrid}>
-                    <View style={styles.oddsCol}>
-                      <Text style={styles.oddsTag}>1 (Home)</Text>
-                      <Text style={styles.oddsNum}>{fixture.avg_h ? fixture.avg_h.toFixed(2) : '-'}</Text>
-                    </View>
-                    <View style={styles.oddsCol}>
-                      <Text style={styles.oddsTag}>X (Seri)</Text>
-                      <Text style={styles.oddsNum}>{fixture.avg_d ? fixture.avg_d.toFixed(2) : '-'}</Text>
-                    </View>
-                    <View style={styles.oddsCol}>
-                      <Text style={styles.oddsTag}>2 (Away)</Text>
-                      <Text style={styles.oddsNum}>{fixture.avg_a ? fixture.avg_a.toFixed(2) : '-'}</Text>
-                    </View>
-                  </View>
-
-                  {/* Probability distribution bar */}
-                  <View style={styles.probSection}>
-                    <View style={styles.probLabelRow}>
-                      <Text style={styles.probLabel}>Home {probH}%</Text>
-                      <Text style={styles.probLabel}>Seri {probD}%</Text>
-                      <Text style={styles.probLabel}>Away {probA}%</Text>
-                    </View>
-                    <View style={styles.probTrack}>
-                      <View style={[styles.probFill, { flex: probH, backgroundColor: colors.primary }]} />
-                      <View style={[styles.probFill, { flex: probD, backgroundColor: '#64748B' }]} />
-                      <View style={[styles.probFill, { flex: probA, backgroundColor: '#334155' }]} />
-                    </View>
-                  </View>
-
-                  {/* ================= SARAN & BEST VALUE BOX ================= */}
-                  {(() => {
-                    const ftrChoices = [
-                      { label: `${fixture.home_team_name} Menang`, odds: fixture.avg_h, prob: fixture.prob_ftr_h },
-                      { label: 'Seri (Draw)', odds: fixture.avg_d, prob: fixture.prob_ftr_d },
-                      { label: `${fixture.away_team_name} Menang`, odds: fixture.avg_a, prob: fixture.prob_ftr_a },
-                    ];
-                    const topFtrPick = ftrChoices.reduce((max, c) => (c.prob > max.prob ? c : max), ftrChoices[0]);
-
-                    const isOver = (fixture.prob_ou25_over || 0) >= (fixture.prob_ou25_under || 0);
-                    const ouPick = {
-                      label: isOver ? 'Over 2.5 Gol' : 'Under 2.5 Gol',
-                      odds: isOver ? fixture.avg_over_25 : fixture.avg_under_25,
-                      prob: isOver ? fixture.prob_ou25_over : fixture.prob_ou25_under,
-                    };
-
-                    const hasFtrValue = Boolean(
-                      fixture.has_value_bet ||
-                      (typeof fixture.rl_stake_ftr === 'number' && fixture.rl_stake_ftr > 0)
-                    );
-                    const hasOuValue = Boolean(
-                      fixture.has_value_bet_ou ||
-                      (typeof fixture.rl_stake_ou === 'number' && fixture.rl_stake_ou > 0)
-                    );
-                    const edgeOu =
-                      typeof fixture.extended_features?.edge_ou === 'number'
-                        ? fixture.extended_features.edge_ou
-                        : 0;
-                    const bestEdge =
-                      typeof fixture.extended_features?.best_edge === 'number'
-                        ? fixture.extended_features.best_edge
-                        : 0;
-                    const hasBestValue = Boolean(hasFtrValue || hasOuValue || bestEdge > 0.05);
-
-                    return (
-                      <View style={styles.saranContainer}>
-                        {/* Saran 1X2 */}
-                        <View style={styles.saranRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.saranLabel}>Saran Pilihan (1X2)</Text>
-                            <Text style={styles.saranValue} numberOfLines={1}>
-                              {`${topFtrPick.label} `}
-                              <Text style={styles.saranOdds}>
-                                @{topFtrPick.odds ? topFtrPick.odds.toFixed(2) : '-'}
-                              </Text>
-                            </Text>
-                          </View>
-                          <View style={styles.saranBadge}>
-                            <Text style={styles.saranBadgeText}>
-                              {Math.round((topFtrPick.prob || 0) * 100)}% Peluang
-                            </Text>
-                          </View>
-                        </View>
-
-                        {/* Saran Over/Under 2.5 jika ada */}
-                        {fixture.avg_over_25 ? (
-                          <View style={[styles.saranRow, styles.saranRowBorder]}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.saranLabel}>Saran Gol (O/U 2.5)</Text>
-                              <Text style={styles.saranValue} numberOfLines={1}>
-                                {`${ouPick.label} `}
-                                <Text style={styles.saranOdds}>
-                                  @{ouPick.odds ? ouPick.odds.toFixed(2) : '-'}
-                                </Text>
-                              </Text>
-                            </View>
-                            <View style={[styles.saranBadge, { backgroundColor: '#1E1B4B' }]}>
-                              <Text style={[styles.saranBadgeText, { color: '#818CF8' }]}>
-                                {ouPick.prob ? Math.round(ouPick.prob * 100) + '%' : '-'}
-                              </Text>
-                            </View>
-                          </View>
-                        ) : null}
-
-                        {/* Best Value Highlight jika ada edge nilai pasar */}
-                        {hasBestValue ? (
-                          <View style={styles.bestValueStrip}>
-                            <Ionicons name="trending-up" size={14} color="#F59E0B" />
-                            <Text style={styles.bestValueTitle}>Best Value:</Text>
-                            <Text style={styles.bestValueDesc} numberOfLines={1}>
-                              {hasOuValue
-                                ? `${fixture.rl_pick_ou || ouPick.label} (+${((edgeOu || bestEdge || 0) * 100).toFixed(1)}% edge)`
-                                : hasFtrValue
-                                ? `${fixture.rl_pick_ftr === 'H' ? fixture.home_team_name : fixture.rl_pick_ftr === 'D' ? 'Seri' : fixture.away_team_name} Menang`
-                                : `${ouPick.label}`}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    );
-                  })()}
-
-                  {/* Expand toggle hint */}
-                  <View style={styles.expandFooter}>
-                    <Text style={styles.expandText}>
-                      {isExpanded ? 'Tutup Detail Analisis' : 'Lihat Detail Analisis'}
-                    </Text>
+            groupedLeagues.map((group) => (
+              <View key={group.leagueName} style={styles.leagueSection}>
+                {/* League Section Header */}
+                <View style={styles.leagueHeaderRow}>
+                  <View style={styles.leagueTitleLeft}>
                     <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      name="trophy"
                       size={14}
-                      color={colors.textMuted}
+                      color={group.priority <= 5 ? '#F59E0B' : colors.primaryLight}
                     />
-                  </View>
-
-                  {/* Detailed Analysis (When Expanded) */}
-                  {isExpanded ? (
-                    <View style={styles.expandedContent}>
-                      {/* Over / Under Odds */}
-                      <View style={styles.detailRow}>
-                        <View style={styles.detailBox}>
-                          <Text style={styles.detailLabel}>Odds Over 2.5</Text>
-                          <Text style={styles.detailValue}>
-                            {fixture.avg_over_25 ? fixture.avg_over_25.toFixed(2) : '-'}
-                          </Text>
-                        </View>
-                        <View style={styles.detailBox}>
-                          <Text style={styles.detailLabel}>Odds Under 2.5</Text>
-                          <Text style={styles.detailValue}>
-                            {fixture.avg_under_25 ? fixture.avg_under_25.toFixed(2) : '-'}
-                          </Text>
-                        </View>
+                    <Text style={styles.leagueSectionTitle}>{group.leagueName}</Text>
+                    {group.priority <= 5 ? (
+                      <View style={styles.topLeagueBadge}>
+                        <Text style={styles.topLeagueBadgeText}>TOP 5</Text>
                       </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.matchCountPill}>
+                    <Text style={styles.matchCountPillText}>{group.matches.length} Laga</Text>
+                  </View>
+                </View>
 
-                      {/* Extended Analysis Features from Backend */}
-                      {fixture.extended_features ? (
-                        <View style={styles.featuresBox}>
-                          <Text style={styles.featuresTitle}>Parameter Tambahan:</Text>
-                          <View style={styles.featureItemRow}>
-                            <Text style={styles.featureName}>Peluang Over 2.5:</Text>
-                            <Text style={styles.featureValue}>
-                              {fixture.prob_ou25_over
-                                ? (fixture.prob_ou25_over * 100).toFixed(1) + '%'
-                                : '-'}
-                            </Text>
-                          </View>
-                          {typeof fixture.extended_features.h2h_avg_goals === 'number' ? (
-                            <View style={styles.featureItemRow}>
-                              <Text style={styles.featureName}>Rata-rata Gol H2H:</Text>
-                              <Text style={styles.featureValue}>
-                                {fixture.extended_features.h2h_avg_goals} Gol
-                              </Text>
-                            </View>
-                          ) : null}
-                          {typeof fixture.extended_features.elo_diff === 'number' ? (
-                            <View style={styles.featureItemRow}>
-                              <Text style={styles.featureName}>Selisih Rating Elo:</Text>
-                              <Text style={styles.featureValue}>
-                                {Math.round(fixture.extended_features.elo_diff)} Poin
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })
+                {/* Compact Match Cards under this League */}
+                <View style={styles.matchesCol}>
+                  {group.matches.map((fixture) => (
+                    <CompactMatchCard
+                      key={fixture.id}
+                      fixture={fixture}
+                      onPress={() => setSelectedFixture(fixture)}
+                      showLeagueBadge={false}
+                    />
+                  ))}
+                </View>
+              </View>
+            ))
           )}
         </ScrollView>
       )}
+
+      {/* Modal Detail Pertandingan Ketika Card Ditekan */}
+      <MatchDetailModal
+        visible={!!selectedFixture}
+        fixture={selectedFixture}
+        onClose={() => setSelectedFixture(null)}
+      />
     </View>
   );
 };
@@ -453,27 +256,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
+    backgroundColor: colors.background,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: '#0F172A',
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    height: 42,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     color: colors.textPrimary,
     fontSize: 13,
+    paddingVertical: 0,
   },
   leagueSelectorWrapper: {
-    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    paddingBottom: 10,
+    backgroundColor: colors.background,
   },
   leaguesScrollContent: {
     paddingHorizontal: 16,
@@ -481,20 +287,20 @@ const styles = StyleSheet.create({
   },
   leagueChip: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: colors.surface,
+    backgroundColor: '#0F172A',
     borderWidth: 1,
     borderColor: colors.border,
   },
   leagueChipActive: {
-    backgroundColor: '#064E3B',
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   leagueChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: colors.textMuted,
   },
   leagueChipTextActive: {
     color: '#FFFFFF',
@@ -504,6 +310,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 24,
     gap: 12,
   },
   loadingText: {
@@ -515,21 +322,75 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
-    paddingBottom: 30,
-    gap: 14,
+    paddingBottom: 36,
+    gap: 16,
   },
   countRow: {
-    marginBottom: 2,
+    paddingBottom: 2,
   },
   countText: {
     fontSize: 12,
     color: colors.textMuted,
   },
+  leagueSection: {
+    gap: 8,
+  },
+  leagueHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E293B50',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  leagueTitleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  leagueSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  topLeagueBadge: {
+    backgroundColor: '#F59E0B25',
+    borderWidth: 1,
+    borderColor: '#F59E0B60',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  topLeagueBadgeText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#F59E0B',
+  },
+  matchCountPill: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  matchCountPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  matchesCol: {
+    gap: 8,
+  },
   emptyContainer: {
-    paddingVertical: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    paddingVertical: 48,
+    gap: 8,
   },
   emptyTitle: {
     fontSize: 15,
@@ -540,273 +401,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
-  },
-
-  /* Card */
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leagueName: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  valueBadgePill: {
-    backgroundColor: '#78350F35',
-    borderColor: '#B4530960',
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  valueBadgePillText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#F59E0B',
-  },
-  kickoffTime: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryLight,
-  },
-  teamsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  teamBox: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  teamLogo: {
-    width: 44,
-    height: 44,
-  },
-  teamLogoFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  teamName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  vsBox: {
-    paddingHorizontal: 12,
-  },
-  vsText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textMuted,
-  },
-
-  /* Odds Grid */
-  oddsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  oddsCol: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  oddsTag: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  oddsNum: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
-  /* Probability bar */
-  probSection: {
-    gap: 5,
-  },
-  probLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  probLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  probTrack: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  probFill: {
-    height: '100%',
-  },
-
-  /* Expand */
-  expandFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  expandText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  expandedContent: {
-    paddingTop: 8,
-    gap: 10,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  detailBox: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  detailLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  featuresBox: {
-    backgroundColor: '#0F172A',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 6,
-  },
-  featuresTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryLight,
-    marginBottom: 2,
-  },
-  featureItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  featureName: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  featureValue: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
-  /* Saran & Best Value Styles */
-  saranContainer: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-    gap: 8,
-  },
-  saranRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  saranRowBorder: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-  },
-  saranLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  saranValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  saranOdds: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.primaryLight,
-  },
-  saranBadge: {
-    backgroundColor: '#064E3B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  saranBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primaryLight,
-  },
-  bestValueStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#78350F25',
-    borderWidth: 1,
-    borderColor: '#B4530940',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    gap: 6,
-    marginTop: 2,
-  },
-  bestValueTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#F59E0B',
-  },
-  bestValueDesc: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FCD34D',
   },
 });

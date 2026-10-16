@@ -1,11 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -17,19 +16,32 @@ import {
   PerformanceData,
   fetchUpcomingFixtures,
   fetchPerformanceMetrics,
+  fetchStandings,
   getCurrentSeason,
 } from '../services/api';
-import { shareMatchPrediction } from '../services/shareService';
+import { CompactMatchCard } from '../components/CompactMatchCard';
+import { MatchDetailModal } from '../components/modals/MatchDetailModal';
 
 interface HomeScreenProps {
   onNavigate: (tab: TabType) => void;
 }
 
+// Definisi Top 5 Liga Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
+const TOP_5_LEAGUES_CONFIG = [
+  { code: 'D1', pattern: /bundes/i, name: 'Bundesliga' },
+  { code: 'E0', pattern: /premier|epl/i, name: 'Premier League' },
+  { code: 'SP1', pattern: /la liga|primera/i, name: 'La Liga' },
+  { code: 'F1', pattern: /ligue 1/i, name: 'Ligue 1' },
+  { code: 'I1', pattern: /serie a/i, name: 'Serie A' },
+];
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [standingsMap, setStandingsMap] = useState<Record<string, number>>({});
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedFixture, setSelectedFixture] = useState<Fixture | null>(null);
 
   const currentSeason = getCurrentSeason();
   const seasonParts = currentSeason.split('/');
@@ -37,14 +49,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
   const loadData = useCallback(async () => {
     try {
-      const [fixturesData, perfData] = await Promise.all([
+      const [fixturesData, perfData, ...standingsResults] = await Promise.all([
         fetchUpcomingFixtures(),
         fetchPerformanceMetrics(currentSeason),
+        ...TOP_5_LEAGUES_CONFIG.map((l) => fetchStandings(l.code, currentSeason)),
       ]);
+
       setFixtures(fixturesData);
       setPerformance(perfData);
+
+      // Bangun peta peringkat klasemen klub: { "arsenal": 1, "manchester city": 2, ... }
+      const newStandingsMap: Record<string, number> = {};
+      standingsResults.forEach((res) => {
+        if (Array.isArray(res)) {
+          res.forEach((item) => {
+            if (item.team && typeof item.rank === 'number') {
+              newStandingsMap[item.team.toLowerCase().trim()] = item.rank;
+            }
+          });
+        }
+      });
+      setStandingsMap(newStandingsMap);
     } catch (err) {
-      console.error('Failed to load data:', err);
+      console.error('Failed to load home data:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -60,27 +87,47 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     loadData();
   };
 
-  const formatMatchTime = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      }) + ' WIB';
-    } catch {
-      return dateStr;
-    }
-  };
+  // Filter 10 Laga Mendatang: Tepat 2 laga dari masing-masing Top 5 Liga Eropa, diutamakan tim dengan klasemen tertinggi
+  const top10Fixtures = useMemo(() => {
+    if (!fixtures || fixtures.length === 0) return [];
+
+    const result: Fixture[] = [];
+
+    TOP_5_LEAGUES_CONFIG.forEach((league) => {
+      // Ambil laga yang cocok dengan liga ini
+      const leagueMatches = fixtures.filter((f) => league.pattern.test(f.league_name));
+
+      // Urutkan berdasarkan posisi klasemen tim tertinggi yang bertanding
+      leagueMatches.sort((a, b) => {
+        const rankAHome = standingsMap[a.home_team_name.toLowerCase().trim()] || 99;
+        const rankAAway = standingsMap[a.away_team_name.toLowerCase().trim()] || 99;
+        const bestRankA = Math.min(rankAHome, rankAAway);
+        const sumRankA = rankAHome + rankAAway;
+
+        const rankBHome = standingsMap[b.home_team_name.toLowerCase().trim()] || 99;
+        const rankBAway = standingsMap[b.away_team_name.toLowerCase().trim()] || 99;
+        const bestRankB = Math.min(rankBHome, rankBAway);
+        const sumRankB = rankBHome + rankBAway;
+
+        if (bestRankA !== bestRankB) {
+          return bestRankA - bestRankB; // Posisi teratas (1, 2, 3) didahulukan
+        }
+        return sumRankA - sumRankB;
+      });
+
+      // Ambil maksimal 2 laga terbaik per liga
+      const selected = leagueMatches.slice(0, 2);
+      result.push(...selected);
+    });
+
+    return result;
+  }, [fixtures, standingsMap]);
 
   // Kalkulasi statistik dari data backend riil musim terbaru saja untuk semua liga
   const ftrWins = performance?.ftr.wins ?? 0;
   const ftrLosses = performance?.ftr.losses ?? 0;
   const totalMatchesCount = ftrWins + ftrLosses;
-
   const totalMatches = performance ? totalMatchesCount.toLocaleString('id-ID') : '-';
-
   const winRate = performance
     ? totalMatchesCount > 0
       ? ((ftrWins / totalMatchesCount) * 100).toFixed(1) + '%'
@@ -88,279 +135,184 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     : '-';
 
   const profitVal = performance?.ftr.unit_profit;
-  const profitUnit = profitVal !== undefined
-    ? `${profitVal >= 0 ? '+' : ''}${Math.abs(profitVal) < 10 ? profitVal.toFixed(2) : Math.round(profitVal).toLocaleString('id-ID')}u`
-    : '-';
-
-  // Ambil 3 pertandingan mendatang terdekat
-  const featuredFixtures = fixtures.slice(0, 3);
+  const profitUnit =
+    profitVal !== undefined
+      ? `${profitVal >= 0 ? '+' : ''}${Math.abs(profitVal) < 10 ? profitVal.toFixed(2) : Math.round(profitVal).toLocaleString('id-ID')}u`
+      : '-';
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
-        />
-      }
-    >
-      {/* ================= HERO CARD ================= */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>
-          Baca pertandingan sebelum peluit dibunyikan.
-        </Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {/* ================= HERO CARD ================= */}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Baca pertandingan sebelum peluit dibunyikan.</Text>
+          <Text style={styles.heroSubtitle}>
+            Data odds pasar dan probabilitas statistik 11 liga Eropa untuk referensi pertandingan Anda.
+          </Text>
 
-        <Text style={styles.heroSubtitle}>
-          Data odds pasar dan probabilitas 11 liga Eropa untuk referensi pertandingan Anda.
-        </Text>
-
-        <View style={styles.heroButtonRow}>
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => onNavigate('fixtures')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.primaryButtonText}>Jadwal Pertandingan</Text>
-            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => onNavigate('standings')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.secondaryButtonText}>Klasemen</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ================= STATISTIK RIIL MUSIM TERBARU ================= */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statsHeaderRow}>
-          <View style={styles.statsBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.statsBadgeText}>Performa Musim {seasonLabel} • Semua Liga</Text>
-          </View>
-        </View>
-
-        <View style={styles.statsStrip}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{totalMatches}</Text>
-            <Text style={styles.statLabel}>Total Laga</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: colors.primary }]}>{winRate}</Text>
-            <Text style={styles.statLabel}>Win Rate</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text
-              style={[
-                styles.statNumber,
-                { color: profitVal !== undefined && profitVal < 0 ? '#F87171' : colors.primaryLight },
-              ]}
+          <View style={styles.heroButtonRow}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => onNavigate('fixtures')}
+              activeOpacity={0.8}
             >
-              {profitUnit}
-            </Text>
-            <Text style={styles.statLabel}>Net Profit</Text>
+              <Text style={styles.primaryButtonText}>Jadwal Pertandingan</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => onNavigate('standings')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.secondaryButtonText}>Klasemen</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* ================= MENU NAVIGASI UTAMA ================= */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Menu Utama</Text>
+        {/* ================= STATISTIK RIIL MUSIM TERBARU ================= */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statsHeaderRow}>
+            <View style={styles.statsBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.statsBadgeText}>Performa Musim {seasonLabel} • Semua Liga</Text>
+            </View>
+          </View>
 
-        <View style={styles.menuGrid}>
-          {/* Card 1: Jadwal */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => onNavigate('fixtures')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
-              <Ionicons name="calendar-outline" size={22} color={colors.primary} />
+          <View style={styles.statsStrip}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{totalMatches}</Text>
+              <Text style={styles.statLabel}>Total Laga</Text>
             </View>
-            <Text style={styles.menuCardTitle}>Jadwal Pertandingan</Text>
-            <Text style={styles.menuCardDesc}>Jadwal laga & odds lengkap</Text>
-            <View style={styles.menuArrow}>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: colors.primary }]}>{winRate}</Text>
+              <Text style={styles.statLabel}>Win Rate</Text>
             </View>
-          </TouchableOpacity>
-
-          {/* Card 2: Klasemen */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => onNavigate('standings')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.menuIconContainer, { backgroundColor: '#1E1B4B' }]}>
-              <Ionicons name="trophy-outline" size={22} color="#818CF8" />
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text
+                style={[
+                  styles.statNumber,
+                  { color: profitVal !== undefined && profitVal < 0 ? '#F87171' : colors.primaryLight },
+                ]}
+              >
+                {profitUnit}
+              </Text>
+              <Text style={styles.statLabel}>Net Profit</Text>
             </View>
-            <Text style={styles.menuCardTitle}>Klasemen Liga</Text>
-            <Text style={styles.menuCardDesc}>Tabel poin & logo klub</Text>
-            <View style={styles.menuArrow}>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 3: Riwayat */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => onNavigate('history')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.menuIconContainer, { backgroundColor: '#0C4A6E40' }]}>
-              <Ionicons name="time-outline" size={22} color="#38BDF8" />
-            </View>
-            <Text style={styles.menuCardTitle}>Riwayat Hasil</Text>
-            <Text style={styles.menuCardDesc}>Evaluasi skor & prediksi</Text>
-            <View style={styles.menuArrow}>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 4: Tiket Parlay AI */}
-          <TouchableOpacity
-            style={styles.menuCard}
-            onPress={() => onNavigate('parlay')}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
-              <Ionicons name="sparkles" size={22} color="#10B981" />
-            </View>
-            <Text style={styles.menuCardTitle}>Tiket Parlay AI</Text>
-            <Text style={styles.menuCardDesc}>Kombinasi multi-leg odds tinggi</Text>
-            <View style={styles.menuArrow}>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ================= PERTANDINGAN MENDATANG (DATA ASLI DARI BACKEND) ================= */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Pertandingan Mendatang</Text>
-          <TouchableOpacity onPress={() => onNavigate('fixtures')}>
-            <Text style={styles.seeAllText}>Lihat Semua ({fixtures.length})</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.loadingText}>Memuat jadwal dari server...</Text>
-          </View>
-        ) : featuredFixtures.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Ionicons name="calendar-outline" size={32} color={colors.textMuted} />
-            <Text style={styles.emptyText}>Tidak ada jadwal pertandingan aktif saat ini.</Text>
-          </View>
-        ) : (
-          featuredFixtures.map((fixture) => {
-            const probH = Math.round((fixture.prob_ftr_h || 0.33) * 100);
-            const probD = Math.round((fixture.prob_ftr_d || 0.33) * 100);
-            const probA = Math.max(0, 100 - probH - probD);
+        {/* ================= MENU NAVIGASI UTAMA ================= */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Menu Utama</Text>
 
-            return (
-              <View key={fixture.id} style={styles.matchCard}>
-                <View style={styles.leagueTagRow}>
-                  <Text style={styles.leagueText}>{fixture.league_name}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.matchTimeBadge}>{formatMatchTime(fixture.date)}</Text>
-                    <TouchableOpacity
-                      onPress={() => shareMatchPrediction(fixture)}
-                      style={{ padding: 4, backgroundColor: '#1E293B', borderRadius: 6, borderWidth: 1, borderColor: colors.border }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="share-social-outline" size={13} color={colors.primaryLight} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Teams Row */}
-                <View style={styles.matchTeamsRow}>
-                  <View style={styles.teamCol}>
-                    {fixture.home_team_logo ? (
-                      <Image
-                        source={{ uri: fixture.home_team_logo }}
-                        style={styles.teamLogo}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <View style={styles.teamLogoCircle}>
-                        <Ionicons name="shield-outline" size={20} color={colors.textPrimary} />
-                      </View>
-                    )}
-                    <Text style={styles.teamName} numberOfLines={2}>
-                      {fixture.home_team_name}
-                    </Text>
-                  </View>
-
-                  <View style={styles.scoreCol}>
-                    <Text style={styles.vsText}>VS</Text>
-                  </View>
-
-                  <View style={styles.teamCol}>
-                    {fixture.away_team_logo ? (
-                      <Image
-                        source={{ uri: fixture.away_team_logo }}
-                        style={styles.teamLogo}
-                        resizeMode="contain"
-                      />
-                    ) : (
-                      <View style={styles.teamLogoCircle}>
-                        <Ionicons name="shield-outline" size={20} color={colors.textPrimary} />
-                      </View>
-                    )}
-                    <Text style={styles.teamName} numberOfLines={2}>
-                      {fixture.away_team_name}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Odds Pasar (1 X 2) */}
-                <View style={styles.oddsContainer}>
-                  <View style={styles.oddsBox}>
-                    <Text style={styles.oddsLabel}>1 (Home)</Text>
-                    <Text style={styles.oddsValue}>{fixture.avg_h ? fixture.avg_h.toFixed(2) : '-'}</Text>
-                  </View>
-                  <View style={styles.oddsBox}>
-                    <Text style={styles.oddsLabel}>X (Seri)</Text>
-                    <Text style={styles.oddsValue}>{fixture.avg_d ? fixture.avg_d.toFixed(2) : '-'}</Text>
-                  </View>
-                  <View style={styles.oddsBox}>
-                    <Text style={styles.oddsLabel}>2 (Away)</Text>
-                    <Text style={styles.oddsValue}>{fixture.avg_a ? fixture.avg_a.toFixed(2) : '-'}</Text>
-                  </View>
-                </View>
-
-                {/* Probability Bar */}
-                <View style={styles.probContainer}>
-                  <View style={styles.probLabelRow}>
-                    <Text style={styles.probText}>Home {probH}%</Text>
-                    <Text style={styles.probText}>Seri {probD}%</Text>
-                    <Text style={styles.probText}>Away {probA}%</Text>
-                  </View>
-                  <View style={styles.probBarWrapper}>
-                    <View style={[styles.probBarSegment, { flex: probH, backgroundColor: colors.primary }]} />
-                    <View style={[styles.probBarSegment, { flex: probD, backgroundColor: '#64748B' }]} />
-                    <View style={[styles.probBarSegment, { flex: probA, backgroundColor: '#334155' }]} />
-                  </View>
-                </View>
+          <View style={styles.menuGrid}>
+            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('fixtures')} activeOpacity={0.8}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
+                <Ionicons name="calendar-outline" size={22} color={colors.primary} />
               </View>
-            );
-          })
-        )}
-      </View>
-    </ScrollView>
+              <Text style={styles.menuCardTitle}>Jadwal Pertandingan</Text>
+              <Text style={styles.menuCardDesc}>Jadwal laga & odds lengkap</Text>
+              <View style={styles.menuArrow}>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('standings')} activeOpacity={0.8}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#1E1B4B' }]}>
+                <Ionicons name="trophy-outline" size={22} color="#818CF8" />
+              </View>
+              <Text style={styles.menuCardTitle}>Klasemen Liga</Text>
+              <Text style={styles.menuCardDesc}>Tabel poin & logo klub</Text>
+              <View style={styles.menuArrow}>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('history')} activeOpacity={0.8}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#0C4A6E40' }]}>
+                <Ionicons name="time-outline" size={22} color="#38BDF8" />
+              </View>
+              <Text style={styles.menuCardTitle}>Riwayat Hasil</Text>
+              <Text style={styles.menuCardDesc}>Evaluasi skor & prediksi</Text>
+              <View style={styles.menuArrow}>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuCard} onPress={() => onNavigate('parlay')} activeOpacity={0.8}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#064E3B40' }]}>
+                <Ionicons name="sparkles" size={22} color="#10B981" />
+              </View>
+              <Text style={styles.menuCardTitle}>Tiket Parlay AI</Text>
+              <Text style={styles.menuCardDesc}>Kombinasi multi-leg odds tinggi</Text>
+              <View style={styles.menuArrow}>
+                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ================= 10 PERTANDINGAN MENDATANG TOP 5 LIGA EROPA ================= */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionTitle}>Pertandingan Mendatang</Text>
+              <Text style={styles.sectionSubtitle}>
+                Top 10 laga pilihan (2 match unggulan per Top 5 Liga Eropa)
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => onNavigate('fixtures')}>
+              <Text style={styles.seeAllText}>Lihat Semua</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.loadingText}>Memuat jadwal pilihan dari server...</Text>
+            </View>
+          ) : top10Fixtures.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="calendar-outline" size={32} color={colors.textMuted} />
+              <Text style={styles.emptyText}>Tidak ada jadwal aktif untuk Top 5 Liga saat ini.</Text>
+            </View>
+          ) : (
+            <View style={styles.matchesList}>
+              {top10Fixtures.map((fixture) => (
+                <CompactMatchCard
+                  key={fixture.id}
+                  fixture={fixture}
+                  onPress={() => setSelectedFixture(fixture)}
+                  showLeagueBadge={true}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Modal Detail Pertandingan Ketika Card Ditekan */}
+      <MatchDetailModal
+        visible={!!selectedFixture}
+        fixture={selectedFixture}
+        onClose={() => setSelectedFixture(null)}
+      />
+    </>
   );
 };
 
@@ -460,72 +412,77 @@ const styles = StyleSheet.create({
   },
   statsBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
     color: colors.textSecondary,
+    fontWeight: '600',
   },
   statsStrip: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: 14,
     paddingVertical: 14,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: colors.border,
+    alignItems: 'center',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: '60%',
-    backgroundColor: colors.border,
-    alignSelf: 'center',
+    gap: 4,
   },
   statNumber: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.textPrimary,
   },
   statLabel: {
     fontSize: 11,
     color: colors.textMuted,
-    marginTop: 2,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.border,
   },
 
-  /* Section */
+  /* Menu Navigation Grid */
   section: {
     gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
   seeAllText: {
     fontSize: 12,
+    fontWeight: '700',
     color: colors.primary,
-    fontWeight: '600',
   },
-
-  /* Menu Grid */
   menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   menuCard: {
-    width: '48%',
+    width: '48.5%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: 4,
     position: 'relative',
   },
   menuIconContainer: {
@@ -534,16 +491,15 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   menuCardTitle: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 2,
   },
   menuCardDesc: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
     lineHeight: 14,
   },
@@ -553,122 +509,12 @@ const styles = StyleSheet.create({
     right: 12,
   },
 
-  /* Match Card */
-  matchCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 14,
+  /* Matches List */
+  matchesList: {
+    gap: 10,
   },
-  leagueTagRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leagueText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  matchTimeBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryLight,
-  },
-  matchTeamsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  teamCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  teamLogo: {
-    width: 44,
-    height: 44,
-  },
-  teamLogoCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  teamName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  scoreCol: {
-    alignItems: 'center',
-    paddingHorizontal: 12,
-  },
-  vsText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.textMuted,
-  },
-
-  /* Odds Boxes */
-  oddsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  oddsBox: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  oddsLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginBottom: 2,
-  },
-  oddsValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-
-  /* Probability Bar */
-  probContainer: {
-    gap: 6,
-  },
-  probLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  probText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  probBarWrapper: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  probBarSegment: {
-    height: '100%',
-  },
-
-  /* Loading & Empty */
   loadingContainer: {
-    paddingVertical: 32,
+    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,

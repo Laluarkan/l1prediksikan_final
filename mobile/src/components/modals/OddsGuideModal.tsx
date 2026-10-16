@@ -41,7 +41,7 @@ export const OddsGuideModal: React.FC<OddsGuideModalProps> = ({
             <View style={styles.introCard}>
               <Ionicons name="bulb-outline" size={24} color={colors.primary} />
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.introTitle}>Filosofi Analitik L1Prediksikan</Text>
+                <Text style={styles.introTitle}>Filosofi Analitik Prediksikan</Text>
                 <Text style={styles.introDesc}>
                   Kami menggunakan algoritma Machine Learning & Reinforcement Learning untuk menemukan peluang matematis di mana bandar salah menilai probabilitas suatu pertandingan.
                 </Text>

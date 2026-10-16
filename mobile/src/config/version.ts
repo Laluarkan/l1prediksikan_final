@@ -11,5 +11,5 @@ export const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 export const APP_BUILD_NUMBER =
   Constants.expoConfig?.android?.versionCode ??
   (Constants.expoConfig?.ios?.buildNumber ? parseInt(Constants.expoConfig.ios.buildNumber, 10) : 1);
-export const APP_NAME = Constants.expoConfig?.name ?? 'L1Prediksikan';
+export const APP_NAME = Constants.expoConfig?.name ?? 'Prediksikan';
 export const FULL_VERSION_STRING = `v${APP_VERSION} (Build ${APP_BUILD_NUMBER})`;

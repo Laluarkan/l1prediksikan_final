@@ -16,7 +16,7 @@ export const shareImageFile = async (imageUri: string, dialogTitle?: string): Pr
     }
     await Sharing.shareAsync(imageUri, {
       mimeType: 'image/png',
-      dialogTitle: dialogTitle || 'Bagikan Gambar Tiket L1',
+      dialogTitle: dialogTitle || 'Bagikan Gambar Tiket Prediksikan',
       UTI: 'public.png',
     });
   } catch (error: any) {
@@ -36,7 +36,7 @@ export const shareMatchPrediction = async (match: Fixture): Promise<void> => {
       : '';
 
     const message = [
-      `🔥 PREDIKSI SEPAK BOLA AI - L1 PREDIKSI-KAN`,
+      `🔥 PREDIKSI SEPAK BOLA AI - PREDIKSIKAN`,
       `🏆 Liga: ${match.league_name}`,
       `⚔️ Laga: ${match.home_team_name} vs ${match.away_team_name}`,
       pickText,
@@ -67,7 +67,7 @@ export const shareParlayTicket = async (ticket: ParlayTicket): Promise<void> => 
       .join('\n');
 
     const message = [
-      `🎟️ TIKET REKOMENDASI PARLAY AI - L1 PREDIKSI-KAN`,
+      `🎟️ TIKET REKOMENDASI PARLAY AI - PREDIKSIKAN`,
       `ID Tiket: #${ticket.ticket_id || ticket.id}`,
       `⚡ Total Odds: @${Number(ticket.total_odds).toFixed(2)}`,
       `📊 Probabilitas Gabungan: ${(Number(ticket.total_prob) * 100).toFixed(1)}%`,
