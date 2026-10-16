@@ -23,6 +23,7 @@ import {
   saveUserSession,
 } from '../services/auth';
 import * as Google from 'expo-auth-session/providers/google';
+import Constants, { AppOwnership } from 'expo-constants';
 import { GOOGLE_CONFIG, fetchGoogleUserProfile } from '../services/googleAuth';
 import { GoogleAuthModal } from '../components/modals/GoogleAuthModal';
 
@@ -234,9 +235,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
   };
 
   // Login Cepat via Google (Gmail) - Password TIDAK disertakan
-  const handleGoogleAuth = () => {
+  const handleGoogleAuth = async () => {
     setErrorMessage('');
-    setShowGoogleModal(true);
+
+    // Deteksi apakah sedang berjalan di Expo Go (development) atau Standalone APK (production / launching)
+    const isExpoGo = Constants.appOwnership === AppOwnership.Expo || !Constants.appOwnership;
+
+    if (!isExpoGo && promptGoogleAsync) {
+      // Saat Launching / Standalone APK: Langsung buka pemilihan akun Google bawaan Android (Account Picker)
+      try {
+        const result = await promptGoogleAsync();
+        if (result.type === 'cancel' || result.type === 'dismiss') {
+          return;
+        }
+      } catch (err) {
+        console.warn('OAuth prompt error, menggunakan modal cadangan:', err);
+        setShowGoogleModal(true);
+      }
+    } else {
+      // Di Expo Go (tahap pengujian saat ini): Menggunakan modal agar terhindar dari Error 400 Google
+      setShowGoogleModal(true);
+    }
   };
 
   const executeGoogleSync = async (googleEmail: string) => {
