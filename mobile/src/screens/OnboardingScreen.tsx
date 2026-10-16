@@ -149,11 +149,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onFinish }) 
           <Text style={styles.buttonText}>
             {isLastSlide ? 'Mulai Sekarang' : 'Lanjutkan'}
           </Text>
-          <Ionicons
-            name={isLastSlide ? 'checkmark-circle' : 'arrow-forward'}
-            size={18}
-            color="#FFFFFF"
-          />
         </TouchableOpacity>
       </View>
     </View>
