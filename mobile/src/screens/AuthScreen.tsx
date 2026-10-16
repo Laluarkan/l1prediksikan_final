@@ -24,7 +24,12 @@ import {
 } from '../services/auth';
 import * as Google from 'expo-auth-session/providers/google';
 import Constants, { AppOwnership } from 'expo-constants';
-import { GOOGLE_CONFIG, fetchGoogleUserProfile } from '../services/googleAuth';
+import {
+  GOOGLE_CONFIG,
+  fetchGoogleUserProfile,
+  signInWithNativeGoogle,
+  configureNativeGoogleSignIn,
+} from '../services/googleAuth';
 import { GoogleAuthModal } from '../components/modals/GoogleAuthModal';
 
 interface AuthScreenProps {
@@ -234,27 +239,59 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
     }
   };
 
-  // Login Cepat via Google (Gmail) - Password TIDAK disertakan
+  useEffect(() => {
+    configureNativeGoogleSignIn();
+  }, []);
+
+  // Login Cepat via Google (Gmail) - Menampilkan One-Tap Account Picker bawaan Android
   const handleGoogleAuth = async () => {
     setErrorMessage('');
+    setLoading(true);
 
-    // Deteksi apakah sedang berjalan di Expo Go (development) atau Standalone APK (production / launching)
-    const isExpoGo = Constants.appOwnership === AppOwnership.Expo || !Constants.appOwnership;
+    try {
+      const result = await signInWithNativeGoogle();
 
-    if (!isExpoGo && promptGoogleAsync) {
-      // Saat Launching / Standalone APK: Langsung buka pemilihan akun Google bawaan Android (Account Picker)
-      try {
-        const result = await promptGoogleAsync();
-        if (result.type === 'cancel' || result.type === 'dismiss') {
-          return;
-        }
-      } catch (err) {
-        console.warn('OAuth prompt error, menggunakan modal cadangan:', err);
-        setShowGoogleModal(true);
+      if (result.cancelled) {
+        // Pengguna membatalkan pemilihan akun (tap di luar dialog)
+        setLoading(false);
+        return;
       }
-    } else {
-      // Di Expo Go (tahap pengujian saat ini): Menggunakan modal agar terhindar dari Error 400 Google
-      setShowGoogleModal(true);
+
+      if (result.success && result.session) {
+        setSuccessMessage('Akun Google berhasil terhubung!');
+        setTimeout(() => {
+          onSuccess(result.session!);
+        }, 400);
+        return;
+      }
+
+      // Jika Google Play Services meminta fallback (misalnya di Expo Go saat development)
+      if (result.requiresFallback) {
+        const isExpoGo = Constants.appOwnership === AppOwnership.Expo;
+        if (!isExpoGo && promptGoogleAsync) {
+          try {
+            const oauthRes = await promptGoogleAsync();
+            if (oauthRes.type === 'cancel' || oauthRes.type === 'dismiss') {
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            setShowGoogleModal(true);
+          }
+        } else {
+          setShowGoogleModal(true);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Tampilkan error jika autentikasi gagal
+      setErrorMessage(result.message || 'Gagal masuk dengan Akun Google.');
+    } catch (err: any) {
+      console.error('Error saat login Google:', err);
+      setErrorMessage(err?.message || 'Terjadi kesalahan saat menghubungkan ke Google.');
+    } finally {
+      setLoading(false);
     }
   };
 

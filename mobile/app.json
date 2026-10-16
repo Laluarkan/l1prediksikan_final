@@ -15,11 +15,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "id.prediksikan.app",
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "package": "id.prediksikan.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,7 +32,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1074921761810-iaubtmm76ghmv9dq3vhmeegfi80co25a"
+        }
+      ]
     ],
     "extra": {
       "eas": {
