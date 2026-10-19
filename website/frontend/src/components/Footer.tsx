@@ -30,10 +30,40 @@ export default function Footer() {
           <div>
             <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Informasi</h3>
             <ul className="space-y-3 text-sm text-slate-400">
-              <li><Link href="/about-api" className="hover:text-blue-400 transition-colors">Tentang Sistem API</Link></li>
-              <li><Link href="/methodology" className="hover:text-blue-400 transition-colors">Metodologi Algoritma</Link></li>
-              <li><Link href="/risk-management" className="hover:text-blue-400 transition-colors">Manajemen Risiko (Kelly)</Link></li>
-              <li><Link href="/legal" className="hover:text-blue-400 transition-colors">Legal & Disclaimer</Link></li>
+              <li><Link href="/about-api" className="hover:text-emerald-400 transition-colors">Tentang Sistem API</Link></li>
+              <li><Link href="/methodology" className="hover:text-emerald-400 transition-colors">Metodologi Algoritma</Link></li>
+              <li><Link href="/risk-management" className="hover:text-emerald-400 transition-colors">Manajemen Risiko (Kelly)</Link></li>
+              <li><Link href="/legal" className="hover:text-emerald-400 transition-colors">Legal & Disclaimer</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Aplikasi Mobile</h3>
+            <ul className="space-y-3 text-sm text-slate-400">
+              <li>
+                <a 
+                  href="https://d.apkpure.com/b/APK/id.prediksikan.app?version=latest" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 font-medium text-slate-300"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <span>Unduh APK (v1.3.0)</span>
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://apkpure.com/prediksikan-%E2%80%93-analitik-bola/id.prediksikan.app/download" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:text-emerald-400 transition-colors"
+                >
+                  Halaman APKPure Resmi
+                </a>
+              </li>
+              <li className="pt-2 text-xs text-slate-500 leading-relaxed font-mono">
+                Android 7.0+ • ~48 MB • Bebas Iklan Judi &amp; Malware
+              </li>
             </ul>
           </div>
         </div>

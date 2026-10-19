@@ -19,7 +19,9 @@ import {
   Calendar, 
   History, 
   TrendingUp,
-  Award
+  Award,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import ProfileModal from './modals/ProfileModal';
 import OddsGuideModal from './modals/OddsGuideModal';
@@ -177,7 +179,19 @@ export default function Navbar() {
             </div>
 
             {/* Right Action: Auth / User Menu */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              
+              {/* Tombol Unduh APK Mobile */}
+              <a 
+                href="https://d.apkpure.com/b/APK/id.prediksikan.app?version=latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 text-xs font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                title="Unduh Aplikasi Android Resmi (APK)"
+              >
+                <Download size={14} />
+                <span>Unduh APK</span>
+              </a>
               
               {/* Tombol Unggah Data Admin (Jika Admin) */}
               {isAdmin && (
@@ -475,6 +489,21 @@ export default function Navbar() {
             >
               Performa Model
             </Link>
+
+            {/* Unduh APK Mobile Menu CTA */}
+            <a
+              href="https://d.apkpure.com/b/APK/id.prediksikan.app?version=latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="mt-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Download size={16} className="text-emerald-400" />
+                <span>Unduh Aplikasi Android (APK)</span>
+              </div>
+              <span className="text-[10px] font-mono bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">v1.3.0</span>
+            </a>
 
             <button
               type="button"
