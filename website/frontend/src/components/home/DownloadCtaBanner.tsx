@@ -108,7 +108,7 @@ export default function DownloadCtaBanner() {
                 {/* App Identity Row */}
                 <div className="flex items-center gap-3.5 px-1 py-1">
                   <img
-                    src="/mobile-showcase/app_icon_512x512.png"
+                    src="/mobile-showcase/app_icon_512x512.svg"
                     alt="Logo Aplikasi"
                     className="w-12 h-12 rounded-xl border border-slate-700 shadow-md shrink-0"
                   />
