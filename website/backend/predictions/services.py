@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 import pandas as pd
 import numpy as np
 import math
@@ -14,6 +15,8 @@ from django.conf import settings
 from django.db import transaction, models
 from django.utils import timezone
 from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = settings.BASE_DIR
 if str(PROJECT_ROOT) not in sys.path:

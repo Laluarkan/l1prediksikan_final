@@ -1,0 +1,40 @@
+name: AI Prediction - Night Run (18:40 UTC)
+
+on:
+  schedule:
+    # 18:40 UTC = 01:40 WIB / 02:40 WITA (Menyesuaikan update odds UK sesi 2)
+    - cron: '40 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  run_ai_pipeline:
+    runs-on: ubuntu-latest
+    
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      PYTHONPATH: ${{ github.workspace }}/website/backend
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r website/backend/requirements.txt
+
+    - name: Eksekusi Fetch Fixture (Prediksi Masa Depan)
+      working-directory: ./website/backend
+      run: python manage.py fetch_fixture
+
+    - name: Eksekusi Fetch History (Sinkronisasi Masa Lalu)
+      working-directory: ./website/backend
+      run: python manage.py fetch_history

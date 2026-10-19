@@ -1,10 +1,9 @@
-name: AI Prediction Cronjob
+name: AI Prediction - Afternoon Run (14:25 UTC)
 
 on:
   schedule:
-    # Mengikuti update odds dari UK (13:00 & 17:00 British Time)
-    # Berjalan pada jam 14:30 UTC dan 18:30 UTC
-    - cron: '30 14,18 * * *'
+    # 14:25 UTC = 21:25 WIB / 22:25 WITA (Menyesuaikan update odds UK sesi 1)
+    - cron: '25 14 * * *'
   workflow_dispatch:
 
 jobs:
