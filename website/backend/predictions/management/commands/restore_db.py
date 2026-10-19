@@ -159,5 +159,12 @@ class Command(BaseCommand):
                 is_won=ticket_won, is_historical=is_historical, legs_details=legs_details
             )
             
+        try:
+            from django.core.cache import cache
+            cache.clear()
+            self.stdout.write(self.style.SUCCESS("Cache Django/Redis berhasil dibersihkan."))
+        except Exception:
+            pass
+
         self.stdout.write(self.style.SUCCESS(f"\n[SUKSES] RESTORE DATA & AI SELESAI DALAM HITUNGAN DETIK!"))
         self.stdout.write(self.style.SUCCESS(f"Data tersimpan: {len(history_inserts)} History, {len(fixture_inserts)} Fixture."))

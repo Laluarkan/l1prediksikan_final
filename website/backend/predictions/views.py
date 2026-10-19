@@ -181,7 +181,8 @@ class TeamViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['league__code']
     search_fields = ['name']
 
-# PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
+# Cache diaktifkan kembali: payload ringkas (tanpa extended_features) aman di Redis & di-invalasi otomatis saat ada data baru
+@method_decorator(cache_page(60 * 60 * 12), name='dispatch')
 class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MatchHistorySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -227,7 +228,8 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         return queryset
 
-# PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
+# Cache diaktifkan kembali: payload ringkas (tanpa extended_features) aman di Redis & di-invalasi otomatis saat ada data baru
+@method_decorator(cache_page(60 * 60 * 12), name='dispatch')
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
@@ -240,7 +242,8 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
         now = timezone.now()
         return UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
 
-# PERBAIKAN: Mencabut cache_page untuk menghindari OOM Redis pada data besar
+# Cache diaktifkan kembali: payload ringkas & di-invalasi otomatis saat ada data baru
+@method_decorator(cache_page(60 * 60 * 12), name='dispatch')
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer

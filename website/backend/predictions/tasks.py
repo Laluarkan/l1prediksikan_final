@@ -10,6 +10,12 @@ def run_fetch_jobs_task():
         logger.info("Celery Task: Memulai eksekusi Cron Job (fetch_history & fetch_fixture)...")
         call_command('fetch_history')
         call_command('fetch_fixture')
+        try:
+            from django.core.cache import cache
+            cache.clear()
+            logger.info("Celery Task: Cache Redis/Django berhasil dibersihkan otomatis.")
+        except Exception as e:
+            logger.warning(f"Gagal membersihkan cache dari celery task: {e}")
         logger.info("Celery Task: Cron Job selesai dieksekusi dengan sukses.")
         return "Success"
     except Exception as e:

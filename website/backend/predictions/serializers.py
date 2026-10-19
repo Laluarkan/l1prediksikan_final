@@ -23,7 +23,7 @@ class MatchHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MatchHistory
-        fields = '__all__'
+        exclude = ['extended_features']
 
 class UpcomingFixtureSerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
@@ -35,7 +35,7 @@ class UpcomingFixtureSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UpcomingFixture
-        fields = '__all__'
+        exclude = ['extended_features']
 
 class ParlayTicketSerializer(serializers.ModelSerializer):
     class Meta:
