@@ -167,6 +167,22 @@ class CheckStaffView(APIView):
             return Response({'is_staff': user.is_staff})
         except User.DoesNotExist:
             return Response({'is_staff': False})
+class ClearCacheView(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    @extend_schema(exclude=True)
+    def post(self, request):
+        if not is_valid_server_request(request):
+            return Response({'error': 'Akses Ditolak.'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            from django.core.cache import cache
+            cache.clear()
+            logger.info("Cache Redis di Render berhasil dibersihkan via webhook /api/clear-cache/.")
+            return Response({'message': 'Cache Redis berhasil dibersihkan.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Gagal membersihkan cache via webhook: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @method_decorator(cache_page(60 * 60 * 24), name='dispatch')
 class LeagueViewSet(viewsets.ReadOnlyModelViewSet):

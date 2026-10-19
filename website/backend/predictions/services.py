@@ -596,8 +596,8 @@ def commit_uploaded_data(upload_type):
         from django.core.cache import cache
         cache.clear()
         logger.info("Cache Redis/Django berhasil dibersihkan otomatis setelah commit_uploaded_data.")
-    except Exception as e:
-        logger.warning(f"Gagal membersihkan cache secara otomatis: {e}")
+    except Exception:
+        pass
 
     return len(history_inserts), len(fixture_inserts)
 
@@ -834,7 +834,7 @@ def save_to_db(df_history, df_fixture):
         from django.core.cache import cache
         cache.clear()
         logger.info("Cache Redis/Django berhasil dibersihkan otomatis setelah process_and_append_fetched_data.")
-    except Exception as e:
-        logger.warning(f"Gagal membersihkan cache secara otomatis: {e}")
+    except Exception:
+        pass
 
     return len(history_inserts), len(fixture_inserts)

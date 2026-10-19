@@ -38,3 +38,9 @@ jobs:
     - name: Eksekusi Fetch History (Sinkronisasi Masa Lalu)
       working-directory: ./website/backend
       run: python manage.py fetch_history
+
+    - name: Bersihkan Cache Redis di Server Render
+      if: always()
+      run: |
+        curl -s -X POST https://l1prediksi-api.onrender.com/api/clear-cache/ \
+          -H "X-Sync-Secret: Laluarkan123@" || echo "Cache webhook selesai"
