@@ -1,5 +1,6 @@
 import os
 import re
+import datetime
 import logging
 import pandas as pd
 import numpy as np
@@ -80,16 +81,170 @@ def parse_csv_datetime(df):
             
     return df
 
+def sanitize_json_value(val):
+    if val is None:
+        return None
+    if isinstance(val, dict):
+        clean = {}
+        for k, v in val.items():
+            res = sanitize_json_value(v)
+            if res is not None:
+                clean[str(k)] = res
+            elif v is None:
+                clean[str(k)] = None
+        return clean
+    elif isinstance(val, (list, tuple, set)):
+        return [sanitize_json_value(x) for x in val]
+    elif isinstance(val, (np.ndarray, pd.Series)):
+        return [sanitize_json_value(x) for x in val.tolist()]
+    elif isinstance(val, (float, np.floating)):
+        f = float(val)
+        return None if (math.isnan(f) or math.isinf(f)) else f
+    elif isinstance(val, (int, np.integer)):
+        return int(val)
+    elif isinstance(val, (bool, np.bool_)):
+        return bool(val)
+    elif isinstance(val, (pd.Timestamp, datetime.datetime, datetime.date)):
+        return val.strftime('%Y-%m-%d %H:%M:%S') if hasattr(val, 'strftime') else str(val)
+    elif isinstance(val, str):
+        if val.strip().lower() in ('nan', 'inf', '-inf'):
+            return None
+        return val
+    else:
+        try:
+            if pd.isna(val):
+                return None
+        except Exception:
+            pass
+        return str(val)
+
 def clean_json_dict(d):
-    clean_d = {}
-    for k, v in d.items():
-        if pd.isna(v) or (isinstance(v, float) and math.isnan(v)):
+    if not isinstance(d, dict):
+        return {}
+    return sanitize_json_value(d)
+
+def build_and_save_parlays(df_history, df_fixture):
+    for is_hist, df_source in [(True, df_history), (False, df_fixture)]:
+        if df_source is None or df_source.empty:
             continue
-        if isinstance(v, pd.Timestamp):
-            clean_d[k] = v.strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            clean_d[k] = v
-    return clean_d
+        if 'part_of_parlay' not in df_source.columns:
+            continue
+        df_parlay_only = df_source[df_source['part_of_parlay'] == True].copy()
+        if df_parlay_only.empty:
+            continue
+
+        for t_info, group in df_parlay_only.groupby('parlay_ticket_info'):
+            if not t_info or pd.isna(t_info):
+                continue
+            legs_odds, legs_prob, legs_won, legs_details = [], [], [], []
+            for _, r in group.iterrows():
+                odds = extract_odds(r)
+                date_str = r['Date'].strftime('%Y-%m-%dT%H:%M:%S') if pd.notnull(r.get('Date')) else None
+                
+                pick_ftr = r.get('rl_pick_ftr')
+                if pd.isna(pick_ftr) or not pick_ftr or str(pick_ftr).lower() == 'nan':
+                    pick_ftr = None
+
+                pick_ou = r.get('rl_pick_ou')
+                if pd.isna(pick_ou) or not pick_ou or str(pick_ou).lower() == 'nan':
+                    pick_ou = None
+
+                try:
+                    edge_ftr = float(r.get('edge_ftr') or 0.0)
+                    if math.isnan(edge_ftr): edge_ftr = 0.0
+                except Exception:
+                    edge_ftr = 0.0
+
+                try:
+                    edge_ou = float(r.get('edge_ou') or 0.0)
+                    if math.isnan(edge_ou): edge_ou = 0.0
+                except Exception:
+                    edge_ou = 0.0
+
+                if pick_ftr and pick_ou:
+                    market_type = 'ftr' if edge_ftr >= edge_ou else 'ou'
+                    pick = pick_ftr if edge_ftr >= edge_ou else pick_ou
+                elif pick_ftr:
+                    market_type = 'ftr'
+                    pick = pick_ftr
+                elif pick_ou:
+                    market_type = 'ou'
+                    pick = pick_ou
+                else:
+                    # Fallback ke prediksi ML murni jika RL pick belum ada/Skip
+                    if edge_ftr >= edge_ou:
+                        market_type = 'ftr'
+                        m_probs = [float(r.get('prob_FTR_H') or 0.0), float(r.get('prob_FTR_D') or 0.0), float(r.get('prob_FTR_A') or 0.0)]
+                        pick = ['H', 'D', 'A'][int(np.argmax(m_probs))] if sum(m_probs) > 0 else 'H'
+                    else:
+                        market_type = 'ou'
+                        pick = 'Over 2.5' if float(r.get('prob_OU25_Yes') or 0.5) >= 0.5 else 'Under 2.5'
+
+                if not pick or pd.isna(pick) or str(pick).lower() == 'nan':
+                    pick = 'H'
+
+                if market_type == 'ftr':
+                    leg_odd = odds.get(pick) if odds.get(pick) else (odds.get('H') or 1.5)
+                    prob_val = r.get('prob_FTR_H') if pick == 'H' else (r.get('prob_FTR_D') if pick == 'D' else r.get('prob_FTR_A'))
+                    won_status = bool(r['is_won_ftr']) if pd.notnull(r.get('is_won_ftr')) else None
+                else:
+                    leg_odd = odds.get('O25') if pick == 'Over 2.5' else odds.get('U25')
+                    if not leg_odd or leg_odd <= 1.0:
+                        leg_odd = 1.85
+                    prob_val = r.get('prob_OU25_Yes') if pick == 'Over 2.5' else (1.0 - float(r.get('prob_OU25_Yes') or 0.5))
+                    won_status = bool(r['is_won_ou']) if pd.notnull(r.get('is_won_ou')) else None
+
+                try:
+                    leg_odd = float(leg_odd)
+                    if math.isnan(leg_odd) or math.isinf(leg_odd) or leg_odd <= 1.0:
+                        leg_odd = 1.5
+                except Exception:
+                    leg_odd = 1.5
+
+                try:
+                    prob_val = float(prob_val)
+                    if math.isnan(prob_val) or math.isinf(prob_val) or prob_val <= 0:
+                        prob_val = 0.5
+                except Exception:
+                    prob_val = 0.5
+
+                legs_odds.append(leg_odd)
+                legs_prob.append(prob_val)
+                legs_won.append(won_status)
+
+                legs_details.append({
+                    "match": f"{r['HomeTeam']} vs {r['AwayTeam']}", 
+                    "pick": str(pick), 
+                    "odds": round(leg_odd, 2),
+                    "date": date_str,
+                    "is_won": won_status
+                })
+
+            ticket_won = None
+            if is_hist:
+                if any(x is False for x in legs_won): ticket_won = False
+                elif all(x is True for x in legs_won): ticket_won = True
+
+            total_odds = float(np.prod(legs_odds)) if legs_odds else 1.0
+            if math.isnan(total_odds) or math.isinf(total_odds):
+                total_odds = 1.0
+
+            total_prob = float(np.prod(legs_prob)) if legs_prob else 0.5
+            if math.isnan(total_prob) or math.isinf(total_prob):
+                total_prob = 0.5
+
+            safe_details = sanitize_json_value(legs_details)
+
+            ParlayTicket.objects.filter(ticket_id=t_info).delete()
+            ParlayTicket.objects.create(
+                ticket_id=t_info, 
+                date=group['Date'].iloc[0].date() if pd.notnull(group['Date'].iloc[0]) else None, 
+                total_odds=round(total_odds, 4), 
+                total_prob=round(total_prob, 6), 
+                is_won=ticket_won, 
+                is_historical=is_hist, 
+                legs_details=safe_details
+            )
 
 def extract_odds(row):
     def safe_float(val):
@@ -496,76 +651,17 @@ def commit_uploaded_data(upload_type):
                 old_t = t_info.replace('PRLY-H-', 'PRLY-F-')
                 ParlayTicket.objects.filter(ticket_id=old_t).delete()
                 
-    for is_hist, df_source in [(True, df_history), (False, df_fixture)]:
-        if df_source.empty: continue
-        df_parlay_only = df_source[df_source['part_of_parlay'] == True].copy()
-        if df_parlay_only.empty: continue
-        
-        for t_info, group in df_parlay_only.groupby('parlay_ticket_info'):
-            legs_odds, legs_prob, legs_won, legs_details = [], [], [], []
-            for _, r in group.iterrows():
-                odds = extract_odds(r)
-                date_str = r['Date'].strftime('%Y-%m-%dT%H:%M:%S') if pd.notnull(r.get('Date')) else None
-                
-                if r['edge_ftr'] >= r['edge_ou']:
-                    pick = r['rl_pick_ftr']
-                    leg_odd = odds.get(pick) if odds.get(pick) else odds['H']
-                    legs_odds.append(leg_odd)
-                    legs_prob.append(r['prob_FTR_H'] if pick == 'H' else (r['prob_FTR_D'] if pick == 'D' else r['prob_FTR_A']))
-                    
-                    won_status = None
-                    if pd.notnull(r.get('is_won_ftr')):
-                        won_status = bool(r['is_won_ftr'])
-                        
-                    legs_won.append(won_status)
-                    legs_details.append({
-                        "match": f"{r['HomeTeam']} vs {r['AwayTeam']}", 
-                        "pick": pick, 
-                        "odds": leg_odd,
-                        "date": date_str,
-                        "is_won": won_status
-                    })
-                else:
-                    pick = r['rl_pick_ou']
-                    leg_odd = odds['O25'] if pick == 'Over 2.5' else odds['U25']
-                    legs_odds.append(leg_odd)
-                    legs_prob.append(r['prob_OU25_Yes'] if pick == 'Over 2.5' else (1.0 - r['prob_OU25_Yes']))
-                    
-                    won_status = None
-                    if pd.notnull(r.get('is_won_ou')):
-                        won_status = bool(r['is_won_ou'])
-                        
-                    legs_won.append(won_status)
-                    legs_details.append({
-                        "match": f"{r['HomeTeam']} vs {r['AwayTeam']}", 
-                        "pick": pick, 
-                        "odds": leg_odd,
-                        "date": date_str,
-                        "is_won": won_status
-                    })
-                    
-            ticket_won = None
-            if is_hist:
-                if any(x is False for x in legs_won): ticket_won = False
-                elif all(x is True for x in legs_won): ticket_won = True
-                
-            ParlayTicket.objects.filter(ticket_id=t_info).delete()
-            ParlayTicket.objects.create(
-                ticket_id=t_info, 
-                date=group['Date'].iloc[0].date() if pd.notnull(group['Date'].iloc[0]) else None, 
-                total_odds=float(np.prod(legs_odds)), 
-                total_prob=float(np.prod(legs_prob)), 
-                is_won=ticket_won, 
-                is_historical=is_hist, 
-                legs_details=legs_details
-            )
+    build_and_save_parlays(df_history, df_fixture)
             
     history_inserts = []
     for _, row in df_history.iterrows():
         if row['Div'] not in league_objs or row['HomeTeam'] not in team_objs or row['AwayTeam'] not in team_objs: continue
         odds = extract_odds(row)
         ext_feat = row.get('synced_ext_features')
-        if not isinstance(ext_feat, dict): ext_feat = clean_json_dict(row.to_dict())
+        if not isinstance(ext_feat, dict):
+            ext_feat = clean_json_dict(row.to_dict())
+        else:
+            ext_feat = clean_json_dict(ext_feat)
         history_inserts.append(MatchHistory(
             league=league_objs[row['Div']], date=make_aware_dt(row['Date']), home_team=team_objs[row['HomeTeam']], away_team=team_objs[row['AwayTeam']], fthg=row.get('FTHG'), ftag=row.get('FTAG'), ftr=row.get('FTR'),
             avg_h=odds['H'], avg_d=odds['D'], avg_a=odds['A'], avg_over_25=odds['O25'], avg_under_25=odds['U25'],
@@ -748,64 +844,17 @@ def save_to_db(df_history, df_fixture):
     UpcomingFixture.objects.all().delete()
     ParlayTicket.objects.all().delete()
     
-    for is_hist, df_source in [(True, df_history), (False, df_fixture)]:
-        if df_source.empty: continue
-        df_parlay_only = df_source[df_source['part_of_parlay'] == True].copy()
-        if df_parlay_only.empty: continue
-        for t_info, group in df_parlay_only.groupby('parlay_ticket_info'):
-            legs_odds, legs_prob, legs_won, legs_details = [], [], [], []
-            for _, r in group.iterrows():
-                odds = extract_odds(r)
-                date_str = r['Date'].strftime('%Y-%m-%dT%H:%M:%S') if pd.notnull(r.get('Date')) else None
-                
-                if r['edge_ftr'] >= r['edge_ou']:
-                    pick = r['rl_pick_ftr']
-                    leg_odd = odds.get(pick) if odds.get(pick) else odds['H']
-                    legs_odds.append(leg_odd)
-                    legs_prob.append(r['prob_FTR_H'] if pick == 'H' else (r['prob_FTR_D'] if pick == 'D' else r['prob_FTR_A']))
-                    
-                    won_status = None
-                    if pd.notnull(r.get('is_won_ftr')): won_status = bool(r['is_won_ftr'])
-                    
-                    legs_won.append(won_status)
-                    legs_details.append({
-                        "match": f"{r['HomeTeam']} vs {r['AwayTeam']}", 
-                        "pick": pick, 
-                        "odds": leg_odd,
-                        "date": date_str,
-                        "is_won": won_status
-                    })
-                else:
-                    pick = r['rl_pick_ou']
-                    leg_odd = odds['O25'] if pick == 'Over 2.5' else odds['U25']
-                    legs_odds.append(leg_odd)
-                    legs_prob.append(r['prob_OU25_Yes'] if pick == 'Over 2.5' else (1.0 - r['prob_OU25_Yes']))
-                    
-                    won_status = None
-                    if pd.notnull(r.get('is_won_ou')): won_status = bool(r['is_won_ou'])
-                    
-                    legs_won.append(won_status)
-                    legs_details.append({
-                        "match": f"{r['HomeTeam']} vs {r['AwayTeam']}", 
-                        "pick": pick, 
-                        "odds": leg_odd,
-                        "date": date_str,
-                        "is_won": won_status
-                    })
-                    
-            ticket_won = None
-            if is_hist:
-                if any(x is False for x in legs_won): ticket_won = False
-                elif all(x is True for x in legs_won): ticket_won = True
-                
-            ParlayTicket.objects.create(ticket_id=t_info, date=group['Date'].iloc[0].date() if pd.notnull(group['Date'].iloc[0]) else None, total_odds=float(np.prod(legs_odds)), total_prob=float(np.prod(legs_prob)), is_won=ticket_won, is_historical=is_hist, legs_details=legs_details)
+    build_and_save_parlays(df_history, df_fixture)
             
     history_inserts = []
     for _, row in df_history.iterrows():
         if row['Div'] not in league_objs or row['HomeTeam'] not in team_objs or row['AwayTeam'] not in team_objs: continue
         odds = extract_odds(row)
         ext_feat = row.get('synced_ext_features')
-        if not isinstance(ext_feat, dict): ext_feat = clean_json_dict(row.to_dict())
+        if not isinstance(ext_feat, dict):
+            ext_feat = clean_json_dict(row.to_dict())
+        else:
+            ext_feat = clean_json_dict(ext_feat)
         history_inserts.append(MatchHistory(
             league=league_objs[row['Div']], date=make_aware_dt(row['Date']), home_team=team_objs[row['HomeTeam']], away_team=team_objs[row['AwayTeam']], fthg=row.get('FTHG'), ftag=row.get('FTAG'), ftr=row.get('FTR'),
             avg_h=odds['H'], avg_d=odds['D'], avg_a=odds['A'], avg_over_25=odds['O25'], avg_under_25=odds['U25'],
