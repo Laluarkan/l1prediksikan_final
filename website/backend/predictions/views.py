@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.core.management import call_command
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.core.cache import cache
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -383,12 +384,16 @@ class DatasetConfirmSaveView(APIView):
             logger.error(f"Gagal menyimpan data konfirmasi: {str(e)}", exc_info=True)
             return Response({"error": f"Gagal menyimpan data ke database: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# Cache tetap dipertahankan karena JSON outputnya kecil (Hanya berisi angka rekap)
-@method_decorator(cache_page(60 * 60 * 2), name='dispatch')
 class PerformanceMetricsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
         season = request.query_params.get('season', 'ALL')
+        cache_key = f"perf_metrics_{season}"
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            resp = Response(cached_result)
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
         
         history_qs = MatchHistory.objects.all() 
         parlay_qs = ParlayTicket.objects.filter(is_historical=True)
@@ -462,7 +467,7 @@ class PerformanceMetricsAPIView(APIView):
                 parlay_losses += 1
                 parlay_unit_profit -= stake
 
-        return Response({
+        result = {
             "ftr": {
                 "wins": ftr_wins, "losses": ftr_losses, 
                 "unit_profit": ftr_unit_profit, "unit_stake": ftr_unit_stake
@@ -475,10 +480,12 @@ class PerformanceMetricsAPIView(APIView):
                 "wins": parlay_wins, "losses": parlay_losses, 
                 "unit_profit": parlay_unit_profit, "unit_stake": parlay_unit_stake
             }
-        })
+        }
+        cache.set(cache_key, result, timeout=60 * 60 * 12)
+        resp = Response(result)
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
 
-# Cache tetap dipertahankan karena JSON outputnya kecil (Hanya 20 list klasemen)
-@method_decorator(cache_page(60 * 60 * 2), name='dispatch')
 class LeagueStandingsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
@@ -487,6 +494,13 @@ class LeagueStandingsAPIView(APIView):
 
         if not league_code or not season:
             return Response([])
+
+        cache_key = f"standings_{league_code}_{season}"
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            resp = Response(cached_result)
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
 
         try:
             if '/' in season:
@@ -555,7 +569,10 @@ class LeagueStandingsAPIView(APIView):
         for i, team in enumerate(sorted_standings):
             team['rank'] = i + 1
 
-        return Response(sorted_standings)
+        cache.set(cache_key, sorted_standings, timeout=60 * 60 * 12)
+        resp = Response(sorted_standings)
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
 
 class BroadcastNotificationViewSet(viewsets.ModelViewSet):
     queryset = BroadcastNotification.objects.filter(is_active=True).order_by('-created_at')
