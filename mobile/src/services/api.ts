@@ -26,6 +26,7 @@ export interface League {
   code: string;
   name: string;
   country?: string;
+  logo_url?: string | null;
 }
 
 export interface TeamStanding {
@@ -46,6 +47,7 @@ export interface Fixture {
   id: number;
   league_name: string;
   league_code?: string;
+  league_logo?: string | null;
   home_team_name: string;
   away_team_name: string;
   home_team_logo?: string | null;
@@ -234,6 +236,7 @@ export interface MatchHistory {
   away_team_logo?: string | null;
   league_name: string;
   league_code?: string;
+  league_logo?: string | null;
   fthg: number | null;
   ftag: number | null;
   ftr: string | null;

@@ -23,12 +23,14 @@ import {
   Check,
   LogIn
 } from 'lucide-react';
+import { getOptimizedLogoUrl } from '@/lib/logo';
 
 interface League {
   id: number;
   code: string;
   name: string;
   country: string;
+  logo_url?: string;
 }
 
 interface Fixture {
@@ -40,6 +42,7 @@ interface Fixture {
   away_team_logo?: string;
   league_name: string;
   league_code?: string;
+  league_logo?: string;
   avg_h: number;
   avg_d: number;
   avg_a: number;
@@ -622,9 +625,17 @@ export default function FixturesPage() {
                         <div className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-800 text-slate-400 shrink-0">
                           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </div>
-                        <span className="text-[11px] text-slate-300 font-medium truncate">
+                        <span className="text-[11px] text-slate-300 font-medium truncate flex items-center gap-1.5">
                           {new Date(fixture.date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA
-                          <span className="ml-2 px-2 py-0.5 bg-slate-800 rounded-md text-emerald-400 font-semibold border border-slate-700">
+                          <span className="ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 rounded-md text-emerald-400 font-semibold border border-slate-700">
+                            {fixture.league_logo && (
+                              <img 
+                                src={getOptimizedLogoUrl(fixture.league_logo)} 
+                                alt="" 
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                className="w-3.5 h-3.5 object-contain shrink-0" 
+                              />
+                            )}
                             {fixture.league_name || "Liga Eropa"}
                           </span>
                         </span>
@@ -672,7 +683,7 @@ export default function FixturesPage() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={fixture.home_team_logo || '/default-logo.svg'} 
+                            src={getOptimizedLogoUrl(fixture.home_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                             className="w-6 h-6 object-contain shrink-0" 
@@ -681,7 +692,7 @@ export default function FixturesPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <img 
-                            src={fixture.away_team_logo || '/default-logo.svg'} 
+                            src={getOptimizedLogoUrl(fixture.away_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                             className="w-6 h-6 object-contain shrink-0" 

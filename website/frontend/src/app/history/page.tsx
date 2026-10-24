@@ -18,12 +18,14 @@ import {
   History, 
   Check 
 } from 'lucide-react';
+import { getOptimizedLogoUrl } from '@/lib/logo';
 
 interface League {
   id: number;
   code: string;
   name: string;
   country: string;
+  logo_url?: string;
 }
 
 interface MatchHistory {
@@ -34,6 +36,7 @@ interface MatchHistory {
   home_team_logo: string | null;
   away_team_logo: string | null;
   league_name: string;
+  league_logo?: string | null;
   fthg: number | null;
   ftag: number | null;
   ftr: string | null;
@@ -590,9 +593,17 @@ export default function HistoryPage() {
                         <div className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-800 text-slate-400 shrink-0">
                           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </div>
-                        <span className="text-[11px] text-slate-300 font-medium truncate">
+                        <span className="text-[11px] text-slate-300 font-medium truncate flex items-center gap-1.5">
                           {new Date(match.date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA
-                          <span className="ml-2 px-2 py-0.5 bg-slate-800 rounded-md text-slate-300 font-semibold border border-slate-700">
+                          <span className="ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 rounded-md text-slate-300 font-semibold border border-slate-700">
+                            {match.league_logo && (
+                              <img 
+                                src={getOptimizedLogoUrl(match.league_logo)} 
+                                alt="" 
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                className="w-3.5 h-3.5 object-contain shrink-0" 
+                              />
+                            )}
                             {match.league_name || "Liga Eropa"}
                           </span>
                         </span>
@@ -615,7 +626,7 @@ export default function HistoryPage() {
                         <div className="flex justify-between items-center pr-3">
                           <div className="flex items-center gap-2.5 overflow-hidden">
                             <img 
-                              src={match.home_team_logo || '/default-logo.svg'} 
+                              src={getOptimizedLogoUrl(match.home_team_logo)} 
                               alt="" 
                               onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                               className="w-6 h-6 object-contain shrink-0" 
@@ -628,7 +639,7 @@ export default function HistoryPage() {
                         <div className="flex justify-between items-center pr-3">
                           <div className="flex items-center gap-2.5 overflow-hidden">
                             <img 
-                              src={match.away_team_logo || '/default-logo.svg'} 
+                              src={getOptimizedLogoUrl(match.away_team_logo)} 
                               alt="" 
                               onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                               className="w-6 h-6 object-contain shrink-0" 

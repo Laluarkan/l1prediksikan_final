@@ -67,6 +67,9 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
 
         {showLeagueBadge ? (
           <View style={styles.leagueBadge}>
+            {fixture.league_logo ? (
+              <Image source={{ uri: fixture.league_logo }} style={{ width: 12, height: 12, marginRight: 4 }} resizeMode="contain" />
+            ) : null}
             <Text style={styles.leagueText} numberOfLines={1}>
               {fixture.league_name}
             </Text>

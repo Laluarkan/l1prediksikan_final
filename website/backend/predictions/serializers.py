@@ -36,6 +36,7 @@ def extract_curated_features(extended_features):
 class MatchHistorySerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
     league_code = serializers.CharField(source='league.code', read_only=True)
+    league_logo = serializers.URLField(source='league.logo_url', read_only=True)
     home_team_name = serializers.CharField(source='home_team.name', read_only=True)
     away_team_name = serializers.CharField(source='away_team.name', read_only=True)
     home_team_logo = serializers.URLField(source='home_team.logo_url', read_only=True)
@@ -60,6 +61,7 @@ class MatchHistorySerializer(serializers.ModelSerializer):
 class UpcomingFixtureSerializer(serializers.ModelSerializer):
     league_name = serializers.CharField(source='league.name', read_only=True)
     league_code = serializers.CharField(source='league.code', read_only=True)
+    league_logo = serializers.URLField(source='league.logo_url', read_only=True)
     home_team_name = serializers.CharField(source='home_team.name', read_only=True)
     away_team_name = serializers.CharField(source='away_team.name', read_only=True)
     home_team_logo = serializers.URLField(source='home_team.logo_url', read_only=True)

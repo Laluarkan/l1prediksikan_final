@@ -24,6 +24,7 @@ import {
   Send,
   Sparkles
 } from 'lucide-react';
+import { getOptimizedLogoUrl } from '@/lib/logo';
 
 interface SavedItem {
   id: number;
@@ -374,7 +375,7 @@ export default function UserPage() {
                       <div className="py-4 space-y-2">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={fixture.home_team_logo || '/default-logo.svg'} 
+                            src={getOptimizedLogoUrl(fixture.home_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
                             className="w-6 h-6 object-contain shrink-0" 
@@ -383,7 +384,7 @@ export default function UserPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <img 
-                            src={fixture.away_team_logo || '/default-logo.svg'} 
+                            src={getOptimizedLogoUrl(fixture.away_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
                             className="w-6 h-6 object-contain shrink-0" 
