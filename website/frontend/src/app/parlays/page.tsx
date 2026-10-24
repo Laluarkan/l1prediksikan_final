@@ -17,10 +17,19 @@ import {
   SlidersHorizontal,
   X 
 } from 'lucide-react';
+import { getTeamLogoUrl, getLeagueLogoUrl } from '@/lib/logo';
 
 interface ParlayLeg {
   match?: string;
   match_name?: string;
+  home_team?: string;
+  away_team?: string;
+  home_team_logo?: string;
+  away_team_logo?: string;
+  league?: string;
+  league_code?: string;
+  league_name?: string;
+  league_logo?: string;
   pick: string;
   odds: number;
   prob?: number;
@@ -384,19 +393,78 @@ export default function ParlaysPage() {
                         <div className="space-y-2">
                           {ticket.legs_details.map((leg, idx) => {
                             const matchName = leg.match_name || leg.match || 'Pertandingan';
+                            const parts = matchName.split(/\s+vs\s+/i);
+                            const homeTeam = leg.home_team || (parts.length > 0 ? parts[0].trim() : '');
+                            const awayTeam = leg.away_team || (parts.length > 1 ? parts[1].trim() : '');
+                            const leagueCode = leg.league_code || leg.league || '';
+                            const leagueName = leg.league_name || '';
+
                             const probVal = typeof leg.prob === 'number' && !isNaN(leg.prob) 
                               ? leg.prob 
                               : (leg.odds && leg.odds > 0 ? (1 / leg.odds) : 0.5);
                             const oddsVal = typeof leg.odds === 'number' && !isNaN(leg.odds) ? leg.odds.toFixed(2) : '-';
+
                             return (
-                              <div key={idx} className="flex justify-between items-center p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
-                                <div>
-                                  <span className="font-bold text-white block">{matchName}</span>
-                                  <span className="text-[11px] text-slate-400 font-mono">Pilihan: <strong className="text-emerald-400">{leg.pick}</strong> • {leg.market_type || 'Over/Under 2.5'}</span>
+                              <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800 gap-3 text-xs">
+                                {/* Left side: [Logo Liga] | [Logo Tim Home] Nama vs [Logo Tim Away] Nama */}
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {/* Logo Liga di kirinya */}
+                                  <div className="flex items-center gap-1.5 shrink-0" title={leagueName || leagueCode || 'Liga'}>
+                                    <img 
+                                      src={getLeagueLogoUrl(leagueCode, leagueName, leg.league_logo, homeTeam)} 
+                                      alt="" 
+                                      className="w-5 h-5 object-contain shrink-0"
+                                      onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                    {leagueCode && (
+                                      <span className="text-[10px] font-mono text-slate-400 hidden xs:inline">{leagueCode}</span>
+                                    )}
+                                  </div>
+
+                                  {/* Batas pemisah vertikal */}
+                                  <div className="h-6 w-px bg-slate-700/80 shrink-0" />
+
+                                  {/* Logo dan tim match di samping batas */}
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 min-w-0">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <img 
+                                        src={getTeamLogoUrl(homeTeam, leg.home_team_logo)} 
+                                        alt="" 
+                                        className="w-4 h-4 object-contain shrink-0"
+                                        onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
+                                      />
+                                      <span className="font-bold text-white truncate max-w-[130px] sm:max-w-[160px]">{homeTeam}</span>
+                                    </div>
+                                    
+                                    <span className="text-[10px] text-slate-500 font-semibold uppercase px-0.5">vs</span>
+
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <img 
+                                        src={getTeamLogoUrl(awayTeam, leg.away_team_logo)} 
+                                        alt="" 
+                                        className="w-4 h-4 object-contain shrink-0"
+                                        onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
+                                      />
+                                      <span className="font-bold text-white truncate max-w-[130px] sm:max-w-[160px]">{awayTeam}</span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="text-right font-mono">
-                                  <span className="text-slate-400 block text-[10px]">Odds: <strong className="text-white">{oddsVal}</strong></span>
-                                  <span className="text-emerald-400 text-[11px]">{(probVal * 100).toFixed(1)}% Est</span>
+
+                                {/* Right side: Pick, Market, Odds, Prob */}
+                                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+                                  <div className="text-left sm:text-right">
+                                    <span className="text-[11px] text-slate-400 font-mono block">
+                                      Pilihan: <strong className="text-emerald-400">{leg.pick}</strong>
+                                    </span>
+                                    <span className="text-[10px] text-slate-500">{leg.market_type || 'Over/Under 2.5'}</span>
+                                  </div>
+
+                                  <div className="text-right font-mono border-l border-slate-800 pl-3">
+                                    <span className="text-slate-400 block text-[10px]">
+                                      Odds: <strong className="text-white">{oddsVal}</strong>
+                                    </span>
+                                    <span className="text-emerald-400 text-[11px]">{(probVal * 100).toFixed(1)}% Est</span>
+                                  </div>
                                 </div>
                               </div>
                             );

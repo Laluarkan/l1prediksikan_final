@@ -254,8 +254,6 @@ class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
         return queryset
 
-# Cache diaktifkan kembali: payload ringkas (tanpa extended_features) aman di Redis & di-invalasi otomatis saat ada data baru
-@method_decorator(cache_page(60 * 60 * 12), name='dispatch')
 class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
@@ -276,8 +274,6 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
                 
         return queryset
 
-# Cache diaktifkan kembali: payload ringkas & di-invalasi otomatis saat ada data baru
-@method_decorator(cache_page(60 * 60 * 12), name='dispatch')
 class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParlayTicket.objects.all()
     serializer_class = ParlayTicketSerializer

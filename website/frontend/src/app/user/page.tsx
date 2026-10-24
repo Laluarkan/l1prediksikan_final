@@ -24,7 +24,7 @@ import {
   Send,
   Sparkles
 } from 'lucide-react';
-import { getOptimizedLogoUrl } from '@/lib/logo';
+import { getOptimizedLogoUrl, getTeamLogoUrl, getLeagueLogoUrl } from '@/lib/logo';
 
 interface SavedItem {
   id: number;
@@ -353,8 +353,14 @@ export default function UserPage() {
                       {/* Card Header */}
                       <div className="flex items-center justify-between pb-3 border-b border-slate-800/60">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                            {fixture.league_name || 'Liga Eropa'}
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                            <img 
+                              src={getLeagueLogoUrl(fixture.league_code, fixture.league_name, fixture.league_logo, fixture.home_team_name)} 
+                              alt="" 
+                              className="w-3.5 h-3.5 object-contain shrink-0" 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                            <span>{fixture.league_name || 'Liga Eropa'}</span>
                           </span>
                           <span className="text-[11px] text-slate-400">
                             {matchDate.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA
@@ -375,7 +381,7 @@ export default function UserPage() {
                       <div className="py-4 space-y-2">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={getOptimizedLogoUrl(fixture.home_team_logo)} 
+                            src={getTeamLogoUrl(fixture.home_team_name, fixture.home_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
                             className="w-6 h-6 object-contain shrink-0" 
@@ -384,7 +390,7 @@ export default function UserPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <img 
-                            src={getOptimizedLogoUrl(fixture.away_team_logo)} 
+                            src={getTeamLogoUrl(fixture.away_team_name, fixture.away_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
                             className="w-6 h-6 object-contain shrink-0" 

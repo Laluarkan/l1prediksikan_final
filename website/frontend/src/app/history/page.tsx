@@ -18,7 +18,7 @@ import {
   History, 
   Check 
 } from 'lucide-react';
-import { getOptimizedLogoUrl } from '@/lib/logo';
+import { getOptimizedLogoUrl, getTeamLogoUrl, getLeagueLogoUrl } from '@/lib/logo';
 
 interface League {
   id: number;
@@ -36,6 +36,7 @@ interface MatchHistory {
   home_team_logo: string | null;
   away_team_logo: string | null;
   league_name: string;
+  league_code?: string | null;
   league_logo?: string | null;
   fthg: number | null;
   ftag: number | null;
@@ -451,16 +452,22 @@ export default function HistoryPage() {
                         checked ? 'bg-emerald-500/10 text-emerald-300 font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleLeague(l.code)}
-                          className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0 w-3.5 h-3.5"
+                          className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0 w-3.5 h-3.5 shrink-0"
+                        />
+                        <img 
+                          src={getLeagueLogoUrl(l.code, l.name, l.logo_url)}
+                          alt="" 
+                          className="w-4 h-4 object-contain shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                         <span className="truncate">{l.name}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">{l.code}</span>
+                      <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-1">{l.code}</span>
                     </label>
                   );
                 })}
@@ -596,14 +603,12 @@ export default function HistoryPage() {
                         <span className="text-[11px] text-slate-300 font-medium truncate flex items-center gap-1.5">
                           {new Date(match.date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA
                           <span className="ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 rounded-md text-slate-300 font-semibold border border-slate-700">
-                            {match.league_logo && (
-                              <img 
-                                src={getOptimizedLogoUrl(match.league_logo)} 
-                                alt="" 
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                className="w-3.5 h-3.5 object-contain shrink-0" 
-                              />
-                            )}
+                            <img 
+                              src={getLeagueLogoUrl(match.league_code, match.league_name, match.league_logo, match.home_team_name)} 
+                              alt="" 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              className="w-3.5 h-3.5 object-contain shrink-0" 
+                            />
                             {match.league_name || "Liga Eropa"}
                           </span>
                         </span>
@@ -626,7 +631,7 @@ export default function HistoryPage() {
                         <div className="flex justify-between items-center pr-3">
                           <div className="flex items-center gap-2.5 overflow-hidden">
                             <img 
-                              src={getOptimizedLogoUrl(match.home_team_logo)} 
+                              src={getTeamLogoUrl(match.home_team_name, match.home_team_logo)} 
                               alt="" 
                               onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                               className="w-6 h-6 object-contain shrink-0" 
@@ -639,7 +644,7 @@ export default function HistoryPage() {
                         <div className="flex justify-between items-center pr-3">
                           <div className="flex items-center gap-2.5 overflow-hidden">
                             <img 
-                              src={getOptimizedLogoUrl(match.away_team_logo)} 
+                              src={getTeamLogoUrl(match.away_team_name, match.away_team_logo)} 
                               alt="" 
                               onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                               className="w-6 h-6 object-contain shrink-0" 

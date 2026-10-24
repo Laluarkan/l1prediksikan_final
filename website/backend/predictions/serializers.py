@@ -97,6 +97,11 @@ class ParlayTicketSerializer(serializers.ModelSerializer):
             match_title = item.get('match') or item.get('match_name') or 'Pertandingan'
             item['match'] = match_title
             item['match_name'] = match_title
+
+            if ' vs ' in match_title:
+                parts = match_title.split(' vs ')
+                item.setdefault('home_team', parts[0].strip())
+                item.setdefault('away_team', parts[1].strip())
             
             odds_val = float(item.get('odds') or 1.0)
             item['odds'] = odds_val

@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/axios';
 import { Trophy, Award, ArrowUpRight, ShieldAlert, Layers } from 'lucide-react';
-import { getOptimizedLogoUrl } from '@/lib/logo';
+import { getOptimizedLogoUrl, getTeamLogoUrl, getLeagueLogoUrl } from '@/lib/logo';
 
 interface League {
   id: number;
@@ -197,14 +197,12 @@ export default function StandingsPage() {
       {/* Page Header */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div className="flex items-center gap-3.5">
-          {currentLeagueObj?.logo_url && (
-            <img 
-              src={getOptimizedLogoUrl(currentLeagueObj.logo_url)} 
-              alt={currentLeagueObj.name} 
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              className="w-10 h-10 object-contain shrink-0 filter drop-shadow-md" 
-            />
-          )}
+          <img 
+            src={getLeagueLogoUrl(selectedLeague, currentLeagueObj?.name, currentLeagueObj?.logo_url)} 
+            alt={currentLeagueObj?.name || 'Liga'} 
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            className="w-10 h-10 object-contain shrink-0 filter drop-shadow-md" 
+          />
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Klasemen Liga {currentLeagueObj ? `– ${currentLeagueObj.name}` : ''}
@@ -218,6 +216,12 @@ export default function StandingsPage() {
         {/* Filter Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="bg-slate-800/90 border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center gap-2.5 shadow-sm">
+            <img 
+              src={getLeagueLogoUrl(selectedLeague, currentLeagueObj?.name, currentLeagueObj?.logo_url)}
+              alt=""
+              className="w-4 h-4 object-contain shrink-0"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
             <label htmlFor="league-filter" className="text-[10px] text-slate-400 font-bold uppercase tracking-wider cursor-pointer">Liga</label>
             <select
               id="league-filter"
@@ -331,7 +335,7 @@ export default function StandingsPage() {
                       <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2.5 sm:gap-3">
                           <img 
-                            src={getOptimizedLogoUrl(team.logo)} 
+                            src={getTeamLogoUrl(team.team, team.logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                             className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0 filter drop-shadow-sm" 

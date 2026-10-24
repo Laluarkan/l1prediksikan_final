@@ -23,7 +23,7 @@ import {
   Check,
   LogIn
 } from 'lucide-react';
-import { getOptimizedLogoUrl } from '@/lib/logo';
+import { getOptimizedLogoUrl, getTeamLogoUrl, getLeagueLogoUrl } from '@/lib/logo';
 
 interface League {
   id: number;
@@ -483,16 +483,22 @@ export default function FixturesPage() {
                         checked ? 'bg-emerald-500/10 text-emerald-300 font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleLeague(l.code)}
-                          className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0 w-3.5 h-3.5"
+                          className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0 w-3.5 h-3.5 shrink-0"
+                        />
+                        <img 
+                          src={getLeagueLogoUrl(l.code, l.name, l.logo_url)}
+                          alt="" 
+                          className="w-4 h-4 object-contain shrink-0"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                         <span className="truncate">{l.name}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400">{l.code}</span>
+                      <span className="text-[10px] font-mono text-slate-400 shrink-0 ml-1">{l.code}</span>
                     </label>
                   );
                 })}
@@ -628,14 +634,12 @@ export default function FixturesPage() {
                         <span className="text-[11px] text-slate-300 font-medium truncate flex items-center gap-1.5">
                           {new Date(fixture.date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA
                           <span className="ml-1 inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 rounded-md text-emerald-400 font-semibold border border-slate-700">
-                            {fixture.league_logo && (
-                              <img 
-                                src={getOptimizedLogoUrl(fixture.league_logo)} 
-                                alt="" 
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                className="w-3.5 h-3.5 object-contain shrink-0" 
-                              />
-                            )}
+                            <img 
+                              src={getLeagueLogoUrl(fixture.league_code, fixture.league_name, fixture.league_logo, fixture.home_team_name)} 
+                              alt="" 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              className="w-3.5 h-3.5 object-contain shrink-0" 
+                            />
                             {fixture.league_name || "Liga Eropa"}
                           </span>
                         </span>
@@ -683,7 +687,7 @@ export default function FixturesPage() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                           <img 
-                            src={getOptimizedLogoUrl(fixture.home_team_logo)} 
+                            src={getTeamLogoUrl(fixture.home_team_name, fixture.home_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                             className="w-6 h-6 object-contain shrink-0" 
@@ -692,7 +696,7 @@ export default function FixturesPage() {
                         </div>
                         <div className="flex items-center gap-3">
                           <img 
-                            src={getOptimizedLogoUrl(fixture.away_team_logo)} 
+                            src={getTeamLogoUrl(fixture.away_team_name, fixture.away_team_logo)} 
                             alt="" 
                             onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
                             className="w-6 h-6 object-contain shrink-0" 
@@ -796,9 +800,25 @@ export default function FixturesPage() {
                         </div>
 
                         <div className="grid grid-cols-[1.5fr_2fr_1.5fr] text-xs text-center border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">
-                          <div className="p-2 font-bold text-white bg-slate-900 truncate">{fixture.home_team_name}</div>
+                          <div className="p-2 font-bold text-white bg-slate-900 truncate flex items-center justify-center gap-1.5">
+                            <img 
+                              src={getTeamLogoUrl(fixture.home_team_name, fixture.home_team_logo)}
+                              alt="" 
+                              className="w-4 h-4 object-contain shrink-0"
+                              onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
+                            />
+                            <span className="truncate">{fixture.home_team_name}</span>
+                          </div>
                           <div className="p-2 font-mono text-[10px] text-slate-400 uppercase tracking-widest bg-slate-900/80">Parameter</div>
-                          <div className="p-2 font-bold text-white bg-slate-900 truncate">{fixture.away_team_name}</div>
+                          <div className="p-2 font-bold text-white bg-slate-900 truncate flex items-center justify-center gap-1.5">
+                            <img 
+                              src={getTeamLogoUrl(fixture.away_team_name, fixture.away_team_logo)}
+                              alt="" 
+                              className="w-4 h-4 object-contain shrink-0"
+                              onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }} 
+                            />
+                            <span className="truncate">{fixture.away_team_name}</span>
+                          </div>
 
                           <div className="p-2 border-t border-slate-800 text-blue-400 font-mono">
                             {ext.elo_home != null && !isNaN(Number(ext.elo_home)) ? Math.round(Number(ext.elo_home)) : '-'}
