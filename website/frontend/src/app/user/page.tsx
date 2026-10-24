@@ -22,7 +22,11 @@ import {
   Lock,
   ThumbsUp,
   Send,
-  Sparkles
+  Sparkles,
+  Plus,
+  Check,
+  User as UserIcon,
+  Flame
 } from 'lucide-react';
 import { getOptimizedLogoUrl, getTeamLogoUrl, getLeagueLogoUrl } from '@/lib/logo';
 
@@ -32,57 +36,29 @@ interface SavedItem {
   saved_at: string;
 }
 
-interface RoadmapItem {
-  id: string;
+interface FeatureItem {
+  id: number;
   title: string;
   category: string;
   description: string;
-  votes: number;
   icon: string;
+  created_by?: number | null;
+  created_by_username: string;
+  votes_count: number;
+  has_voted: boolean;
+  created_at: string;
 }
 
-const ROADMAP_FEATURES: RoadmapItem[] = [
-  {
-    id: 'tg-wa-notif',
-    title: 'Notifikasi Sinyal Value Bet via WhatsApp & Telegram',
-    category: 'Notifikasi',
-    description: 'Dapatkan pemberitahuan otomatis 1 jam sebelum kickoff saat algoritma menemukan selisih odds yang sangat menguntungkan.',
-    votes: 142,
-    icon: '📱'
-  },
-  {
-    id: 'paper-trading',
-    title: 'Simulasi Taruhan & Portofolio Virtual (Paper Trading)',
-    category: 'Portofolio',
-    description: 'Catat taruhan virtual tanpa uang sungguhan untuk menguji akurasi model dan memantau kurva pertumbuhan modal (ROI).',
-    votes: 98,
-    icon: '💼'
-  },
-  {
-    id: 'custom-parlay-builder',
-    title: 'Custom Parlay Builder dengan Filter Korelasi',
-    category: 'Alat Analisis',
-    description: 'Pilih sendiri pertandingan favorit Anda dan biarkan AI memverifikasi apakah kombinasi tersebut bebas korelasi negatif.',
-    votes: 87,
-    icon: '🎫'
-  },
-  {
-    id: 'injury-h2h-radar',
-    title: 'Radar Pemain Absen, Cedera & Taktik Formasi',
-    category: 'Wawasan Tim',
-    description: 'Integrasi data pemain kunci cedera atau akumulasi kartu yang berpotensi memengaruhi probabilitas gol dan odds.',
-    votes: 76,
-    icon: '⚔️'
-  },
-  {
-    id: 'export-report',
-    title: 'Ekspor Data Jadwal & Histori ke PDF / Excel',
-    category: 'Produktivitas',
-    description: 'Unduh lembar analisis statistik pertandingan dan rekap performa bulanan untuk catatan komparasi pribadi.',
-    votes: 53,
-    icon: '📊'
-  }
+const CATEGORY_OPTIONS = [
+  'Fitur Baru',
+  'Notifikasi',
+  'Portofolio',
+  'Alat Analisis',
+  'Wawasan Tim',
+  'Produktivitas'
 ];
+
+const ICON_OPTIONS = ['💡', '⚡', '📱', '💼', '🎫', '⚔️', '📊', '🚀'];
 
 export default function UserPage() {
   const { data: session, status } = useSession();
@@ -98,10 +74,19 @@ export default function UserPage() {
   const [prefMinOdds, setPrefMinOdds] = useState<number>(1.4);
   const [savePrefStatus, setSavePrefStatus] = useState<string | null>(null);
 
-  // Roadmap & Feedback
-  const [votedIds, setVotedIds] = useState<string[]>([]);
-  const [suggestionText, setSuggestionText] = useState('');
-  const [feedbackSent, setFeedbackSent] = useState(false);
+  // Roadmap & Feature Suggestions
+  const [features, setFeatures] = useState<FeatureItem[]>([]);
+  const [loadingFeatures, setLoadingFeatures] = useState(true);
+  const [votingId, setVotingId] = useState<number | null>(null);
+  const [isSubmittingFeature, setIsSubmittingFeature] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Form for new feature
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState('Fitur Baru');
+  const [newDescription, setNewDescription] = useState('');
+  const [newIcon, setNewIcon] = useState('💡');
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Load Saved Matches from Backend
@@ -120,6 +105,21 @@ export default function UserPage() {
       });
   };
 
+  // Load Features from Backend
+  const loadFeatures = () => {
+    setLoadingFeatures(true);
+    api.get('/features/')
+      .then((res) => {
+        const data = res.data.results || res.data;
+        setFeatures(Array.isArray(data) ? data : []);
+        setLoadingFeatures(false);
+      })
+      .catch((err) => {
+        console.error("Gagal memuat rekomendasi fitur:", err);
+        setLoadingFeatures(false);
+      });
+  };
+
   useEffect(() => {
     if (status === 'authenticated') {
       loadSavedMatches();
@@ -131,6 +131,7 @@ export default function UserPage() {
       const savedOdds = localStorage.getItem('user_min_odds');
       if (savedOdds) setPrefMinOdds(Number(savedOdds));
     }
+    loadFeatures();
   }, [status]);
 
   const handleRemoveSaved = async (fixtureId: number) => {
@@ -157,23 +158,59 @@ export default function UserPage() {
     setTimeout(() => setSavePrefStatus(null), 3000);
   };
 
-  const handleVote = (id: string) => {
-    if (votedIds.includes(id)) {
-      setVotedIds((prev) => prev.filter((vId) => vId !== id));
-      showToast('Suara voting Anda dibatalkan.');
-    } else {
-      setVotedIds((prev) => [...prev, id]);
-      showToast('Terima kasih! Suara Anda dicatat untuk prioritas pengembangan.');
+  const handleVote = async (featureId: number) => {
+    if (status !== 'authenticated') {
+      showToast('Silakan login terlebih dahulu untuk memberikan dukungan fitur.');
+      return;
+    }
+    setVotingId(featureId);
+    try {
+      const res = await api.post(`/features/${featureId}/vote/`);
+      const { has_voted, votes_count } = res.data;
+      setFeatures((prev) =>
+        prev
+          .map((f) => (f.id === featureId ? { ...f, has_voted, votes_count } : f))
+          .sort((a, b) => b.votes_count - a.votes_count)
+      );
+      showToast(has_voted ? 'Terima kasih! Suara dukungan Anda berhasil dicatat.' : 'Dukungan fitur dibatalkan.');
+    } catch (err) {
+      console.error("Gagal vote fitur:", err);
+      showToast('Gagal memproses dukungan fitur.');
+    } finally {
+      setVotingId(null);
     }
   };
 
-  const handleSubmitSuggestion = (e: React.FormEvent) => {
+  const handleCreateFeature = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!suggestionText.trim()) return;
-    setFeedbackSent(true);
-    setSuggestionText('');
-    showToast('Saran fitur Anda telah berhasil dikirim ke tim pengembang!');
-    setTimeout(() => setFeedbackSent(false), 4000);
+    if (!newTitle.trim()) {
+      showToast('Judul fitur wajib diisi.');
+      return;
+    }
+    if (status !== 'authenticated') {
+      showToast('Silakan login terlebih dahulu untuk mengusulkan fitur.');
+      return;
+    }
+
+    setIsSubmittingFeature(true);
+    try {
+      await api.post('/features/', {
+        title: newTitle.trim(),
+        category: newCategory,
+        description: newDescription.trim(),
+        icon: newIcon || '💡'
+      });
+      showToast('Usulan rekomendasi fitur berhasil ditambahkan!');
+      setNewTitle('');
+      setNewDescription('');
+      setShowAddForm(false);
+      loadFeatures();
+    } catch (err) {
+      console.error("Gagal menambah rekomendasi fitur:", err);
+      showToast('Gagal menambahkan usulan fitur.');
+    } finally {
+      setIsSubmittingFeature(false);
+    }
   };
 
   const showToast = (msg: string) => {
@@ -183,6 +220,66 @@ export default function UserPage() {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
+  };
+
+  // Helper untuk Rekomendasi 1X2 (Menampilkan Model ML jika Bukan Value Bet)
+  const getRecommendationFtr = (fixture: any) => {
+    const isValueBet = 
+      fixture.rl_stake_ftr > 0 && 
+      fixture.rl_pick_ftr && 
+      String(fixture.rl_pick_ftr).toLowerCase() !== 'nan';
+
+    if (isValueBet) {
+      const pickLabel = fixture.rl_pick_ftr === 'H' ? 'Home' : fixture.rl_pick_ftr === 'D' ? 'Draw' : fixture.rl_pick_ftr === 'A' ? 'Away' : fixture.rl_pick_ftr;
+      return {
+        text: `${pickLabel} (Value Bet)`,
+        action: fixture.rl_action_ftr || 'Bet',
+        isValueBet: true
+      };
+    }
+
+    const probs = [
+      { label: 'Home', val: Number(fixture.prob_ftr_h) || 0 },
+      { label: 'Draw', val: Number(fixture.prob_ftr_d) || 0 },
+      { label: 'Away', val: Number(fixture.prob_ftr_a) || 0 }
+    ];
+    const maxProb = probs.reduce((max, p) => p.val > max.val ? p : max, probs[0]);
+    const pct = Math.round(maxProb.val * 100);
+
+    return {
+      text: `${maxProb.label} (${pct}%)`,
+      action: 'Skip Bet',
+      isValueBet: false
+    };
+  };
+
+  // Helper untuk Rekomendasi O/U (Menampilkan Model ML jika Bukan Value Bet)
+  const getRecommendationOu = (fixture: any) => {
+    const isValueBet = 
+      fixture.rl_stake_ou > 0 && 
+      fixture.rl_pick_ou && 
+      String(fixture.rl_pick_ou).toLowerCase() !== 'nan';
+
+    if (isValueBet) {
+      return {
+        text: `${fixture.rl_pick_ou} (Value Bet)`,
+        action: fixture.rl_action_ou || 'Bet',
+        isValueBet: true
+      };
+    }
+
+    const overVal = Number(fixture.prob_ou25_over) || 0;
+    const underVal = Number(fixture.prob_ou25_under) || 0;
+    const isOver = overVal >= underVal;
+    const highestVal = isOver ? overVal : underVal;
+    const pct = Math.round(highestVal * 100);
+    const label = isOver ? 'Over 2.5' : 'Under 2.5';
+
+    return {
+      text: `${label} (${pct}%)`,
+      action: 'Skip Bet',
+      isValueBet: false
+    };
   };
 
   if (status === "loading") {
@@ -276,7 +373,7 @@ export default function UserPage() {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6 overflow-x-auto text-xs sm:text-sm font-semibold scrollbar-none">
         <button
           onClick={() => setActiveTab('favorites')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all cursor-pointer ${
             activeTab === 'favorites'
               ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -288,7 +385,7 @@ export default function UserPage() {
 
         <button
           onClick={() => setActiveTab('preferences')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all cursor-pointer ${
             activeTab === 'preferences'
               ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -300,14 +397,14 @@ export default function UserPage() {
 
         <button
           onClick={() => setActiveTab('roadmap')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all cursor-pointer ${
             activeTab === 'roadmap'
               ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
               : 'text-slate-400 hover:text-white hover:bg-slate-800'
           }`}
         >
           <Lightbulb size={15} />
-          <span>Rekomendasi Fitur &amp; Saran</span>
+          <span>Rekomendasi Fitur &amp; Saran ({features.length})</span>
         </button>
       </div>
 
@@ -342,7 +439,8 @@ export default function UserPage() {
                 if (!fixture) return null;
 
                 const matchDate = new Date(fixture.date);
-                const isPast = matchDate.getTime() < new Date().getTime();
+                const recFtr = getRecommendationFtr(fixture);
+                const recOu = getRecommendationOu(fixture);
 
                 return (
                   <div 
@@ -370,7 +468,7 @@ export default function UserPage() {
                         <button
                           onClick={() => handleRemoveSaved(fixture.id)}
                           disabled={deletingId === fixture.id}
-                          className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                          className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
                           title="Hapus dari daftar simpan"
                         >
                           <Trash2 size={15} />
@@ -399,19 +497,44 @@ export default function UserPage() {
                         </div>
                       </div>
 
-                      {/* Odds & Value Bet */}
+                      {/* Odds & Recommendation (Fixed: Always display model ML prediction if not value bet) */}
                       <div className="grid grid-cols-2 gap-2 text-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800">
                         <div>
-                          <span className="text-[10px] text-slate-400 block">Rekomendasi 1X2</span>
-                          <span className="font-extrabold text-blue-400">
-                            {fixture.rl_pick_ftr ? `${fixture.rl_pick_ftr} (${fixture.rl_action_ftr || 'Bet'})` : 'Analisis ML'}
-                          </span>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10px] text-slate-400 font-medium">Rekomendasi 1X2</span>
+                            {recFtr.isValueBet ? (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">Value Bet</span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-medium">Model ML</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`font-extrabold ${recFtr.isValueBet ? 'text-blue-400' : 'text-slate-200'}`}>
+                              {recFtr.text}
+                            </span>
+                            {!recFtr.isValueBet && (
+                              <span className="text-[10px] text-slate-400 italic">• Skip Bet</span>
+                            )}
+                          </div>
                         </div>
+
                         <div>
-                          <span className="text-[10px] text-slate-400 block">Rekomendasi O/U</span>
-                          <span className="font-extrabold text-purple-400">
-                            {fixture.rl_pick_ou || 'Under 2.5'}
-                          </span>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[10px] text-slate-400 font-medium">Rekomendasi O/U</span>
+                            {recOu.isValueBet ? (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">Value Bet</span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-medium">Model ML</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`font-extrabold ${recOu.isValueBet ? 'text-purple-400' : 'text-slate-200'}`}>
+                              {recOu.text}
+                            </span>
+                            {!recOu.isValueBet && (
+                              <span className="text-[10px] text-slate-400 italic">• Skip Bet</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -449,51 +572,42 @@ export default function UserPage() {
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
                 Bankroll Bawaan (Rp)
               </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm font-semibold">Rp</span>
-                <input
-                  type="number"
-                  value={userBankroll}
-                  onChange={(e) => setUserBankroll(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm font-semibold focus:outline-none focus:border-emerald-500"
-                />
-              </div>
+              <input
+                type="number"
+                min="10000"
+                step="50000"
+                value={userBankroll}
+                onChange={(e) => setUserBankroll(Number(e.target.value))}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-emerald-500 font-mono"
+              />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Profil Toleransi Risiko Staking
+                Toleransi Risiko Kelly
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  { id: 'conservative', label: 'Konservatif', sub: 'Fractional Kelly 0.25x' },
-                  { id: 'balanced', label: 'Seimbang (Default)', sub: 'Fractional Kelly 0.50x' },
-                  { id: 'aggressive', label: 'Agresif', sub: 'Full Kelly 1.00x' }
-                ].map((item) => (
+              <div className="grid grid-cols-3 gap-2">
+                {(['conservative', 'balanced', 'aggressive'] as const).map((mode) => (
                   <button
-                    key={item.id}
+                    key={mode}
                     type="button"
-                    onClick={() => setRiskTolerance(item.id as any)}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      riskTolerance === item.id 
-                        ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-sm' 
-                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                    onClick={() => setRiskTolerance(mode)}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold capitalize transition-all cursor-pointer ${
+                      riskTolerance === mode
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-sm'
+                        : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
                     }`}
                   >
-                    <span className="text-xs font-bold block text-white">{item.label}</span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">{item.sub}</span>
+                    {mode === 'conservative' ? 'Konservatif (1/4)' : mode === 'balanced' ? 'Seimbang (1/2)' : 'Agresif (Full)'}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Batas Bawah Minimum Odds
-                </label>
-                <span className="text-xs font-mono font-bold text-emerald-400">{prefMinOdds.toFixed(1)}</span>
-              </div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                Batas Minimum Odds: <span className="text-emerald-400 font-mono">{prefMinOdds.toFixed(2)}</span>
+              </label>
               <input
                 type="range"
                 min="1.0"
@@ -526,90 +640,216 @@ export default function UserPage() {
       {activeTab === 'roadmap' && (
         <div className="space-y-8 animate-fadeIn">
           
-          <div>
-            <h2 className="text-lg sm:text-xl font-bold text-white">Rencana Pembaruan Fitur (Roadmap Pengguna)</h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Beri dukungan (vote) untuk fitur yang paling Anda inginkan agar segera diprioritaskan dalam pembaruan berikutnya.
-            </p>
-          </div>
-
-          {/* Voting Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {ROADMAP_FEATURES.map((item) => {
-              const isVoted = votedIds.includes(item.id);
-              const voteCount = item.votes + (isVoted ? 1 : 0);
-
-              return (
-                <div 
-                  key={item.id} 
-                  className={`p-5 rounded-2xl bg-slate-900/80 border transition-all flex flex-col justify-between space-y-4 ${
-                    isVoted ? 'border-emerald-500/50 bg-slate-900/90' : 'border-slate-800/80 hover:border-slate-700/80'
-                  }`}
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl">{item.icon}</span>
-                      <span className="text-[10px] font-bold text-slate-400 bg-slate-950/60 border border-slate-800/70 px-2.5 py-1 rounded-md">
-                        {item.category}
-                      </span>
-                    </div>
-
-                    <h3 className="text-sm font-bold text-white leading-snug">{item.title}</h3>
-                    <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between">
-                    <span className="text-xs font-mono text-slate-300">
-                      <strong>{voteCount}</strong> Pemilih
-                    </span>
-
-                    <button
-                      onClick={() => handleVote(item.id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                        isVoted
-                          ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
-                          : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700'
-                      }`}
-                    >
-                      <ThumbsUp size={13} className={isVoted ? 'fill-current' : ''} />
-                      <span>{isVoted ? 'Didukung' : 'Dukung Fitur'}</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Custom Feature Suggestion Box */}
-          <div className="p-6 sm:p-7 rounded-3xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-4">
+          {/* Header Roadmap with Add Suggestion Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-white">Punya Ide atau Masukan Fitur Lain?</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Tuliskan saran fitur yang Anda perlukan untuk mempermudah analisis pertandingan sepak bola Anda.
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                <span>Rencana Pembaruan Fitur &amp; Rekomendasi</span>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono font-bold">
+                  {features.length} Ide
+                </span>
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                Beri dukungan (vote) untuk fitur yang paling Anda inginkan agar segera diprioritaskan. Diurutkan otomatis berdasarkan suara terbanyak.
               </p>
             </div>
 
-            <form onSubmit={handleSubmitSuggestion} className="space-y-3">
-              <textarea
-                rows={3}
-                value={suggestionText}
-                onChange={(e) => setSuggestionText(e.target.value)}
-                placeholder="Contoh: Tambahkan grafik formasi tim dan perbandingan head-to-head langsung di halaman jadwal..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors resize-none"
-              />
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={!suggestionText.trim()}
-                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  <Send size={13} />
-                  <span>Kirim Masukan</span>
-                </button>
-              </div>
-            </form>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-950/40 transition-all cursor-pointer self-start sm:self-auto shrink-0"
+            >
+              <Plus size={15} />
+              <span>{showAddForm ? 'Tutup Formulir' : 'Usulkan Fitur Baru'}</span>
+            </button>
           </div>
+
+          {/* Form Tambah Rekomendasi Fitur (Database-backed) */}
+          {showAddForm && (
+            <div className="p-6 rounded-3xl bg-slate-900 border border-emerald-500/40 shadow-xl space-y-4 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                    <Sparkles size={16} className="text-emerald-400" />
+                    <span>Usulkan Fitur atau Rekomendasi Baru</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Usulan Anda akan otomatis disimpan ke database, tertera nama pengusul, dan dapat didukung oleh anggota lainnya.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleCreateFeature} className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Judul Rekomendasi Fitur <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Contoh: Notifikasi Telegram Sinyal Underdog Otomatis"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Kategori
+                    </label>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      {CATEGORY_OPTIONS.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Pilih Ikon Representatif
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {ICON_OPTIONS.map((icon) => (
+                      <button
+                        key={icon}
+                        type="button"
+                        onClick={() => setNewIcon(icon)}
+                        className={`w-9 h-9 rounded-xl border text-base flex items-center justify-center transition-all cursor-pointer ${
+                          newIcon === icon
+                            ? 'bg-emerald-500/20 border-emerald-500 scale-105 shadow-sm'
+                            : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Deskripsi Detail &amp; Alasan
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="Jelaskan bagaimana fitur ini dapat mempermudah Anda dalam menganalisis probabilitas dan odds..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddForm(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingFeature || !newTitle.trim()}
+                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-5 py-2 rounded-xl text-xs transition-colors shadow-md shadow-emerald-950/40 cursor-pointer"
+                  >
+                    <Send size={13} />
+                    <span>{isSubmittingFeature ? 'Menyimpan...' : 'Kirim Usulan Fitur'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Voting Cards Grid (Database Dynamic & Ranked by Highest Votes) */}
+          {loadingFeatures ? (
+            <div className="text-center py-16 text-sm text-slate-400 bg-slate-850/60 border border-slate-800 rounded-2xl animate-pulse">
+              Memuat daftar rekomendasi fitur dari komunitas...
+            </div>
+          ) : features.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-slate-850 border border-slate-800 rounded-3xl space-y-3">
+              <Lightbulb size={32} className="text-amber-400 mx-auto" />
+              <h3 className="text-base font-bold text-white">Belum Ada Rekomendasi Fitur</h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Jadilah yang pertama mengusulkan fitur baru untuk pengembangan platform L1 Prediksi-Kan.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {features.map((item, idx) => {
+                const isVoted = item.has_voted;
+                const isTop1 = idx === 0;
+
+                return (
+                  <div 
+                    key={item.id} 
+                    className={`p-5 rounded-2xl bg-slate-900/80 border transition-all flex flex-col justify-between space-y-4 shadow-sm relative overflow-hidden ${
+                      isVoted ? 'border-emerald-500/50 bg-slate-900/90' : 'border-slate-800/80 hover:border-slate-700/80'
+                    }`}
+                  >
+                    {isTop1 && (
+                      <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500/20 to-transparent px-3 py-1 rounded-bl-xl border-b border-l border-amber-500/30 flex items-center gap-1 text-[10px] font-bold text-amber-400">
+                        <Flame size={12} className="text-amber-400 fill-amber-400" />
+                        <span>Paling Banyak Didukung</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-2xl">{item.icon || '💡'}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-950/60 border border-slate-800/70 px-2.5 py-1 rounded-md">
+                            {item.category}
+                          </span>
+                        </div>
+                      </div>
+
+                      <h3 className="text-sm font-bold text-white leading-snug">{item.title}</h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">{item.description}</p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-slate-300">
+                          <strong>{item.votes_count}</strong> Pemilih
+                        </span>
+                        <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                          • <UserIcon size={11} className="inline" /> {item.created_by_username || 'Admin'}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleVote(item.id)}
+                        disabled={votingId === item.id}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          isVoted
+                            ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
+                            : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 border border-slate-700'
+                        }`}
+                      >
+                        {isVoted ? (
+                          <>
+                            <Check size={13} className="stroke-[3]" />
+                            <span>Didukung</span>
+                          </>
+                        ) : (
+                          <>
+                            <ThumbsUp size={13} />
+                            <span>Dukung Fitur</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
         </div>
       )}

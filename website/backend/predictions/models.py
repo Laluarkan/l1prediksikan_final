@@ -137,4 +137,28 @@ class BroadcastNotification(models.Model):
         verbose_name_plural = 'Siaran Notifikasi'
 
     def __str__(self):
-        return f"[{self.notif_type}] {self.title}"
+        return f"[{self.notif_type}] {self.title}"
+
+class FeatureSuggestion(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=100, default='Fitur Baru')
+    icon = models.CharField(max_length=50, default='💡')
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_features')
+    voters = models.ManyToManyField(CustomUser, related_name='voted_features', blank=True)
+    base_votes = models.PositiveIntegerField(default=0)
+    is_approved = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Rekomendasi Fitur'
+        verbose_name_plural = 'Rekomendasi Fitur'
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def total_votes(self):
+        return self.base_votes + self.voters.count()

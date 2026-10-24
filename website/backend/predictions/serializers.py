@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification, SavedPrediction
+from .models import (League, Team, MatchHistory, UpcomingFixture, ParlayTicket, 
+                    BroadcastNotification, SavedPrediction, FeatureSuggestion)
 
 class LeagueSerializer(serializers.ModelSerializer):
     class Meta:
@@ -140,3 +141,36 @@ class SavedPredictionSerializer(serializers.ModelSerializer):
         model = SavedPrediction
         fields = ['id', 'user', 'fixture', 'fixture_id', 'saved_at']
         read_only_fields = ['id', 'user', 'saved_at']
+
+class FeatureSuggestionSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.SerializerMethodField()
+    votes_count = serializers.SerializerMethodField()
+    has_voted = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FeatureSuggestion
+        fields = [
+            'id', 'title', 'description', 'category', 'icon', 
+            'created_by', 'created_by_username', 'votes_count', 
+            'has_voted', 'is_approved', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_by', 'created_by_username', 'votes_count', 'has_voted', 'created_at', 'updated_at']
+
+    def get_created_by_username(self, obj):
+        if obj.created_by:
+            return obj.created_by.first_name or obj.created_by.username
+        return 'Admin'
+
+    def get_votes_count(self, obj):
+        voters_cnt = getattr(obj, 'voters_count', None)
+        if voters_cnt is None:
+            voters_cnt = obj.voters.count()
+        return (obj.base_votes or 0) + voters_cnt
+
+    def get_has_voted(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return False
+        if hasattr(obj, 'user_has_voted'):
+            return obj.user_has_voted
+        return obj.voters.filter(id=request.user.id).exists()

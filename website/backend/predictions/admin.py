@@ -1,11 +1,19 @@
 from django.contrib import admin
-from .models import CustomUser, UserProfile, League, Team, MatchHistory, UpcomingFixture, SavedPrediction, ParlayTicket, BroadcastNotification
+from .models import CustomUser, UserProfile, League, Team, MatchHistory, UpcomingFixture, SavedPrediction, ParlayTicket, BroadcastNotification, FeatureSuggestion
 
 admin.site.register(CustomUser)
 admin.site.register(UserProfile)
 admin.site.register(League)
 admin.site.register(Team)
 admin.site.register(SavedPrediction)
+
+@admin.register(FeatureSuggestion)
+class FeatureSuggestionAdmin(admin.ModelAdmin):
+    list_display = ('title', 'category', 'icon', 'created_by', 'total_votes', 'is_approved', 'created_at')
+    list_filter = ('category', 'is_approved', 'created_at')
+    search_fields = ('title', 'description', 'created_by__username')
+    ordering = ('-created_at',)
+
 
 @admin.register(BroadcastNotification)
 class BroadcastNotificationAdmin(admin.ModelAdmin):

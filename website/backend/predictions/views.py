@@ -12,19 +12,20 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Q
+from django.db.models import Q, Count, F
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 
-from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification, SavedPrediction
+from .models import (League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification, 
+                    SavedPrediction, FeatureSuggestion)
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
                           UpcomingFixtureSerializer, ParlayTicketSerializer, BroadcastNotificationSerializer,
-                          SavedPredictionSerializer)
+                          SavedPredictionSerializer, FeatureSuggestionSerializer)
 from .services import preview_uploaded_data, commit_uploaded_data
 
 logger = logging.getLogger(__name__)
@@ -734,4 +735,42 @@ class SavedPredictionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='ids')
     def ids(self, request):
         saved_ids = list(SavedPrediction.objects.filter(user=request.user).values_list('fixture_id', flat=True))
-        return Response({'saved_fixture_ids': saved_ids}, status=status.HTTP_200_OK)
+        return Response({'saved_fixture_ids': saved_ids}, status=status.HTTP_200_OK)
+
+class FeatureSuggestionViewSet(viewsets.ModelViewSet):
+    serializer_class = FeatureSuggestionSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'description', 'category']
+    ordering_fields = ['created_at']
+
+    def get_queryset(self):
+        return FeatureSuggestion.objects.filter(is_approved=True).annotate(
+            voters_count=Count('voters'),
+            total_score=F('base_votes') + Count('voters')
+        ).select_related('created_by').order_by('-total_score', '-created_at')
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        instance = serializer.save(created_by=user, base_votes=1)
+        if user:
+            instance.voters.add(user)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def vote(self, request, pk=None):
+        suggestion = self.get_object()
+        user = request.user
+        if suggestion.voters.filter(id=user.id).exists():
+            suggestion.voters.remove(user)
+            has_voted = False
+        else:
+            suggestion.voters.add(user)
+            has_voted = True
+        
+        total_votes = (suggestion.base_votes or 0) + suggestion.voters.count()
+        return Response({
+            'status': 'success',
+            'has_voted': has_voted,
+            'votes_count': total_votes
+        }, status=status.HTTP_200_OK)
+
