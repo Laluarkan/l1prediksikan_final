@@ -6,7 +6,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-CLIENT_APP_SECRET = os.environ.get('SYNC_SECRET_KEY', 'Laluarkan123@')
+CLIENT_APP_SECRET = os.environ.get('SYNC_SECRET_KEY', '')
 
 ALLOWED_ORIGINS = {
     'https://www.l1prediksikan.my.id',

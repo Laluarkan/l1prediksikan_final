@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api";
-const SYNC_SECRET = process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "Laluarkan123@";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
+const SYNC_SECRET = process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "";
 
 export async function POST(request: NextRequest) {
   try {

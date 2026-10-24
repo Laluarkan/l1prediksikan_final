@@ -1,19 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState } from 'react';
-import api from '@/lib/axios';
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
+import api from '@/lib/axios';
+import { 
+  ChevronDown, 
+  ChevronUp, 
+  Layers, 
+  Lock, 
+  ChevronLeft, 
+  ChevronRight, 
+  Search, 
+  SlidersHorizontal,
+  X 
+} from 'lucide-react';
 
 interface ParlayLeg {
-  match: string;
+  match?: string;
+  match_name?: string;
   pick: string;
   odds: number;
-  date?: string;
-  is_won?: boolean | null;
+  prob?: number;
+  market_type?: string;
 }
 
 interface ParlayTicket {
@@ -22,38 +33,32 @@ interface ParlayTicket {
   date: string;
   total_odds: number;
   total_prob: number;
+  legs_count: number;
   is_won: boolean | null;
-  is_historical: boolean;
-  legs_details?: ParlayLeg[]; 
+  legs_details: ParlayLeg[];
 }
 
 export default function ParlaysPage() {
   const { status } = useSession();
-  
   const [tickets, setTickets] = useState<ParlayTicket[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [ticketStake, setTicketStake] = useState<number>(10000); 
+  const [ticketStake, setTicketStake] = useState<number>(50000);
   const [searchTerm, setSearchTerm] = useState('');
-  const [triggerFetch, setTriggerFetch] = useState(0);
+  
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   useEffect(() => {
-    if (status !== "authenticated") return;
-
+    if (status !== 'authenticated') return;
+    
     setLoading(true);
     const params: Record<string, any> = {
-      ordering: '-date',
       is_historical: false,
-      // Ambil seluruh tiket parlay yang cocok filter dalam satu request (bukan
-      // cuma 20 data pertama dari default pagination backend).
       page_size: 1000,
     };
-    
-    if (searchTerm) params.search = searchTerm;
     
     api.get('/parlays/', { params })
       .then((res) => {
@@ -68,13 +73,12 @@ export default function ParlaysPage() {
         console.error(err);
         setLoading(false);
       });
-  }, [triggerFetch, status]);
+  }, [status]);
 
-  const applyFilters = () => {
-    setTriggerFetch((prev) => prev + 1);
-    setExpandedId(null); 
-    setCurrentPage(1); 
-  };
+  // Reset page when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const toggleTicket = (id: number) => {
     setExpandedId(expandedId === id ? null : id);
@@ -84,37 +88,22 @@ export default function ParlaysPage() {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
   };
 
-  if (status === "loading") {
-    return <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-400 font-medium">Memeriksa otorisasi sesi...</div>;
-  }
+  // Client-side instant filtering & sorting (descending)
+  const displayedTickets = useMemo(() => {
+    const sorted = [...tickets].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const cleanSearch = searchTerm.trim().toLowerCase();
+    
+    if (!cleanSearch) return sorted;
 
-  if (status === "unauthenticated") {
-    return (
-      <div className="min-h-[75vh] flex items-center justify-center px-4">
-        <div className="bg-slate-800 border border-slate-700 p-8 md:p-10 rounded-2xl max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent z-0"></div>
-          <div className="relative z-10">
-            <div className="bg-slate-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 border border-slate-700 shadow-inner">
-              <Lock className="text-blue-500" size={28} />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">Akses Eksklusif</h2>
-            <p className="text-slate-400 text-sm leading-relaxed mb-8">
-              Rekomendasi kombinasi tiket Upcoming Parlay dengan probabilitas kemenangan tinggi ini khusus untuk pengguna terdaftar.
-            </p>
-            <button
-              onClick={() => signIn('google')}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)]"
-            >
-              Login Sekarang
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Mengubah urutan menjadi Descending (Terbaru ke Terlama)
-  const displayedTickets = [...tickets].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return sorted.filter(ticket => {
+      const matchId = ticket.ticket_id?.toLowerCase().includes(cleanSearch);
+      const matchLeg = ticket.legs_details?.some(leg => 
+        leg.match_name?.toLowerCase().includes(cleanSearch) || 
+        leg.pick?.toLowerCase().includes(cleanSearch)
+      );
+      return matchId || matchLeg;
+    });
+  }, [tickets, searchTerm]);
 
   const totalPages = Math.ceil(displayedTickets.length / itemsPerPage);
   const currentTickets = displayedTickets.slice(
@@ -122,75 +111,190 @@ export default function ParlaysPage() {
     currentPage * itemsPerPage
   );
 
+  if (status === "loading") {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-sm text-slate-400 font-medium">
+        Memeriksa otorisasi sesi...
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center px-4">
+        <div className="bg-slate-900/90 border border-slate-800/80 p-8 md:p-10 rounded-3xl max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/10 via-transparent to-transparent pointer-events-none"></div>
+          <div className="relative z-10">
+            <div className="bg-slate-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-slate-700 shadow-inner">
+              <Lock className="text-emerald-400" size={28} />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">Akses Khusus Member</h2>
+            <p className="text-slate-400 text-sm leading-relaxed mb-8">
+              Rekomendasi kombinasi tiket Parlay AI dengan probabilitas matematis tinggi ini eksklusif untuk pengguna terdaftar.
+            </p>
+            <button
+              onClick={() => signIn('google')}
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-lg shadow-emerald-950/50 cursor-pointer"
+            >
+              Masuk Sekarang
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto pt-6 pb-12 px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white tracking-wide">Upcoming Parlay Tickets</h1>
-        <p className="text-slate-400 text-sm mt-1">Kombinasi value bet probabilitas tinggi jadwal mendatang untuk memaksimalkan potensi return.</p>
+    <div className="max-w-7xl mx-auto pt-6 pb-16 px-4 sm:px-6">
+      
+      {/* Page Header */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Tiket Parlay Pertandingan Mendatang
+          </h1>
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+            Kombinasi value bet probabilitas tinggi jadwal mendatang untuk memaksimalkan potensi return.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400 font-mono bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+            {displayedTickets.length} Tiket Tersedia
+          </span>
+        </div>
       </div>
 
+      {/* ================= COMPACT MOBILE FILTER BAR (Requirement 4) ================= */}
+      <div className="lg:hidden mb-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari ID tiket atau nama klub..."
+              className="w-full bg-slate-800/90 border border-slate-700 rounded-xl pl-9 pr-8 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')} 
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold border bg-slate-800 border-slate-700 text-slate-300"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Modal</span>
+          </button>
+        </div>
+
+        {isMobileFilterOpen && (
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800/80 space-y-3 animate-fadeIn">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">Simulasi Nilai Taruhan</span>
+              <button 
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="text-xs text-slate-400 hover:text-white"
+              >
+                Tutup
+              </button>
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Nilai Bet per Tiket (Rp)</label>
+              <input
+                type="number"
+                value={ticketStake}
+                onChange={(e) => setTicketStake(Number(e.target.value))}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ================= MAIN CONTENT GRID ================= */}
       <div className="flex flex-col lg:flex-row gap-6">
-        <div className="w-full lg:w-72 flex-shrink-0 space-y-4">
-          <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
-            <h2 className="text-sm font-bold text-white mb-4">Pengaturan Taruhan</h2>
+        
+        {/* Desktop Sidebar Filter (Hidden on Mobile) */}
+        <div className="hidden lg:block w-72 flex-shrink-0 space-y-4">
+          
+          <div className="bg-slate-900/80 border border-slate-800/80 p-5 rounded-2xl shadow-sm">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center justify-between">
+              <span>Pengaturan Taruhan</span>
+              <span className="text-[10px] text-emerald-400 font-mono">Real-Time</span>
+            </h2>
             <div>
               <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nilai Bet per Tiket (Rp)</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm font-medium">Rp</span>
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs font-semibold">Rp</span>
                 <input
                   type="number"
                   value={ticketStake}
                   onChange={(e) => setTicketStake(Number(e.target.value))}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-white text-sm font-semibold focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
-              <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Taruhan parlay memiliki variansi tinggi. Direkomendasikan menggunakan persentase kecil dari total bankroll.</p>
+              <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                Kalkulasi potensi bayaran (payout) langsung diperbarui otomatis berdasarkan nilai bet ini.
+              </p>
             </div>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 p-5 rounded-xl shadow-sm">
-            <h2 className="text-sm font-bold text-white mb-4">Filter Data</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cari ID Tiket</label>
+          <div className="bg-slate-900/80 border border-slate-800/80 p-5 rounded-2xl shadow-sm space-y-4">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider">Cari Tiket</h2>
+            <div>
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Cari ID Tiket / Klub</label>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-3 py-2 text-white text-xs focus:outline-none focus:border-emerald-500 transition-colors"
                   placeholder="Ketik ID Tiket..."
                 />
               </div>
-              <button 
-                onClick={applyFilters}
-                className="w-full mt-4 bg-slate-700 hover:bg-blue-600 text-white text-xs font-semibold py-2.5 rounded-md transition-colors"
-              >
-                Terapkan Pencarian
-              </button>
             </div>
           </div>
+
         </div>
 
+        {/* Parlay Tickets List */}
         <div className="flex-1 space-y-4">
           {loading ? (
-            <div className="text-center py-12 text-sm text-slate-400 bg-slate-800/50 border border-slate-700 rounded-xl">Memuat data tiket parlay...</div>
+            <div className="text-center py-16 text-sm text-slate-400 bg-slate-850/60 border border-slate-800 rounded-2xl animate-pulse">
+              Memuat data tiket parlay...
+            </div>
           ) : currentTickets.length === 0 ? (
-            <div className="text-center py-12 text-sm text-slate-400 bg-slate-800 border border-slate-700 rounded-xl">Tidak ada tiket parlay pertandingan mendatang yang ditemukan.</div>
+            <div className="text-center py-16 px-4 bg-slate-850 border border-slate-800 rounded-2xl">
+              <p className="text-white font-semibold">Tidak Ada Tiket yang Cocok</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                Belum ada tiket parlay pertandingan mendatang yang sesuai dengan pencarian Anda.
+              </p>
+            </div>
           ) : (
             <>
               {totalPages > 1 && (
-                <div className="flex justify-between items-center bg-slate-800/80 border border-slate-700 px-5 py-3 rounded-xl mb-6 shadow-sm">
+                <div className="flex justify-between items-center bg-slate-850 border border-slate-800 px-4 py-2.5 rounded-xl shadow-sm">
                   <button
                     onClick={() => {
                       setCurrentPage(p => Math.max(1, p - 1));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={currentPage === 1}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors text-sm font-semibold"
+                    className="flex items-center gap-1.5 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors text-xs font-semibold px-2 py-1"
                   >
-                    <ChevronLeft size={16} /> Prev
+                    <ChevronLeft size={15} /> Prev
                   </button>
-                  <span className="text-slate-400 text-xs font-medium tracking-wide">
+                  <span className="text-slate-400 text-xs font-medium">
                     Halaman <span className="text-white font-bold">{currentPage}</span> dari {totalPages}
                   </span>
                   <button
@@ -199,9 +303,9 @@ export default function ParlaysPage() {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={currentPage === totalPages}
-                    className="flex items-center gap-1.5 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors text-sm font-semibold"
+                    className="flex items-center gap-1.5 text-slate-300 hover:text-white disabled:opacity-30 disabled:hover:text-slate-300 transition-colors text-xs font-semibold px-2 py-1"
                   >
-                    Next <ChevronRight size={16} />
+                    Next <ChevronRight size={15} />
                   </button>
                 </div>
               )}
@@ -211,103 +315,93 @@ export default function ParlaysPage() {
                 const isExpanded = expandedId === ticket.id;
 
                 return (
-                  <div key={ticket.id} className={`bg-slate-800 border ${isExpanded ? 'border-blue-500/50' : 'border-slate-700'} rounded-xl overflow-hidden shadow-sm transition-colors`}>
+                  <div 
+                    key={ticket.id} 
+                    className={`bg-slate-900/80 border ${isExpanded ? 'border-emerald-500/50' : 'border-slate-800/80'} rounded-2xl overflow-hidden shadow-sm transition-all hover:border-slate-700/80`}
+                  >
                     <div 
                       onClick={() => toggleTicket(ticket.id)}
-                      className="bg-slate-800/60 px-5 py-3 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer hover:bg-slate-700/50 transition-colors"
+                      className="bg-slate-900/80 px-4 sm:px-5 py-3 border-b border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer hover:bg-slate-800/60 transition-colors"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-900 text-slate-400">
-                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-800 text-slate-400 shrink-0">
+                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-white font-mono font-bold">{ticket.ticket_id || `PRL-${ticket.id}`}</span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            {new Date(ticket.date).toLocaleDateString('id-ID', { dateStyle: 'long', timeZone: 'Asia/Makassar' })} WITA
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-white text-xs sm:text-sm tracking-wide">{ticket.ticket_id}</span>
+                            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] px-2 py-0.5 rounded-md font-semibold">
+                              {ticket.legs_count} Kaki (Legs)
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-400">
+                            {new Date(ticket.date).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' })} WITA
                           </span>
                         </div>
                       </div>
-                      <div>
-                        <span className="bg-amber-900/40 border border-amber-700 text-amber-400 text-[10px] px-2.5 py-1 rounded font-semibold tracking-wide">UPCOMING</span>
+
+                      <div className="flex items-center gap-4 text-xs font-mono">
+                        <div>
+                          <span className="block text-[10px] text-slate-400">Total Odds</span>
+                          <span className="font-bold text-amber-400 text-sm">{ticket.total_odds.toFixed(2)}</span>
+                        </div>
+                        <div className="border-l border-slate-800 pl-4">
+                          <span className="block text-[10px] text-slate-400">Probabilitas</span>
+                          <span className="font-bold text-emerald-400 text-sm">{(ticket.total_prob * 100).toFixed(1)}%</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-5 grid grid-cols-1 md:grid-cols-[1.5fr_1fr] gap-6 items-center">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 text-center">
-                          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Total Odds</span>
-                          <span className="text-2xl font-mono font-bold text-white">{ticket.total_odds?.toFixed(2)}</span>
-                        </div>
-                        <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 text-center">
-                          <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Probabilitas Win</span>
-                          <span className="text-2xl font-mono font-bold text-blue-400">{(ticket.total_prob * 100).toFixed(1)}%</span>
+                    <div className="p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Ringkasan Pertandingan di Tiket:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {ticket.legs_details.map((leg, idx) => {
+                            const matchName = leg.match_name || leg.match || 'Pertandingan';
+                            return (
+                              <span key={idx} className="bg-slate-950/60 border border-slate-800/70 text-slate-300 text-xs px-2.5 py-1 rounded-lg">
+                                {matchName} <strong className="text-emerald-400 font-mono">({leg.pick})</strong>
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      <div className="space-y-3 pl-0 md:pl-6 md:border-l border-slate-700/50">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-slate-400">Nilai Taruhan:</span>
-                          <span className="text-sm font-semibold text-white">{formatCurrency(ticketStake)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-slate-400">Potensi Payout:</span>
-                          <span className="text-sm font-bold text-emerald-400">{formatCurrency(payout)}</span>
-                        </div>
+                      <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-slate-800 pt-3 sm:pt-0">
+                        <span className="block text-[10px] text-slate-400">Estimasi Kemenangan</span>
+                        <span className="text-base sm:text-lg font-mono font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-300">
+                          {formatCurrency(payout)}
+                        </span>
+                        <span className="block text-[10px] text-slate-400">Modal: {formatCurrency(ticketStake)}</span>
                       </div>
                     </div>
-                    
+
                     {isExpanded && (
-                      <div className="bg-slate-900/80 border-t border-slate-700 p-5">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">Rincian Pertandingan dalam Tiket</h4>
-                        
-                        {ticket.legs_details && ticket.legs_details.length > 0 ? (
-                          <div className="space-y-3">
-                            {ticket.legs_details.map((leg, idx) => {
-                              
-                              let statusBadge = null;
-                              // Jika nilainya bukan null/undefined
-                              if (leg.is_won === true) {
-                                statusBadge = <span className="text-[9px] bg-emerald-900/50 text-emerald-400 px-2 py-0.5 rounded border border-emerald-700/50 font-bold ml-3">MENANG</span>;
-                              } else if (leg.is_won === false) {
-                                statusBadge = <span className="text-[9px] bg-rose-900/50 text-rose-400 px-2 py-0.5 rounded border border-rose-700/50 font-bold ml-3">KALAH</span>;
-                              } else if (leg.date) {
-                                const matchTime = new Date(leg.date).getTime();
-                                const now = new Date().getTime();
-                                if (matchTime < now) {
-                                  statusBadge = <span className="text-[9px] bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded border border-blue-700/50 font-bold ml-3 animate-pulse">DIMAINKAN</span>;
-                                }
-                              }
-
-                              return (
-                                <div key={idx} className="flex justify-between items-center bg-slate-800/50 border border-slate-700 rounded p-3">
-                                  <div className="flex-1">
-                                    <div className="flex items-center mb-1.5">
-                                      <span className="text-xs font-bold text-white block">
-                                        {leg.match}
-                                      </span>
-                                      {statusBadge}
-                                    </div>
-                                    <div className="flex gap-2 items-center">
-                                      <span className="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded">Pick: {leg.pick}</span>
-                                      {leg.date && (
-                                        <span className="text-[9px] text-slate-500 font-mono">
-                                          {new Date(leg.date).toLocaleString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-xs font-mono text-white bg-slate-900 px-2 py-1 rounded border border-slate-700">
-                                      {leg.odds?.toFixed(2) || '-'}
-                                    </span>
-                                  </div>
+                      <div className="bg-slate-900/90 border-t border-slate-800 p-4 sm:p-5 animate-fadeIn">
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Detail Kaki Pertandingan (Legs)</h3>
+                        <div className="space-y-2">
+                          {ticket.legs_details.map((leg, idx) => {
+                            const matchName = leg.match_name || leg.match || 'Pertandingan';
+                            const probVal = typeof leg.prob === 'number' && !isNaN(leg.prob) 
+                              ? leg.prob 
+                              : (leg.odds && leg.odds > 0 ? (1 / leg.odds) : 0.5);
+                            const oddsVal = typeof leg.odds === 'number' && !isNaN(leg.odds) ? leg.odds.toFixed(2) : '-';
+                            return (
+                              <div key={idx} className="flex justify-between items-center p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
+                                <div>
+                                  <span className="font-bold text-white block">{matchName}</span>
+                                  <span className="text-[11px] text-slate-400 font-mono">Pilihan: <strong className="text-emerald-400">{leg.pick}</strong> • {leg.market_type || 'Over/Under 2.5'}</span>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-500 italic">Detail pertandingan spesifik tidak tersedia dari API.</p>
-                        )}
+                                <div className="text-right font-mono">
+                                  <span className="text-slate-400 block text-[10px]">Odds: <strong className="text-white">{oddsVal}</strong></span>
+                                  <span className="text-emerald-400 text-[11px]">{(probVal * 100).toFixed(1)}% Est</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -316,7 +410,9 @@ export default function ParlaysPage() {
             </>
           )}
         </div>
+
       </div>
+
     </div>
   );
 }

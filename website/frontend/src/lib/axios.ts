@@ -3,10 +3,10 @@ import axios from 'axios';
 import { getSession } from 'next-auth/react';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
-    'X-App-Client-Key': process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@',
+    'X-App-Client-Key': process.env.NEXT_PUBLIC_SYNC_SECRET || '',
   },
 });
 
@@ -18,5 +18,28 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Interceptor respon untuk menangani sesi idle / token kadaluarsa
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Jika 401 terjadi karena token kedaluwarsa pada request publik, 
+    // ulangi sekali lagi tanpa Authorization header agar data publik (jadwal, histori, klasemen) tetap tampil
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      if (originalRequest.headers?.Authorization) {
+        delete originalRequest.headers.Authorization;
+        try {
+          return await api(originalRequest);
+        } catch (retryError) {
+          return Promise.reject(retryError);
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;

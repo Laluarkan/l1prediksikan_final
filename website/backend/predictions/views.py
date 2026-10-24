@@ -9,9 +9,10 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
@@ -20,9 +21,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 
-from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification
+from .models import League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification, SavedPrediction
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
-                          UpcomingFixtureSerializer, ParlayTicketSerializer, BroadcastNotificationSerializer)
+                          UpcomingFixtureSerializer, ParlayTicketSerializer, BroadcastNotificationSerializer,
+                          SavedPredictionSerializer)
 from .services import preview_uploaded_data, commit_uploaded_data
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,9 @@ User = get_user_model()
 
 def is_valid_server_request(request):
     client_secret = request.headers.get('X-Sync-Secret', '')
-    expected_secret = os.environ.get('SYNC_SECRET_KEY', 'Laluarkan123@')
+    expected_secret = os.environ.get('SYNC_SECRET_KEY', '')
+    if not expected_secret:
+        return False
     return hmac.compare_digest(client_secret, expected_secret)
 
 class SyncUserView(APIView):
@@ -198,18 +202,23 @@ class TeamViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['league__code']
     search_fields = ['name']
 
-# Cache diaktifkan kembali: payload ringkas (tanpa extended_features) aman di Redis & di-invalasi otomatis saat ada data baru
 @method_decorator(cache_page(60 * 60 * 12), name='dispatch')
 class MatchHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MatchHistorySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_won_ftr', 'is_won_ou']
+    filterset_fields = ['has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_won_ftr', 'is_won_ou']
     search_fields = ['home_team__name', 'away_team__name', 'parlay_ticket_info']
     ordering_fields = ['date']
 
     def get_queryset(self):
         queryset = MatchHistory.objects.select_related('league', 'home_team', 'away_team').all()
         
+        leagues_param = self.request.query_params.get('leagues') or self.request.query_params.get('league__code')
+        if leagues_param:
+            league_list = [l.strip() for l in leagues_param.split(',') if l.strip()]
+            if league_list:
+                queryset = queryset.filter(league__code__in=league_list)
+
         season = self.request.query_params.get('season')
         if season and season != 'ALL':
             try:
@@ -251,13 +260,21 @@ class UpcomingFixtureViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UpcomingFixture.objects.all()
     serializer_class = UpcomingFixtureSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['league__code', 'has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_processed']
+    filterset_fields = ['has_value_bet', 'has_value_bet_ou', 'part_of_parlay', 'is_processed']
     search_fields = ['home_team__name', 'away_team__name', 'parlay_ticket_info']
     ordering_fields = ['date']
 
     def get_queryset(self):
         now = timezone.now()
-        return UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
+        queryset = UpcomingFixture.objects.select_related('league', 'home_team', 'away_team').filter(date__gte=now).order_by('date')
+        
+        leagues_param = self.request.query_params.get('leagues') or self.request.query_params.get('league__code')
+        if leagues_param:
+            league_list = [l.strip() for l in leagues_param.split(',') if l.strip()]
+            if league_list:
+                queryset = queryset.filter(league__code__in=league_list)
+                
+        return queryset
 
 # Cache diaktifkan kembali: payload ringkas & di-invalasi otomatis saat ada data baru
 @method_decorator(cache_page(60 * 60 * 12), name='dispatch')
@@ -566,8 +583,73 @@ class LeagueStandingsAPIView(APIView):
 
         sorted_standings = sorted(standings.values(), key=lambda x: (x['pts'], x['gd'], x['gf']), reverse=True)
 
+        # Kalkulasi status kehormatan (Juara Bertahan, Top 3 Musim Lalu, Promosi) berdasarkan musim sebelumnya
+        prev_champ = None
+        prev_top3 = []
+        prev_season_teams = set()
+
+        if '/' in season:
+            try:
+                y1, y2 = season.split('/')
+                prev_y1 = int(y1) - 1
+                prev_y2 = int(y2) - 1
+                prev_start = timezone.make_aware(datetime.datetime(2000 + prev_y1, 7, 1))
+                prev_end = timezone.make_aware(datetime.datetime(2000 + prev_y2, 6, 30, 23, 59, 59))
+                
+                prev_matches = MatchHistory.objects.filter(
+                    league__code=league_code,
+                    date__gte=prev_start,
+                    date__lte=prev_end
+                ).values('home_team__name', 'away_team__name', 'fthg', 'ftag')
+                
+                if prev_matches.exists():
+                    p_standings = {}
+                    for pm in prev_matches:
+                        phome = pm['home_team__name']
+                        paway = pm['away_team__name']
+                        if phome not in p_standings:
+                            p_standings[phome] = {'team': phome, 'pts': 0, 'gf': 0, 'ga': 0}
+                        if paway not in p_standings:
+                            p_standings[paway] = {'team': paway, 'pts': 0, 'gf': 0, 'ga': 0}
+                        phg = pm['fthg'] if pm['fthg'] is not None else 0
+                        pag = pm['ftag'] if pm['ftag'] is not None else 0
+                        p_standings[phome]['gf'] += phg
+                        p_standings[phome]['ga'] += pag
+                        p_standings[paway]['gf'] += pag
+                        p_standings[paway]['ga'] += phg
+                        if phg > pag:
+                            p_standings[phome]['pts'] += 3
+                        elif phg < pag:
+                            p_standings[paway]['pts'] += 3
+                        else:
+                            p_standings[phome]['pts'] += 1
+                            p_standings[paway]['pts'] += 1
+                    
+                    for pt in p_standings.values():
+                        pt['gd'] = pt['gf'] - pt['ga']
+                    
+                    p_sorted = sorted(p_standings.values(), key=lambda x: (x['pts'], x['gd'], x['gf']), reverse=True)
+                    prev_season_teams = {t['team'] for t in p_sorted}
+                    if len(p_sorted) >= 1:
+                        prev_champ = p_sorted[0]['team']
+                    if len(p_sorted) >= 3:
+                        prev_top3 = [p_sorted[1]['team'], p_sorted[2]['team']]
+                    elif len(p_sorted) >= 2:
+                        prev_top3 = [p_sorted[1]['team']]
+            except Exception as e:
+                logger.warning(f"Gagal mengalkulasi status promosi musim sebelumnya: {e}")
+
         for i, team in enumerate(sorted_standings):
             team['rank'] = i + 1
+            t_name = team['team']
+            if prev_champ and t_name == prev_champ:
+                team['honor'] = 'Juara Bertahan'
+            elif prev_top3 and t_name in prev_top3:
+                team['honor'] = 'Top 3 Musim Lalu'
+            elif prev_season_teams and t_name not in prev_season_teams:
+                team['honor'] = 'Promosi'
+            else:
+                team['honor'] = None
 
         cache.set(cache_key, sorted_standings, timeout=60 * 60 * 12)
         resp = Response(sorted_standings)
@@ -621,3 +703,39 @@ class CronTriggerAPIView(APIView):
         run_fetch_jobs_task.delay()
         
         return Response({"message": "Cron jobs telah berhasil dimasukkan ke dalam antrean Celery (Job Queue)."}, status=status.HTTP_200_OK)
+
+class SavedPredictionViewSet(viewsets.ModelViewSet):
+    serializer_class = SavedPredictionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return SavedPrediction.objects.filter(user=self.request.user).select_related(
+            'fixture', 'fixture__league', 'fixture__home_team', 'fixture__away_team'
+        ).order_by('-saved_at')
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='toggle')
+    def toggle(self, request):
+        fixture_id = request.data.get('fixture_id')
+        if not fixture_id:
+            return Response({'error': 'fixture_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            fixture = UpcomingFixture.objects.get(id=fixture_id)
+        except UpcomingFixture.DoesNotExist:
+            return Response({'error': 'Fixture tidak ditemukan'}, status=status.HTTP_404_NOT_FOUND)
+
+        saved = SavedPrediction.objects.filter(user=request.user, fixture=fixture).first()
+        if saved:
+            saved.delete()
+            return Response({'status': 'removed', 'is_saved': False}, status=status.HTTP_200_OK)
+        else:
+            SavedPrediction.objects.create(user=request.user, fixture=fixture)
+            return Response({'status': 'saved', 'is_saved': True}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='ids')
+    def ids(self, request):
+        saved_ids = list(SavedPrediction.objects.filter(user=request.user).values_list('fixture_id', flat=True))
+        return Response({'saved_fixture_ids': saved_ids}, status=status.HTTP_200_OK)

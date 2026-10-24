@@ -27,12 +27,6 @@ export default function DownloadCtaBanner() {
             
             {/* Left Column: Headlines & Benefits (7 cols) */}
             <div className="lg:col-span-7 space-y-6">
-              
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold backdrop-blur-sm">
-                <Sparkles size={14} className="text-emerald-400" />
-                <span>Rilis Resmi Android v1.3.0</span>
-              </div>
-
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
                 Siap Mengubah Cara Anda <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Menganalisis Sepak Bola?</span>
               </h2>
@@ -97,7 +91,7 @@ export default function DownloadCtaBanner() {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                   <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
                     <span className="text-[11px] font-bold text-white uppercase tracking-wider bg-emerald-600/90 px-2.5 py-1 rounded-md backdrop-blur-sm">
-                      Versi Terbaru v1.3.0
+                      Versi Terbaru v1.4.0
                     </span>
                     <span className="text-[10px] font-mono text-slate-300 bg-slate-900/80 px-2 py-1 rounded">
                       48.2 MB

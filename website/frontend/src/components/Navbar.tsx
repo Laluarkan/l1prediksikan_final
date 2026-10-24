@@ -21,7 +21,8 @@ import {
   TrendingUp,
   Award,
   Download,
-  Smartphone
+  Smartphone,
+  Bookmark
 } from 'lucide-react';
 import ProfileModal from './modals/ProfileModal';
 import OddsGuideModal from './modals/OddsGuideModal';
@@ -290,6 +291,15 @@ export default function Navbar() {
                           </Link>
                         )}
 
+                        <Link
+                          href="/user"
+                          onClick={() => setIsUserDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-xl transition-colors font-medium"
+                        >
+                          <Bookmark size={15} className="text-emerald-400" />
+                          <span>Laga Favorit &amp; Akun</span>
+                        </Link>
+
                         <button
                           type="button"
                           onClick={() => {
@@ -298,8 +308,8 @@ export default function Navbar() {
                           }}
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-slate-200 hover:text-white hover:bg-slate-700/60 rounded-xl transition-colors text-left"
                         >
-                          <User size={15} className="text-emerald-400" />
-                          <span>Profil & Detail Akun</span>
+                          <User size={15} className="text-slate-400" />
+                          <span>Profil &amp; Detail Akun</span>
                         </button>
 
                         <Link
@@ -404,16 +414,25 @@ export default function Navbar() {
                     <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    setIsProfileModalOpen(true);
-                  }}
-                  className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs rounded-xl font-medium shrink-0"
-                >
-                  Profil
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Link
+                    href="/user"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="px-2.5 py-1.5 bg-emerald-600/80 hover:bg-emerald-500 text-white text-xs rounded-xl font-medium"
+                  >
+                    Favorit
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setIsProfileModalOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs rounded-xl font-medium"
+                  >
+                    Profil
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mb-4 p-3 bg-slate-800/60 border border-slate-700/60 rounded-2xl flex items-center justify-between">
@@ -502,7 +521,7 @@ export default function Navbar() {
                 <Download size={16} className="text-emerald-400" />
                 <span>Unduh Aplikasi Android (APK)</span>
               </div>
-              <span className="text-[10px] font-mono bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">v1.3.0</span>
+              <span className="text-[10px] font-mono bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">v1.4.0</span>
             </a>
 
             <button

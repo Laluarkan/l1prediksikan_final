@@ -42,7 +42,7 @@ const SCREENS: ScreenTab[] = [
   {
     id: 'beranda',
     name: 'Beranda & Rekomendasi',
-    badge: 'AI Value Bet',
+    badge: '',
     title: 'Rekomendasi Pintar dengan Positive Edge',
     description: 'Menemukan celah pasar (odds edge) antara probabilitas murni statistik dan pasar taruhan secara real-time untuk 11 liga top Eropa.',
     highlightIcon: Sparkles,
@@ -159,13 +159,6 @@ export default function AppShowcaseSection() {
 
       {/* Section Header */}
       <div className="max-w-4xl mx-auto text-center mb-10 md:mb-16 px-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-4 backdrop-blur-sm">
-          <Smartphone size={14} className="text-emerald-400 animate-pulse" />
-          <span>Aplikasi Mobile Resmi (Android)</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span className="text-slate-300">Tersedia di APKPure</span>
-        </div>
-
         <h2 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-4">
           Semua Kekuatan AI Bola di <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">Genggaman Anda</span>
         </h2>
@@ -237,12 +230,6 @@ export default function AppShowcaseSection() {
 
           {/* Left Details Panel (7 cols) */}
           <div className="lg:col-span-7 flex flex-col justify-center space-y-6 relative z-10">
-            {/* Pill Tag */}
-            <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              <IconComponent size={14} />
-              <span>{currentScreen.badge}</span>
-            </div>
-
             {/* Screen Title & Subtitle */}
             <div>
               <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight mb-3">

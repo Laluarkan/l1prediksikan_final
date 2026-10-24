@@ -43,17 +43,6 @@ export default function Home() {
             {/* Left Content Column (7 cols on lg) */}
             <div className="lg:col-span-7 relative z-10 space-y-6 text-center lg:text-left">
               
-              {/* Status Pill Badge */}
-              <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-emerald-500/30 text-xs font-semibold backdrop-blur-md shadow-lg mx-auto lg:mx-0">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-emerald-400 font-mono">v1.3.0 Live</span>
-                <span className="text-slate-600">•</span>
-                <span className="text-slate-300">Tersedia di Web &amp; Android APK</span>
-              </div>
-
               {/* Main Headline */}
               <h1 className={`${oswald.className} text-3xl sm:text-5xl md:text-6xl text-white leading-[1.08] tracking-tight`}>
                 Baca pertandingan sebelum <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">peluit dibunyikan.</span>
@@ -75,7 +64,7 @@ export default function Home() {
                 >
                   <Download size={18} className="group-hover:translate-y-0.5 transition-transform" />
                   <span>Unduh Aplikasi APK</span>
-                  <span className="text-[10px] font-mono bg-emerald-950/40 px-2 py-0.5 rounded text-emerald-200">v1.3.0</span>
+                  <span className="text-[10px] font-mono bg-emerald-950/40 px-2 py-0.5 rounded text-emerald-200">v1.4.0</span>
                 </a>
 
                 {/* Web Fixtures Link */}
@@ -98,23 +87,6 @@ export default function Home() {
                   <span>Halaman APKPure</span>
                 </a>
               </div>
-
-              {/* Trust Indicators */}
-              <div className="pt-4 flex flex-wrap items-center justify-center lg:justify-start gap-y-2 gap-x-5 text-xs text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <ShieldCheck size={15} className="text-emerald-400" />
-                  <span>Bebas Iklan Judi</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Sparkles size={15} className="text-cyan-400" />
-                  <span>Kelly Criterion Staking</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Zap size={15} className="text-amber-400" />
-                  <span>Update Odds Harian</span>
-                </span>
-              </div>
-
             </div>
 
             {/* Right Phone Mockup Preview (5 cols on lg) */}
@@ -189,10 +161,6 @@ export default function Home() {
         <section className="relative">
           <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-2">
-                <Cpu size={13} />
-                <span>Arsitektur Algoritma</span>
-              </div>
               <h2 className={`${oswald.className} text-2xl md:text-3xl lg:text-4xl text-white uppercase tracking-wide`}>
                 Cara Kerja Tiga Lapisan Analitik
               </h2>
@@ -218,9 +186,6 @@ export default function Home() {
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20 flex items-center justify-center font-mono font-bold text-sm">
                     01
                   </div>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    Probabilitas Murni
-                  </span>
                 </div>
                 <h3 className="text-lg md:text-xl font-bold text-white mb-2 group-hover:text-emerald-300 transition-colors">
                   Value Bet Detection
@@ -242,9 +207,6 @@ export default function Home() {
                   <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20 flex items-center justify-center font-mono font-bold text-sm">
                     02
                   </div>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
-                    Sintesis Tiket
-                  </span>
                 </div>
                 <h3 className="text-lg md:text-xl font-bold text-white mb-2 group-hover:text-blue-300 transition-colors">
                   Dynamic Parlay Logic
@@ -266,9 +228,6 @@ export default function Home() {
                   <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20 flex items-center justify-center font-mono font-bold text-sm">
                     03
                   </div>
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                    Ukuran Modal
-                  </span>
                 </div>
                 <h3 className="text-lg md:text-xl font-bold text-white mb-2 group-hover:text-amber-300 transition-colors">
                   Manajemen Modal RL
