@@ -1,5 +1,6 @@
-export const BASE_URL = 'https://l1prediksi-api.onrender.com/api';
-export const APP_CLIENT_KEY = 'Laluarkan123@';
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
+export const APP_CLIENT_KEY = process.env.EXPO_PUBLIC_CLIENT_KEY || process.env.EXPO_PUBLIC_SYNC_SECRET || '';
+
 
 /**
  * appFetch: Custom fetch wrapper yang secara otomatis menyertakan header autentikasi klien resmi

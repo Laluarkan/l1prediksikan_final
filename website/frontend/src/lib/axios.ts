@@ -6,9 +6,9 @@ const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     'Content-Type': 'application/json',
-    'X-App-Client-Key': process.env.NEXT_PUBLIC_SYNC_SECRET || '',
   },
 });
+
 
 // Interceptor untuk menempelkan Token JWT
 api.interceptors.request.use(async (config) => {

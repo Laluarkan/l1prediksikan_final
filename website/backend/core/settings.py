@@ -94,13 +94,34 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://www.l1prediksikan.my.id",
     "https://l1prediksikan.my.id",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
 ]
+
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-app-client-key',
     'x-sync-secret',
 ]
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://www.l1prediksikan.my.id",
+    "https://l1prediksikan.my.id",
+]
+
+# HANYA izinkan localhost jika server berjalan dalam mode development (DEBUG=True)
+# Saat di server produksi (Render), orang lain yang menjalankan di localhost:3000 akan otomatis diblokir CORS & CSRF
+if DEBUG:
+    CORS_ALLOWED_ORIGINS += [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+    CSRF_TRUSTED_ORIGINS += [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

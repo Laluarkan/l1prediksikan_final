@@ -8,16 +8,23 @@ logger = logging.getLogger(__name__)
 
 CLIENT_APP_SECRET = os.environ.get('SYNC_SECRET_KEY', '')
 
-ALLOWED_ORIGINS = {
+PROD_ALLOWED_ORIGINS = {
     'https://www.l1prediksikan.my.id',
     'https://l1prediksikan.my.id',
+}
+
+DEV_ALLOWED_ORIGINS = {
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 }
 
-ALLOWED_REFERER_REGEX = re.compile(
+PROD_REFERER_REGEX = re.compile(
+    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id)(/.*)?$'
+)
+
+DEV_REFERER_REGEX = re.compile(
     r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|localhost:3000|127\.0\.0\.1:3000|localhost:8000|127\.0\.0\.1:8000)(/.*)?$'
 )
 
@@ -32,10 +39,10 @@ class RestrictBackendAccessMiddleware:
     Membatasi seluruh akses API backend Django HANYA kepada:
     1. Website resmi (Origin / Referer domain resmi l1prediksikan.my.id)
     2. Aplikasi mobile resmi (X-App-Client-Key atau X-Sync-Secret valid)
-    3. Lingkungan pengembangan lokal (localhost / 127.0.0.1)
+    3. Lingkungan pengembangan lokal (HANYA jika DEBUG=True)
     
-    Akses luar, scraper liar, atau pihak ketiga tanpa otorisasi akan otomatis
-    ditolak dengan respon HTTP 403 Forbidden.
+    Di server produksi (DEBUG=False), request dari localhost:3000 atau domain luar
+    otomatis ditolak dengan HTTP 403 Forbidden.
     """
     def __init__(self, get_response):
         self.get_response = get_response
@@ -51,14 +58,19 @@ class RestrictBackendAccessMiddleware:
         if request.method == 'OPTIONS':
             return self.get_response(request)
 
-        # 3. Validasi Origin browser (Website resmi & local web)
+        # Tentukan allowed origins berdasarkan mode DEBUG
+        # Pada produksi (DEBUG=False di Render), localhost DILARANG total agar orang luar tidak bisa menembak backend dari lokal mereka
+        allowed_origins = PROD_ALLOWED_ORIGINS | DEV_ALLOWED_ORIGINS if settings.DEBUG else PROD_ALLOWED_ORIGINS
+        allowed_referer_regex = DEV_REFERER_REGEX if settings.DEBUG else PROD_REFERER_REGEX
+
+        # 3. Validasi Origin browser (Hanya domain resmi di produksi)
         origin = request.headers.get('Origin') or request.META.get('HTTP_ORIGIN')
-        if origin and origin.rstrip('/') in ALLOWED_ORIGINS:
+        if origin and origin.rstrip('/') in allowed_origins:
             return self.get_response(request)
 
         # 4. Validasi Referer jika browser tidak menyertakan Origin
         referer = request.headers.get('Referer') or request.META.get('HTTP_REFERER')
-        if referer and ALLOWED_REFERER_REGEX.match(referer):
+        if referer and allowed_referer_regex.match(referer):
             return self.get_response(request)
 
         # 5. Validasi Aplikasi Mobile Resmi (Header Kunci Klien Rahasia)
@@ -68,13 +80,15 @@ class RestrictBackendAccessMiddleware:
             or request.META.get('HTTP_X_APP_CLIENT_KEY')
             or request.META.get('HTTP_X_SYNC_SECRET')
         )
-        if client_key and client_key == CLIENT_APP_SECRET:
+        if client_key and CLIENT_APP_SECRET and client_key == CLIENT_APP_SECRET:
             return self.get_response(request)
 
-        # 6. Validasi Request Lokal Internal (Development / loopback)
-        remote_addr = request.META.get('REMOTE_ADDR', '')
-        if remote_addr in ('127.0.0.1', '::1', 'localhost'):
-            return self.get_response(request)
+        # 6. Validasi Request Lokal Internal (Hanya jika DEBUG aktif)
+        if settings.DEBUG:
+            remote_addr = request.META.get('REMOTE_ADDR', '')
+            if remote_addr in ('127.0.0.1', '::1', 'localhost'):
+                return self.get_response(request)
+
 
         # 7. Blokir seluruh akses tidak sah
         logger.warning(

@@ -27,9 +27,10 @@ const STORAGE_KEYS = {
   REGISTERED_USERS: '@prediksikan_registered_users',
 };
 
-// URL API Sinkronisasi Backend Django (Render + Neon PostgreSQL)
-const BACKEND_BASE_URL = 'https://l1prediksi-api.onrender.com/api';
-const SYNC_SECRET_KEY = 'Laluarkan123@';
+// URL API Sinkronisasi Backend Django (Render + PostgreSQL)
+const BACKEND_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
+const SYNC_SECRET_KEY = process.env.EXPO_PUBLIC_SYNC_SECRET || process.env.EXPO_PUBLIC_CLIENT_KEY || '';
+
 
 // ================= ONBOARDING STATE =================
 export const getHasSeenOnboarding = async (): Promise<boolean> => {

@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from rest_framework.permissions import IsAdminUser
 
 def health_check(request):
     return JsonResponse({"status": "healthy", "message": "API L1 Prediksi-Kan berjalan optimal."})
@@ -14,6 +15,7 @@ urlpatterns = [
     
     path('health/', health_check, name='health-check'),
     
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-]
+    # Skema dan dokumentasi API diproteksi khusus staf admin
+    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[IsAdminUser]), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[IsAdminUser]), name='swagger-ui'),
+]

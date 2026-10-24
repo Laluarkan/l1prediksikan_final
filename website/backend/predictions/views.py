@@ -661,26 +661,34 @@ class BroadcastNotificationViewSet(viewsets.ModelViewSet):
     filterset_fields = ['notif_type', 'is_active']
     ordering_fields = ['created_at']
 
-    def create(self, request, *args, **kwargs):
-        is_staff = request.user and request.user.is_authenticated and request.user.is_staff
+    def _check_admin_permission(self, request):
+        is_staff = bool(request.user and request.user.is_authenticated and request.user.is_staff)
         has_secret = is_valid_server_request(request)
-        admin_email = request.data.get('admin_email')
+        return is_staff or has_secret
 
-        if admin_email and not is_staff:
-            try:
-                user = User.objects.get(email__iexact=admin_email)
-                if user.is_staff:
-                    is_staff = True
-            except User.DoesNotExist:
-                pass
-
-        if not (is_staff or has_secret):
+    def create(self, request, *args, **kwargs):
+        if not self._check_admin_permission(request):
             return Response(
-                {'error': 'Akses Ditolak. Hanya staf admin yang dapat menyiarkan notifikasi manual.'},
+                {'error': 'Akses Ditolak. Hanya staf admin atau server tersinkronisasi yang dapat menyiarkan notifikasi.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-
         return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self._check_admin_permission(request):
+            return Response({'error': 'Akses Ditolak. Hanya staf admin yang dapat memperbarui notifikasi.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not self._check_admin_permission(request):
+            return Response({'error': 'Akses Ditolak. Hanya staf admin yang dapat memperbarui notifikasi.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not self._check_admin_permission(request):
+            return Response({'error': 'Akses Ditolak. Hanya staf admin yang dapat menghapus notifikasi.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
 
 class CronTriggerAPIView(APIView):
     permission_classes = [] 
@@ -773,4 +781,23 @@ class FeatureSuggestionViewSet(viewsets.ModelViewSet):
             'has_voted': has_voted,
             'votes_count': total_votes
         }, status=status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not (request.user.is_staff or instance.created_by == request.user):
+            return Response({'error': 'Anda tidak memiliki hak akses untuk mengubah rekomendasi fitur ini.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not (request.user.is_staff or instance.created_by == request.user):
+            return Response({'error': 'Anda tidak memiliki hak akses untuk mengubah rekomendasi fitur ini.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not (request.user.is_staff or instance.created_by == request.user):
+            return Response({'error': 'Anda tidak memiliki hak akses untuk menghapus rekomendasi fitur ini.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
 
