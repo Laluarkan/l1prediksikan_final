@@ -17,11 +17,13 @@ import { UserScreen } from './src/screens/UserScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OfflineBanner } from './src/components/OfflineBanner';
+import { UpdateBanner } from './src/components/UpdateBanner';
 import { ProfileModal } from './src/components/modals/ProfileModal';
 import { NotificationsModal } from './src/components/modals/NotificationsModal';
 import { OddsGuideModal } from './src/components/modals/OddsGuideModal';
 import { AboutModal } from './src/components/modals/AboutModal';
-import { checkServerHealth } from './src/services/api';
+import { checkServerHealth, checkAppVersion, AppVersionInfo } from './src/services/api';
+import { APP_BUILD_NUMBER } from './src/config/version';
 import {
   UserSession,
   getHasSeenOnboarding,
@@ -45,12 +47,30 @@ function AppContent() {
   const [aboutVisible, setAboutVisible] = useState(false);
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<AppVersionInfo | null>(null);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+
+  // Verifikasi versi terbaru aplikasi dari server backend
+  const verifyAppVersion = async () => {
+    try {
+      const versionData = await checkAppVersion();
+      if (versionData && versionData.latest_build > APP_BUILD_NUMBER) {
+        setUpdateInfo(versionData);
+        setShowUpdateBanner(true);
+      }
+    } catch {
+      // Abaikan jika offline / koneksi lambat
+    }
+  };
 
   // Verifikasi konektivitas server secara berkala
   const verifyConnectivity = async () => {
     try {
       const isHealthy = await checkServerHealth();
       setIsOffline(!isHealthy);
+      if (isHealthy) {
+        verifyAppVersion();
+      }
     } catch {
       setIsOffline(true);
     }
@@ -58,6 +78,7 @@ function AppContent() {
 
   useEffect(() => {
     verifyConnectivity();
+    verifyAppVersion();
     const interval = setInterval(verifyConnectivity, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -177,6 +198,13 @@ function AppContent() {
 
           {/* Offline Alert Banner */}
           <OfflineBanner visible={isOffline} onRetry={verifyConnectivity} />
+
+          {/* In-App Update Alert Banner (Notifikasi Pembaruan APKPure) */}
+          <UpdateBanner
+            visible={showUpdateBanner && !isOffline}
+            updateInfo={updateInfo}
+            onDismiss={() => setShowUpdateBanner(false)}
+          />
 
           {/* Dynamic Screen Content */}
           <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>

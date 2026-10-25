@@ -835,4 +835,36 @@ class FeatureSuggestionViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Anda tidak memiliki hak akses untuk menghapus rekomendasi fitur ini.'}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 
+
+class AppVersionView(APIView):
+    """
+    Endpoint Publik untuk Pengecekan Pembaruan Versi Aplikasi Mobile (In-App Update Check).
+    Mengembalikan versi & nomor build terbaru serta tautan unduhan APKPure.
+    """
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        latest_version = os.environ.get('LATEST_APP_VERSION', '1.4.1')
+        try:
+            latest_build = int(os.environ.get('LATEST_APP_BUILD', '8'))
+        except (ValueError, TypeError):
+            latest_build = 8
+            
+        update_url = os.environ.get('APP_UPDATE_URL', 'https://apkpure.net/prediksikan/id.prediksikan.app')
+        release_notes = os.environ.get(
+            'APP_RELEASE_NOTES',
+            'Pembaruan logo liga resmi, tampilan navigasi baru, dan pembersihan cache tuntas.'
+        )
+        is_critical = os.environ.get('APP_UPDATE_CRITICAL', 'False') == 'True'
+
+        return Response({
+            'latest_version': latest_version,
+            'latest_build': latest_build,
+            'update_url': update_url,
+            'release_notes': release_notes,
+            'is_critical': is_critical,
+        }, status=status.HTTP_200_OK)
+
+
 

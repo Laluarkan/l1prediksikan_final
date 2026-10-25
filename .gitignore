@@ -30,3 +30,6 @@ website/backend/data/
 # Modul Frontend (Hanya memblokir modul berat Next.js, Kodenya tetap dikirim)
 node_modules/
 .next/
+
+# Catatan Update Lokal
+catatan_update.txt

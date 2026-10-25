@@ -578,4 +578,28 @@ export const createFeatureSuggestion = async (data: {
   return await res.json();
 };
 
+export interface AppVersionInfo {
+  latest_version: string;
+  latest_build: number;
+  update_url: string;
+  release_notes?: string;
+  is_critical?: boolean;
+}
+
+/**
+ * checkAppVersion:
+ * Memeriksa versi rilis terbaru dari server backend Prediksikan.
+ * Digunakan untuk menampilkan banner pembaruan in-app ke pengguna jika ada rilis baru di APKPure.
+ */
+export const checkAppVersion = async (): Promise<AppVersionInfo | null> => {
+  try {
+    const res = await appFetch(`${BASE_URL}/app-version/`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  }
+};
+
+
 

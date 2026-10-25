@@ -6,7 +6,7 @@ from .views import (LeagueViewSet, TeamViewSet, MatchHistoryViewSet,
                     DatasetPreviewView, DatasetConfirmSaveView, 
                     PerformanceMetricsAPIView, LeagueStandingsAPIView,
                     CronTriggerAPIView, SyncUserView, CheckStaffView,
-                    CheckEmailView, ClearCacheView)
+                    CheckEmailView, ClearCacheView, AppVersionView)
 
 router = DefaultRouter()
 router.register(r'leagues', LeagueViewSet)
@@ -33,4 +33,5 @@ urlpatterns = [
     path('check-email/', CheckEmailView.as_view(), name='check-email'),
     path('cron-trigger/', CronTriggerAPIView.as_view(), name='cron-trigger'),
     path('clear-cache/', ClearCacheView.as_view(), name='clear-cache'),
+    path('app-version/', AppVersionView.as_view(), name='app-version'),
 ]
