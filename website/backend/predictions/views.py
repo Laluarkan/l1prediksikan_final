@@ -839,32 +839,31 @@ class FeatureSuggestionViewSet(viewsets.ModelViewSet):
 class AppVersionView(APIView):
     """
     Endpoint Publik untuk Pengecekan Pembaruan Versi Aplikasi Mobile (In-App Update Check).
-    Mengembalikan versi & nomor build terbaru serta tautan unduhan APKPure.
+    Mengembalikan versi & nomor build terbaru serta tautan unduhan APKPure langsung dari kode hardcode
+    (tanpa perlu setting environment variables di Render).
     """
     permission_classes = []
     authentication_classes = []
 
-    def get(self, request):
-        latest_version = os.environ.get('LATEST_APP_VERSION', '1.4.1')
-        try:
-            latest_build = int(os.environ.get('LATEST_APP_BUILD', '8'))
-        except (ValueError, TypeError):
-            latest_build = 8
-            
-        update_url = os.environ.get('APP_UPDATE_URL', 'https://apkpure.net/prediksikan/id.prediksikan.app')
-        release_notes = os.environ.get(
-            'APP_RELEASE_NOTES',
-            'Pembaruan logo liga resmi, tampilan navigasi baru, dan pembersihan cache tuntas.'
-        )
-        is_critical = os.environ.get('APP_UPDATE_CRITICAL', 'False') == 'True'
+    # =========================================================================
+    # KONFIGURASI VERSI RILIS TERBARU (HARDCODE)
+    # Cukup ubah nilai di bawah ini jika nanti Anda merilis update baru ke APKPure.
+    # =========================================================================
+    LATEST_VERSION = "1.4.1"
+    LATEST_BUILD = 8
+    UPDATE_URL = "https://apkpure.com/prediksikan-%E2%80%93-analitik-bola/id.prediksikan.app/download"
+    RELEASE_NOTES = "Pembaruan logo liga resmi, tampilan navigasi baru, dan pembersihan cache tuntas."
+    IS_CRITICAL = False
 
+    def get(self, request):
         return Response({
-            'latest_version': latest_version,
-            'latest_build': latest_build,
-            'update_url': update_url,
-            'release_notes': release_notes,
-            'is_critical': is_critical,
+            'latest_version': self.LATEST_VERSION,
+            'latest_build': self.LATEST_BUILD,
+            'update_url': self.UPDATE_URL,
+            'release_notes': self.RELEASE_NOTES,
+            'is_critical': self.IS_CRITICAL,
         }, status=status.HTTP_200_OK)
+
 
 
 
