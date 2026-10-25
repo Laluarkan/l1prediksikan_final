@@ -80,12 +80,13 @@ class RestrictBackendAccessMiddleware:
             or request.META.get('HTTP_X_APP_CLIENT_KEY')
             or request.META.get('HTTP_X_SYNC_SECRET')
         )
-        if client_key and CLIENT_APP_SECRET and client_key == CLIENT_APP_SECRET:
+        sync_secret = os.environ.get('SYNC_SECRET_KEY', '').strip('\'"') or CLIENT_APP_SECRET.strip('\'"')
+        if client_key and sync_secret and client_key.strip('\'"') == sync_secret:
             return self.get_response(request)
 
         # 6. Validasi Request Lokal Internal (Hanya jika DEBUG aktif)
+        remote_addr = request.META.get('REMOTE_ADDR', '')
         if settings.DEBUG:
-            remote_addr = request.META.get('REMOTE_ADDR', '')
             if remote_addr in ('127.0.0.1', '::1', 'localhost'):
                 return self.get_response(request)
 
