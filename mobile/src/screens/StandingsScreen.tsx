@@ -192,9 +192,7 @@ export const StandingsScreen: React.FC = () => {
                 onPress={() => setSelectedLeague(l)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.chipLogoBox, { backgroundColor: colors.logoBackdrop }]}>
-                  <Image source={{ uri: logoUrl }} style={styles.chipLogo} resizeMode="contain" />
-                </View>
+                <Image source={{ uri: logoUrl }} style={styles.chipLogo} resizeMode="contain" />
                 <Text
                   style={[
                     styles.leagueChipText,
@@ -444,15 +442,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chipLogoBox: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipLogo: {
-    width: '100%',
-    height: '100%',
+    width: 20,
+    height: 20,
   },
   leagueChipText: {
     fontSize: 12,

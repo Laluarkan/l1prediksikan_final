@@ -94,9 +94,7 @@ export const CompactMatchCard: React.FC<CompactMatchCardProps> = ({
         <View style={styles.topRightControls}>
           {showLeagueBadge ? (
             <View style={[styles.leagueBadge, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9', borderColor: colors.borderLight }]}>
-              <View style={[styles.leagueLogoMiniBox, { backgroundColor: colors.logoBackdrop }]}>
-                <Image source={{ uri: leagueLogoUrl }} style={styles.leagueLogoMini} resizeMode="contain" />
-              </View>
+              <Image source={{ uri: leagueLogoUrl }} style={styles.leagueLogoMini} resizeMode="contain" />
               <Text style={[styles.leagueText, { color: colors.textSecondary }]} numberOfLines={1}>
                 {fixture.league_name}
               </Text>
@@ -229,22 +227,21 @@ const styles = StyleSheet.create({
   leagueBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
     borderRadius: 6,
     borderWidth: 0.5,
-    gap: 4,
+    gap: 5,
   },
   leagueLogoMiniBox: {
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
+    width: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   leagueLogoMini: {
-    width: '100%',
-    height: '100%',
+    width: 18,
+    height: 18,
   },
   leagueText: {
     fontSize: 9,

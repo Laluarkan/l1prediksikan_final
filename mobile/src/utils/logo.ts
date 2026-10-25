@@ -84,11 +84,51 @@ export function getTeamLeagueCode(teamName?: string | null): string | null {
 }
 
 /**
- * Mendapatkan URL logo liga yang optimal
+ * Mengidentifikasi kode liga resmi (E0, SP1, D1, dll) dari string kode atau nama liga apapun
+ */
+export function resolveLeagueCode(identifier?: string | null): string | null {
+  if (!identifier) return null;
+  const trimmed = identifier.trim();
+  if (!trimmed) return null;
+
+  const upper = trimmed.toUpperCase();
+  if (LEAGUE_LOGO_MAP[upper]) {
+    return upper;
+  }
+
+  const norm = trimmed.toLowerCase();
+  if (LEAGUE_NAME_TO_CODE[norm]) {
+    return LEAGUE_NAME_TO_CODE[norm];
+  }
+
+  for (const [key, code] of Object.entries(LEAGUE_NAME_TO_CODE)) {
+    if (norm.includes(key) || key.includes(norm)) {
+      return code;
+    }
+  }
+
+  // Deteksi kata kunci umum nama liga
+  if (norm.includes('premier') || norm.includes('epl') || norm.includes('inggris') || norm.includes('english')) return 'E0';
+  if (norm.includes('la liga') || norm.includes('laliga') || norm.includes('spanyol') || norm.includes('spain')) return 'SP1';
+  if (norm.includes('serie a') || norm.includes('ital')) return 'I1';
+  if (norm.includes('bundesliga') || norm.includes('jerman') || norm.includes('german')) return 'D1';
+  if (norm.includes('ligue 1') || norm.includes('prancis') || norm.includes('french')) return 'F1';
+  if (norm.includes('eredivisie') || norm.includes('belanda') || norm.includes('dutch') || norm.includes('holland')) return 'N1';
+  if (norm.includes('primeira') || norm.includes('portugal') || norm.includes('portuguese')) return 'P1';
+  if (norm.includes('jupiler') || norm.includes('belgia') || norm.includes('belgian')) return 'B1';
+  if (norm.includes('süper') || norm.includes('super lig') || norm.includes('turki') || norm.includes('turkish')) return 'T1';
+  if (norm.includes('super league') || norm.includes('yunani') || norm.includes('greek')) return 'G1';
+  if (norm.includes('scottish') || norm.includes('skotlandia') || norm.includes('premiership')) return 'SC0';
+
+  return null;
+}
+
+/**
+ * Mendapatkan URL logo liga yang optimal (mencegah fallback keliru ke E0)
  */
 export function getLeagueLogoUrl(
-  leagueCode?: string | null,
-  leagueName?: string | null,
+  leagueCodeOrName?: string | null,
+  leagueNameFallback?: string | null,
   rawUrl?: string | null,
   teamNameFallback?: string | null
 ): string {
@@ -100,30 +140,27 @@ export function getLeagueLogoUrl(
       return `${CDN_BASE_URL}${rawUrl}`;
     }
   }
-  if (leagueCode) {
-    const code = leagueCode.trim().toUpperCase();
-    if (LEAGUE_LOGO_MAP[code]) {
-      return LEAGUE_LOGO_MAP[code];
-    }
+
+  // 1. Cek parameter pertama (bisa kode resmi 2-3 huruf atau nama liga)
+  const code1 = resolveLeagueCode(leagueCodeOrName);
+  if (code1 && LEAGUE_LOGO_MAP[code1]) {
+    return LEAGUE_LOGO_MAP[code1];
   }
-  if (leagueName) {
-    const norm = leagueName.trim().toLowerCase();
-    const mappedCode = LEAGUE_NAME_TO_CODE[norm];
-    if (mappedCode && LEAGUE_LOGO_MAP[mappedCode]) {
-      return LEAGUE_LOGO_MAP[mappedCode];
-    }
-    for (const [key, code] of Object.entries(LEAGUE_NAME_TO_CODE)) {
-      if (norm.includes(key) || key.includes(norm)) {
-        return LEAGUE_LOGO_MAP[code];
-      }
-    }
+
+  // 2. Cek parameter kedua jika disediakan
+  const code2 = resolveLeagueCode(leagueNameFallback);
+  if (code2 && LEAGUE_LOGO_MAP[code2]) {
+    return LEAGUE_LOGO_MAP[code2];
   }
+
+  // 3. Fallback berdasarkan klub jika ada
   if (teamNameFallback) {
     const codeFromTeam = getTeamLeagueCode(teamNameFallback);
     if (codeFromTeam && LEAGUE_LOGO_MAP[codeFromTeam]) {
       return LEAGUE_LOGO_MAP[codeFromTeam];
     }
   }
+
   return `${CDN_BASE_URL}/logos/leagues/E0.png`;
 }
 

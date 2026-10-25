@@ -603,9 +603,7 @@ export const ParlayScreen: React.FC = () => {
                             </View>
 
                             {/* Logo Liga di sebelah kiri */}
-                            <View style={[styles.legLeagueBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
-                              <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
-                            </View>
+                            <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
 
                             {/* Batas pemisah vertikal */}
                             <View style={[styles.legVerticalDivider, { backgroundColor: colors.borderLight }]} />
@@ -790,9 +788,7 @@ export const ParlayScreen: React.FC = () => {
                           </View>
 
                           {/* Logo Liga di sebelah kiri */}
-                          <View style={[styles.legLeagueBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
-                            <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
-                          </View>
+                          <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
 
                           {/* Batas pemisah vertikal */}
                           <View style={[styles.legVerticalDivider, { backgroundColor: '#334155' }]} />
@@ -1509,17 +1505,14 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   legLeagueBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 0.8,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 2,
   },
   legLeagueLogo: {
-    width: '100%',
-    height: '100%',
+    width: 24,
+    height: 24,
   },
   legVerticalDivider: {
     width: 1.5,

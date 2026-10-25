@@ -137,13 +137,11 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           {/* Header Bar */}
           <View style={[styles.headerBar, { backgroundColor: isDark ? '#090D1A' : '#F1F5F9', borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <View style={[styles.leagueLogoWrapper, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
-                <Image
-                  source={{ uri: leagueLogoUrl }}
-                  style={styles.headerLeagueLogo}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+                source={{ uri: leagueLogoUrl }}
+                style={styles.headerLeagueLogo}
+                resizeMode="contain"
+              />
               <Text style={[styles.leagueTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                 {fixture.league_name}
               </Text>
@@ -172,7 +170,6 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 <View style={styles.brandRow}>
                   <Ionicons name="football" size={14} color={colors.primary} />
                   <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>PREDIKSIKAN AI</Text>
-                  <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>• Analisis & Prediksi Resmi</Text>
                 </View>
                 <View style={[styles.leaguePill, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
                   <Image source={{ uri: leagueLogoUrl }} style={styles.pillLeagueLogo} resizeMode="contain" />
@@ -444,7 +441,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               {/* Watermark Footer in Image */}
               <View style={[styles.shareCardFooter, { borderTopColor: colors.borderLight }]}>
                 <Text style={[styles.watermarkText, { color: colors.textMuted }]}>
-                  Dianalisis oleh Antigravity AI Engine • https://www.l1prediksikan.my.id
+                  https://www.l1prediksikan.my.id
                 </Text>
               </View>
             </View>
@@ -514,17 +511,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   leagueLogoWrapper: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    padding: 2,
   },
   headerLeagueLogo: {
-    width: '100%',
-    height: '100%',
+    width: 28,
+    height: 28,
   },
   leagueTitle: {
     fontSize: 14,
@@ -569,14 +563,14 @@ const styles = StyleSheet.create({
   leaguePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   pillLeagueLogo: {
-    width: 12,
-    height: 12,
+    width: 18,
+    height: 18,
   },
   pillLeagueText: {
     fontSize: 10,

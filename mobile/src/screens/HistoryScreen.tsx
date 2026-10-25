@@ -235,7 +235,7 @@ export const HistoryScreen: React.FC = () => {
 
           {leagues.map((l) => {
             const isSelected = selectedLeague === l.code;
-            const lLogo = getLeagueLogoUrl(l.name);
+            const lLogo = getLeagueLogoUrl(l.code, l.name);
             return (
               <TouchableOpacity
                 key={l.code}
@@ -248,9 +248,7 @@ export const HistoryScreen: React.FC = () => {
                 activeOpacity={0.7}
               >
                 {lLogo ? (
-                  <View style={[styles.chipLogoWrapper, { backgroundColor: colors.logoBackdrop }]}>
-                    <Image source={{ uri: lLogo }} style={styles.chipLogo} resizeMode="contain" />
-                  </View>
+                  <Image source={{ uri: lLogo }} style={styles.chipLogo} resizeMode="contain" />
                 ) : null}
                 <Text
                   style={[
@@ -336,7 +334,7 @@ export const HistoryScreen: React.FC = () => {
 
               const homeLogo = match.home_team_logo || getTeamLogoUrl(match.home_team_name, match.league_name);
               const awayLogo = match.away_team_logo || getTeamLogoUrl(match.away_team_name, match.league_name);
-              const leagueLogo = getLeagueLogoUrl(match.league_name);
+              const leagueLogo = getLeagueLogoUrl(match.league_code, match.league_name, match.league_logo, match.home_team_name);
 
               return (
                 <TouchableOpacity
@@ -355,13 +353,11 @@ export const HistoryScreen: React.FC = () => {
                     <View style={styles.topMetaRight}>
                       <View style={[styles.leagueBadge, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
                         {leagueLogo ? (
-                          <View style={[styles.leagueLogoWrapper, { backgroundColor: colors.logoBackdrop }]}>
-                            <Image
-                              source={{ uri: leagueLogo }}
-                              style={styles.leagueLogoMini}
-                              resizeMode="contain"
-                            />
-                          </View>
+                          <Image
+                            source={{ uri: leagueLogo }}
+                            style={styles.leagueLogoMini}
+                            resizeMode="contain"
+                          />
                         ) : null}
                         <Text style={[styles.leagueText, { color: colors.textSecondary }]} numberOfLines={1}>
                           {match.league_name}
@@ -760,29 +756,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   chipLogo: {
-    width: 12,
-    height: 12,
+    width: 22,
+    height: 22,
+    marginRight: 6,
   },
   leagueBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-    maxWidth: 150,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    maxWidth: 165,
   },
   leagueLogoWrapper: {
-    width: 13,
-    height: 13,
-    borderRadius: 6.5,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 3.5,
-    overflow: 'hidden',
+    marginRight: 5,
   },
   leagueLogoMini: {
-    width: 11,
-    height: 11,
+    width: 20,
+    height: 20,
+    marginRight: 5,
   },
   leagueText: {
     fontSize: 9,

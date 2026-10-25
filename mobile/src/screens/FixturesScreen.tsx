@@ -378,6 +378,8 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
       const info = getLeaguePriority(leagueName, firstMatch?.league_code);
       return {
         leagueName,
+        leagueCode: firstMatch?.league_code,
+        leagueLogo: firstMatch?.league_logo,
         priority: info.priority,
         matches: groups[leagueName],
       };
@@ -706,7 +708,7 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                     const isExpanded = Boolean(
                       expandedLeagues[group.leagueName] || searchQuery.trim().length > 0 || activeFilterCount > 0
                     );
-                    const leagueLogo = getLeagueLogoUrl(group.leagueName);
+                    const leagueLogo = getLeagueLogoUrl(group.leagueCode, group.leagueName, group.leagueLogo);
 
                     return (
                       <View key={group.leagueName} style={[styles.leagueCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -722,13 +724,11 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                         >
                           <View style={styles.leagueHeaderLeft}>
                             {leagueLogo ? (
-                              <View style={[styles.leagueLogoCircle, { backgroundColor: colors.logoBackdrop }]}>
-                                <Image
-                                  source={{ uri: leagueLogo }}
-                                  style={styles.leagueLogoMini}
-                                  resizeMode="contain"
-                                />
-                              </View>
+                              <Image
+                                source={{ uri: leagueLogo }}
+                                style={styles.leagueLogoMini}
+                                resizeMode="contain"
+                              />
                             ) : (
                               <Ionicons
                                 name="trophy"
@@ -1082,17 +1082,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   leagueLogoCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    padding: 2,
+    marginRight: 8,
   },
   leagueLogoMini: {
-    width: 16,
-    height: 16,
+    width: 26,
+    height: 26,
+    marginRight: 8,
   },
   topControlCard: {
     paddingTop: 10,
