@@ -25,6 +25,7 @@ import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
 import { getWitaDateKey } from '../utils/dateUtils';
 import { syncDynamicNotifications, fetchRemoteBroadcasts } from '../services/notificationService';
+import { clearAllAppCache } from '../services/cacheManager';
 
 interface HomeScreenProps {
   onNavigate: (tab: TabType) => void;
@@ -101,28 +102,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const handleClearCache = async () => {
     try {
       setIsClearingCache(true);
-      const keys = await AsyncStorage.getAllKeys();
-      const cacheKeys = keys.filter(
-        (k) =>
-          k.includes('cache') ||
-          k.includes('fixtures') ||
-          k.includes('standings') ||
-          k.includes('history') ||
-          k.includes('parlay')
-      );
-      if (cacheKeys.length > 0) {
-        await AsyncStorage.multiRemove(cacheKeys);
-      }
+      // 1. Bersihkan seluruh cache sementara di AsyncStorage dan memori/disk gambar
+      await clearAllAppCache();
+
+      // 2. Reset tampilan data dengan indikator loading sesaat
+      setLoading(true);
+
+      // 3. Muat ulang data terbaru langsung dari server
       await loadData();
+
       Alert.alert(
         'Cache Berhasil Dibersihkan',
-        'Data lokal telah di-reset dan data pertandingan terbaru dimuat langsung dari server.'
+        'Seluruh cache lokal, memori gambar, dan data sementara telah dibersihkan. Data terbaru langsung dimuat ulang dari server.'
       );
     } catch (err) {
       console.warn('Gagal menghapus cache:', err);
-      Alert.alert('Info', 'Cache telah dibersihkan.');
+      await loadData();
+      Alert.alert('Info', 'Cache lokal telah di-reset dan data berhasil dimuat ulang.');
     } finally {
       setIsClearingCache(false);
+      setLoading(false);
     }
   };
 

@@ -72,18 +72,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
             onPress={() => onSelectTab(item.id)}
             activeOpacity={0.7}
           >
-            <View
-              style={[
-                styles.iconWrapper,
-                isActive && [
-                  styles.activeIconWrapper,
-                  { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
-                ],
-              ]}
-            >
+            <View style={styles.iconContainer}>
               <Ionicons
                 name={isActive ? item.iconActive : item.iconInactive}
-                size={20}
+                size={22}
                 color={isActive ? colors.primary : colors.textMuted}
               />
             </View>
@@ -93,9 +85,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
                 { color: isActive ? colors.primary : colors.textMuted },
                 isActive ? styles.activeLabel : styles.inactiveLabel,
               ]}
+              numberOfLines={1}
             >
               {item.label}
             </Text>
+            {isActive ? (
+              <View style={[styles.activeIndicatorDot, { backgroundColor: colors.primary }]} />
+            ) : (
+              <View style={styles.inactiveIndicatorPlaceholder} />
+            )}
           </TouchableOpacity>
         );
       })}
@@ -108,13 +106,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderTopWidth: 1,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
-    paddingHorizontal: 8,
+    paddingBottom: Platform.OS === 'ios' ? 22 : 8,
+    paddingHorizontal: 6,
     justifyContent: 'space-around',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 6,
   },
   tabButton: {
@@ -123,19 +121,33 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 2,
   },
-  iconWrapper: {
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginBottom: 3,
+  iconContainer: {
+    width: 28,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
-  activeIconWrapper: {},
   label: {
     fontSize: 10.5,
-    fontWeight: '600',
+    fontWeight: '500',
+    letterSpacing: 0.15,
   },
   activeLabel: {
     fontWeight: '800',
   },
-  inactiveLabel: {},
+  inactiveLabel: {
+    fontWeight: '500',
+  },
+  activeIndicatorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 3,
+  },
+  inactiveIndicatorPlaceholder: {
+    width: 4,
+    height: 4,
+    marginTop: 3,
+  },
 });

@@ -15,6 +15,9 @@ export const appFetch = async (url: string, options: RequestInit = {}): Promise<
     'Content-Type': 'application/json',
     'X-App-Client-Key': APP_CLIENT_KEY,
     'X-Sync-Secret': APP_CLIENT_KEY,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
   };
 
   let tokenSent: string | undefined;

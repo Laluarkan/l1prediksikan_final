@@ -17,6 +17,7 @@ import { colors } from '../../theme/colors';
 import { useTheme } from '../../theme/ThemeContext';
 import { UserSession, saveUserSession, deleteUserAccount } from '../../services/auth';
 import { FULL_VERSION_STRING } from '../../config/version';
+import { clearAllAppCache } from '../../services/cacheManager';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -80,8 +81,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const handleClearCache = async () => {
     Alert.alert(
-      'Bersihkan Cache Aplikasi',
-      'Apakah Anda ingin membersihkan data cache sementara untuk mengoptimalkan ruang penyimpanan?',
+      'Bersihkan Cache & Memori',
+      'Apakah Anda ingin membersihkan seluruh data sementara dan memori gambar lokal untuk mengoptimalkan aplikasi?',
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -90,19 +91,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           onPress: async () => {
             setClearingCache(true);
             try {
-              const allKeys = await AsyncStorage.getAllKeys();
-              const cacheKeys = allKeys.filter(
-                (k) =>
-                  k.startsWith('@prediksikan_fixtures_cache') ||
-                  k.startsWith('@prediksikan_cache') ||
-                  k.startsWith('@prediksikan_history_cache')
-              );
-              if (cacheKeys.length > 0) {
-                await AsyncStorage.multiRemove(cacheKeys);
-              }
+              await clearAllAppCache();
               Alert.alert(
-                'Cache Dibersihkan',
-                'Seluruh cache data pertandingan dan riwayat sementara berhasil dibersihkan.'
+                'Cache Berhasil Dibersihkan',
+                'Seluruh cache lokal, memori gambar, dan data sementara berhasil dibersihkan secara tuntas.'
               );
             } catch {
               Alert.alert('Informasi', 'Penyimpanan cache lokal Anda sudah optimal.');

@@ -28,6 +28,7 @@ import {
 import { getUserSession, UserSession } from '../services/auth';
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
+import { FULL_VERSION_STRING } from '../config/version';
 
 const LOCAL_SAVED_KEY = '@prediksikan_local_saved_fixtures';
 
@@ -724,7 +725,7 @@ export const UserScreen: React.FC<UserScreenProps> = ({
           {/* Footer App Version */}
           <View style={styles.appFooter}>
             <Text style={[styles.appVersionText, { color: colors.textMuted }]}>
-              Prediksikan App • Versi 1.4.0 (Build 7)
+              Prediksikan App • {FULL_VERSION_STRING}
             </Text>
             <Text style={[styles.appCopyrightText, { color: colors.textMuted }]}>
               Didukung oleh Model ML & 11 Liga Utama Eropa
