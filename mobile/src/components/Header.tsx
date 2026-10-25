@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { UserSession } from '../services/auth';
 
 interface HeaderProps {
@@ -34,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenGuide,
   onOpenAbout,
 }) => {
+  const { colors, isDark, toggleTheme } = useTheme();
   const [dropdownVisible, setDropdownVisible] = useState(false);
 
   const isMember = user && !user.isGuest;
@@ -62,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       {/* Menu Drawer Toggle */}
       <TouchableOpacity
         onPress={onOpenSidebar}
@@ -80,18 +82,31 @@ export const Header: React.FC<HeaderProps> = ({
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={styles.brandTitle}>Prediksikan</Text>
+        <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>Prediksikan</Text>
       </View>
 
-      {/* Right Side: Notification Icon & Modern "Masuk" Button OR User Avatar with Dropdown */}
+      {/* Right Side: Quick Theme Switch, Notification & Login/Avatar */}
       <View style={styles.rightActionsRow}>
         <TouchableOpacity
-          onPress={onOpenNotifications}
-          style={styles.notificationHeaderBtn}
+          onPress={toggleTheme}
+          style={[styles.notificationHeaderBtn, { backgroundColor: isDark ? '#1E293B70' : '#F1F5F9', borderColor: colors.border }]}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="notifications-outline" size={19} color="#F59E0B" />
+          <Ionicons
+            name={isDark ? "sunny-outline" : "moon-outline"}
+            size={18}
+            color={isDark ? "#F59E0B" : colors.textPrimary}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={onOpenNotifications}
+          style={[styles.notificationHeaderBtn, { backgroundColor: isDark ? '#1E293B70' : '#F1F5F9', borderColor: colors.border }]}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="notifications-outline" size={18} color="#F59E0B" />
         </TouchableOpacity>
 
         {!isMember ? (
@@ -132,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
           <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
             <View style={styles.dropdownOverlay}>
               <TouchableWithoutFeedback>
-                <View style={styles.dropdownMenu}>
+                <View style={[styles.dropdownMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   {/* User Profile Summary */}
                   <View style={styles.dropdownUserCard}>
                     <View style={styles.dropdownAvatarRow}>
@@ -144,30 +159,43 @@ export const Header: React.FC<HeaderProps> = ({
                         </View>
                       )}
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={styles.dropdownUserName} numberOfLines={1}>
+                        <Text style={[styles.dropdownUserName, { color: colors.textPrimary }]} numberOfLines={1}>
                           {user.name}
                         </Text>
-                        <Text style={styles.dropdownUserEmail} numberOfLines={1}>
+                        <Text style={[styles.dropdownUserEmail, { color: colors.textMuted }]} numberOfLines={1}>
                           {user.email}
                         </Text>
                       </View>
                     </View>
 
                     <View style={styles.dropdownBadgeRow}>
-                      <View style={styles.memberBadge}>
+                      <View
+                        style={[
+                          styles.memberBadge,
+                          {
+                            backgroundColor: isDark ? '#064E3B40' : '#DCFCE7',
+                            borderColor: isDark ? '#05966950' : '#86EFAC',
+                          },
+                        ]}
+                      >
                         {isGoogle ? (
                           <Ionicons name="logo-google" size={11} color="#EA4335" />
                         ) : (
                           <Ionicons name="checkmark-circle" size={11} color="#10B981" />
                         )}
-                        <Text style={styles.memberBadgeText}>
+                        <Text
+                          style={[
+                            styles.memberBadgeText,
+                            { color: isDark ? colors.primaryLight : '#15803D' },
+                          ]}
+                        >
                           {isGoogle ? 'Akun Google' : 'Member Aktif'}
                         </Text>
                       </View>
                     </View>
                   </View>
 
-                  <View style={styles.dropdownDivider} />
+                  <View style={[styles.dropdownDivider, { backgroundColor: colors.border }]} />
 
                   {/* Dropdown Menu Items */}
                   <TouchableOpacity
@@ -178,8 +206,8 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="person-outline" size={18} color={colors.primaryLight} />
-                    <Text style={styles.dropdownItemText}>Profil & Akun Saya</Text>
+                    <Ionicons name="person-outline" size={18} color={colors.primary} />
+                    <Text style={[styles.dropdownItemText, { color: colors.textPrimary }]}>Profil & Akun Saya</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -191,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
                     activeOpacity={0.7}
                   >
                     <Ionicons name="notifications-outline" size={18} color="#F59E0B" />
-                    <Text style={styles.dropdownItemText}>Notifikasi Jadwal</Text>
+                    <Text style={[styles.dropdownItemText, { color: colors.textPrimary }]}>Notifikasi Jadwal</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -203,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
                     activeOpacity={0.7}
                   >
                     <Ionicons name="book-outline" size={18} color="#38BDF8" />
-                    <Text style={styles.dropdownItemText}>Panduan Nilai Taruhan</Text>
+                    <Text style={[styles.dropdownItemText, { color: colors.textPrimary }]}>Panduan Nilai Taruhan</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -215,10 +243,10 @@ export const Header: React.FC<HeaderProps> = ({
                     activeOpacity={0.7}
                   >
                     <Ionicons name="shield-checkmark-outline" size={18} color="#818CF8" />
-                    <Text style={styles.dropdownItemText}>Tentang & Privasi</Text>
+                    <Text style={[styles.dropdownItemText, { color: colors.textPrimary }]}>Tentang & Privasi</Text>
                   </TouchableOpacity>
 
-                  <View style={styles.dropdownDivider} />
+                  <View style={[styles.dropdownDivider, { backgroundColor: colors.border }]} />
 
                   {/* Logout Item */}
                   <TouchableOpacity
@@ -227,7 +255,7 @@ export const Header: React.FC<HeaderProps> = ({
                     activeOpacity={0.7}
                   >
                     <Ionicons name="log-out-outline" size={18} color="#EF4444" />
-                    <Text style={[styles.dropdownItemText, { color: '#EF4444' }]}>Keluar Akun</Text>
+                    <Text style={[styles.dropdownItemText, { color: '#EF4444', fontWeight: '700' }]}>Keluar Akun</Text>
                   </TouchableOpacity>
                 </View>
               </TouchableWithoutFeedback>
@@ -341,14 +369,12 @@ const styles = StyleSheet.create({
     top: 56,
     right: 14,
     width: 250,
-    backgroundColor: '#0F172A',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
+    shadowOpacity: 0.25,
     shadowRadius: 14,
     elevation: 12,
   },

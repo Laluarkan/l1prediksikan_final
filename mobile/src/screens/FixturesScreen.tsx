@@ -14,12 +14,16 @@ import {
   UIManager,
   Animated,
   Modal,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { getLeagueLogoUrl } from '../utils/logo';
 import { Fixture, fetchUpcomingFixtures } from '../services/api';
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
+import { HistoryScreen } from './HistoryScreen';
 import {
   getWitaDateKey,
   getTodayWitaDate,
@@ -32,14 +36,31 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Prioritas Urutan Murni Liga Top 5 Eropa (Bundesliga, EPL, La Liga, Ligue 1, Serie A)
-const getLeaguePriority = (leagueName: string): { priority: number; label: string } => {
+// Set kode liga resmi Top 5 Eropa (D1=Bundesliga, E0=Premier League, SP1=La Liga, I1=Serie A, F1=Ligue 1)
+const TOP_5_LEAGUE_CODES = new Set(['D1', 'E0', 'SP1', 'I1', 'F1', 'd1', 'e0', 'sp1', 'i1', 'f1']);
+
+export const isTop5League = (leagueCode?: string, leagueName?: string): boolean => {
+  if (leagueCode && TOP_5_LEAGUE_CODES.has(leagueCode)) return true;
   const l = (leagueName || '').toLowerCase();
-  if (l.includes('bundes')) return { priority: 1, label: 'Bundesliga' };
-  if (!l.includes('scottish') && (l.includes('premier') || l.includes('epl'))) return { priority: 2, label: 'Premier League' };
-  if (l.includes('la liga') || l.includes('laliga')) return { priority: 3, label: 'La Liga' };
-  if (l.includes('ligue 1') || l.includes('ligue1')) return { priority: 4, label: 'Ligue 1' };
-  if (l.includes('serie a')) return { priority: 5, label: 'Serie A' };
+  if (l.includes('scottish')) return false; // Scottish Premiership (SC0) secara eksplisit bukan Top 5
+  return (
+    l.includes('bundesliga') ||
+    l.includes('premier league') ||
+    l.includes('la liga') ||
+    l.includes('laliga') ||
+    l.includes('serie a') ||
+    l.includes('ligue 1')
+  );
+};
+
+// Prioritas Urutan Murni Liga Top 5 Eropa
+const getLeaguePriority = (leagueName: string, leagueCode?: string): { priority: number; label: string } => {
+  const code = (leagueCode || '').toUpperCase();
+  if (code === 'D1' || (!code && leagueName.toLowerCase().includes('bundes'))) return { priority: 1, label: 'Bundesliga' };
+  if (code === 'E0' || (!code && !leagueName.toLowerCase().includes('scottish') && (leagueName.toLowerCase().includes('premier') || leagueName.toLowerCase().includes('epl')))) return { priority: 2, label: 'Premier League' };
+  if (code === 'SP1' || (!code && (leagueName.toLowerCase().includes('la liga') || leagueName.toLowerCase().includes('laliga')))) return { priority: 3, label: 'La Liga' };
+  if (code === 'F1' || (!code && leagueName.toLowerCase().includes('ligue 1'))) return { priority: 4, label: 'Ligue 1' };
+  if (code === 'I1' || (!code && leagueName.toLowerCase().includes('serie a'))) return { priority: 5, label: 'Serie A' };
   return { priority: 99, label: leagueName };
 };
 
@@ -75,7 +96,19 @@ const INITIAL_FILTERS: FilterState = {
   highOddsOnly: false,
 };
 
-export const FixturesScreen: React.FC = () => {
+interface FixturesScreenProps {
+  initialTab?: 'upcoming' | 'history';
+}
+
+export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'upcoming' }) => {
+  const { colors, isDark } = useTheme();
+  const [fixtureMode, setFixtureMode] = useState<'upcoming' | 'history'>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setFixtureMode(initialTab);
+    }
+  }, [initialTab]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() =>
     getWitaDateKey(getTodayWitaDate())
@@ -283,18 +316,19 @@ export const FixturesScreen: React.FC = () => {
         if (!matchSearch) return false;
       }
 
-      // 3. Filter Liga (Hanya Bundesliga, EPL, La Liga, Ligue 1, Serie A)
+      // 3. Filter Liga (Hanya Bundesliga, EPL, La Liga, Ligue 1, Serie A via Kode Liga Resmi)
       if (filters.league === 'TOP5') {
-        const isScottish = /scottish/i.test(f.league_name);
-        const isTop5 = !isScottish && /bundes|premier|epl|la liga|laliga|serie a|ligue 1/i.test(f.league_name);
-        if (!isTop5) return false;
+        if (!isTop5League(f.league_code, f.league_name)) return false;
       } else if (filters.league !== 'ALL') {
-        if (f.league_name !== filters.league) return false;
+        if (f.league_name !== filters.league && f.league_code !== filters.league) return false;
       }
 
-      // 4. Filter Value Bet Only
+      // 4. Filter Value Bet Only (Stake RL > 0)
       if (filters.valueOnly) {
-        if (!f.has_value_bet && !f.has_value_bet_ou) return false;
+        const hasFtrStake = typeof f.rl_stake_ftr === 'number' && f.rl_stake_ftr > 0;
+        const hasOuStake = typeof f.rl_stake_ou === 'number' && f.rl_stake_ou > 0;
+        const hasGeneralStake = typeof f.rl_stake === 'number' && f.rl_stake > 0;
+        if (!hasFtrStake && !hasOuStake && !hasGeneralStake) return false;
       }
 
       // 5. Filter Pasaran O/U
@@ -340,7 +374,8 @@ export const FixturesScreen: React.FC = () => {
     });
 
     const entries = Object.keys(groups).map((leagueName) => {
-      const info = getLeaguePriority(leagueName);
+      const firstMatch = groups[leagueName][0];
+      const info = getLeaguePriority(leagueName, firstMatch?.league_code);
       return {
         leagueName,
         priority: info.priority,
@@ -362,308 +397,388 @@ export const FixturesScreen: React.FC = () => {
   const relativeLabel = getWitaRelativeLabel(selectedDateKey);
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
-      {/* ================= COMPACT CONTROL BAR: KIRI FILTER, KANAN TANGGAL ================= */}
-      <View style={styles.topControlCard}>
-        <View style={styles.controlRow}>
-          {/* Sisi Kiri: Tombol Fitur Filter */}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* ================= TOP SEGMENT SWITCHER: JADWAL MENDATANG | RIWAYAT LAGA ================= */}
+      <View style={[styles.topSegmentContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.segmentPillWrapper, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0', borderColor: colors.border }]}>
           <TouchableOpacity
-            style={[styles.filterTriggerBtn, activeFilterCount > 0 && styles.filterTriggerBtnActive]}
-            onPress={() => setFilterModalVisible(true)}
+            style={[
+              styles.segmentBtn,
+              fixtureMode === 'upcoming' && [styles.segmentBtnActive, { backgroundColor: colors.primary }],
+            ]}
+            onPress={() => setFixtureMode('upcoming')}
             activeOpacity={0.8}
           >
             <Ionicons
-              name="options-outline"
-              size={15}
-              color={activeFilterCount > 0 ? '#10B981' : colors.textPrimary}
+              name="calendar"
+              size={13}
+              color={fixtureMode === 'upcoming' ? '#FFFFFF' : colors.textMuted}
             />
             <Text
               style={[
-                styles.filterTriggerText,
-                activeFilterCount > 0 && styles.filterTriggerTextActive,
+                styles.segmentBtnText,
+                { color: fixtureMode === 'upcoming' ? '#FFFFFF' : colors.textMuted },
+                fixtureMode === 'upcoming' && styles.segmentBtnTextActive,
               ]}
             >
-              Filter
+              Jadwal Mendatang
             </Text>
-            {activeFilterCount > 0 ? (
-              <View style={styles.filterCountBadge}>
-                <Text style={styles.filterCountBadgeText}>{activeFilterCount}</Text>
-              </View>
-            ) : null}
           </TouchableOpacity>
 
-          {/* Sisi Kanan: Ringkasan Tanggal dengan Panah Kiri-Kanan */}
-          <View style={styles.dateNavigatorRight}>
-            <TouchableOpacity
-              style={styles.dateNavArrow}
-              onPress={() => handleDateShift(-1)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="chevron-back" size={17} color={colors.textPrimary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dateCenterBox}
-              onPress={() => {
-                const todayKey = getWitaDateKey(getTodayWitaDate());
-                if (selectedDateKey !== todayKey) {
-                  animateDateTransition(selectedDateKey < todayKey ? 1 : -1, todayKey);
-                }
-              }}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="calendar" size={13} color={colors.primaryLight} />
-              <Text style={styles.dateCenterText}>{formatWitaShortDate(selectedDateKey)}</Text>
-              {relativeLabel ? (
-                <View style={styles.relativePill}>
-                  <Text style={styles.relativePillText}>{relativeLabel}</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dateNavArrow}
-              onPress={() => handleDateShift(1)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="chevron-forward" size={17} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* ================= SEARCH BAR ================= */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={15} color={colors.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari klub atau liga di tanggal ini..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 ? (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-
-      {/* ================= ACTIVE FILTER CHIPS (JIKA ADA FILTER AKTIF) ================= */}
-      {activeFilterCount > 0 && (
-        <View style={styles.activeFiltersRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilterChipsScroll}>
-            {filters.league !== 'ALL' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>
-                  Liga: {filters.league === 'TOP5' ? 'Top 5 Eropa' : filters.league}
-                </Text>
-                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, league: 'ALL' }))}>
-                  <Ionicons name="close" size={12} color="#10B981" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {filters.valueOnly && (
-              <View style={styles.activeFilterChip}>
-                <Ionicons name="sparkles" size={10} color="#10B981" />
-                <Text style={styles.activeFilterChipText}>Value Bet Only</Text>
-                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, valueOnly: false }))}>
-                  <Ionicons name="close" size={12} color="#10B981" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {filters.ouPick !== 'ALL' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>O/U: {filters.ouPick}</Text>
-                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, ouPick: 'ALL' }))}>
-                  <Ionicons name="close" size={12} color="#10B981" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {filters.ftrPick !== 'ALL' && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>1X2: Pick {filters.ftrPick}</Text>
-                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, ftrPick: 'ALL' }))}>
-                  <Ionicons name="close" size={12} color="#10B981" />
-                </TouchableOpacity>
-              </View>
-            )}
-            {filters.highOddsOnly && (
-              <View style={styles.activeFilterChip}>
-                <Text style={styles.activeFilterChipText}>Odds ≥ 2.00</Text>
-                <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, highOddsOnly: false }))}>
-                  <Ionicons name="close" size={12} color="#10B981" />
-                </TouchableOpacity>
-              </View>
-            )}
-            <TouchableOpacity
-              style={styles.resetFilterChip}
-              onPress={() => setFilters(INITIAL_FILTERS)}
-            >
-              <Text style={styles.resetFilterChipText}>Reset Semua</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      )}
-
-      {/* ================= DAFTAR LIGA VERTIKAL DENGAN EFEK GESER ANIMASI ================= */}
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Memuat jadwal pertandingan (WITA)...</Text>
-        </View>
-      ) : (
-        <Animated.View
-          style={[
-            styles.animatedContainer,
-            {
-              transform: [{ translateX: slideAnim }],
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <ScrollView
-            style={styles.listContainer}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-                colors={[colors.primary]}
-              />
-            }
+          <TouchableOpacity
+            style={[
+              styles.segmentBtn,
+              fixtureMode === 'history' && [styles.segmentBtnActive, { backgroundColor: colors.primary }],
+            ]}
+            onPress={() => setFixtureMode('history')}
+            activeOpacity={0.8}
           >
-            {/* Header Summary Laga di Tanggal Tersebut */}
-            <View style={styles.summaryBar}>
-              <Text style={styles.summaryText}>
-                <Text style={{ color: colors.textPrimary, fontWeight: '800' }}>
-                  {dateFixtures.length}
-                </Text>{' '}
-                Pertandingan • {groupedLeagues.length} Liga
-              </Text>
-              {selectedDateKey !== getWitaDateKey(getTodayWitaDate()) && (
-                <TouchableOpacity
-                  onPress={() => {
-                    const todayKey = getWitaDateKey(getTodayWitaDate());
-                    animateDateTransition(selectedDateKey < todayKey ? 1 : -1, todayKey);
-                  }}
-                  style={styles.todayJumpBtn}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="today-outline" size={12} color={colors.primaryLight} />
-                  <Text style={styles.todayJumpText}>Ke Hari Ini</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <Ionicons
+              name="time"
+              size={13}
+              color={fixtureMode === 'history' ? '#FFFFFF' : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.segmentBtnText,
+                { color: fixtureMode === 'history' ? '#FFFFFF' : colors.textMuted },
+                fixtureMode === 'history' && styles.segmentBtnTextActive,
+              ]}
+            >
+              Riwayat Laga
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-            {groupedLeagues.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="calendar-outline" size={44} color={colors.textMuted} />
-                <Text style={styles.emptyTitle}>Tidak Ada Pertandingan</Text>
-                <Text style={styles.emptyDesc}>
-                  Tidak ada pertandingan pada {formatWitaFullDate(selectedDateKey)}.
-                  {activeFilterCount > 0
-                    ? ' Coba longgarkan kriteria filter Anda.'
-                    : ' Geser ke kanan / kiri atau pilih tanggal lain di atas.'}
+      {/* Jika Tab Riwayat Laga Terpilih */}
+      {fixtureMode === 'history' ? (
+        <HistoryScreen />
+      ) : (
+        <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+          {/* ================= COMPACT CONTROL BAR: KIRI FILTER, KANAN TANGGAL ================= */}
+          <View style={[styles.topControlCard, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <View style={styles.controlRow}>
+              {/* Sisi Kiri: Tombol Fitur Filter */}
+              <TouchableOpacity
+                style={[
+                  styles.filterTriggerBtn,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  activeFilterCount > 0 && styles.filterTriggerBtnActive,
+                ]}
+                onPress={() => setFilterModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={15}
+                  color={activeFilterCount > 0 ? '#10B981' : colors.textPrimary}
+                />
+                <Text
+                  style={[
+                    styles.filterTriggerText,
+                    { color: activeFilterCount > 0 ? '#10B981' : colors.textPrimary },
+                    activeFilterCount > 0 && styles.filterTriggerTextActive,
+                  ]}
+                >
+                  Filter
                 </Text>
                 {activeFilterCount > 0 ? (
-                  <TouchableOpacity
-                    style={styles.jumpDateBtn}
-                    onPress={() => setFilters(INITIAL_FILTERS)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="refresh-outline" size={14} color="#FFFFFF" />
-                    <Text style={styles.jumpDateBtnText}>Reset Filter</Text>
-                  </TouchableOpacity>
-                ) : firstAvailableDate && firstAvailableDate !== selectedDateKey ? (
-                  <TouchableOpacity
-                    style={styles.jumpDateBtn}
-                    onPress={() => {
-                      animateDateTransition(
-                        firstAvailableDate > selectedDateKey ? 1 : -1,
-                        firstAvailableDate
-                      );
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="flash-outline" size={14} color="#FFFFFF" />
-                    <Text style={styles.jumpDateBtnText}>
-                      Buka Jadwal Terdekat ({formatWitaShortDate(firstAvailableDate)})
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            ) : (
-              groupedLeagues.map((group) => {
-                const isExpanded = Boolean(
-                  expandedLeagues[group.leagueName] || searchQuery.trim().length > 0 || activeFilterCount > 0
-                );
-
-                return (
-                  <View key={group.leagueName} style={styles.leagueCardContainer}>
-                    {/* Vertical League Header Card (Tekan untuk Dropdown) */}
-                    <TouchableOpacity
-                      style={[styles.leagueAccordionHeader, isExpanded && styles.leagueAccordionHeaderActive]}
-                      onPress={() => toggleLeague(group.leagueName)}
-                      activeOpacity={0.75}
-                    >
-                      <View style={styles.leagueHeaderLeft}>
-                        <Ionicons
-                          name="trophy"
-                          size={15}
-                          color={group.priority <= 5 ? '#F59E0B' : colors.primaryLight}
-                        />
-                        <Text style={styles.leagueAccordionTitle} numberOfLines={1}>
-                          {group.leagueName}
-                        </Text>
-                        {group.priority <= 5 ? (
-                          <View style={styles.topLeagueBadge}>
-                            <Text style={styles.topLeagueBadgeText}>TOP 5</Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      <View style={styles.leagueHeaderRight}>
-                        <View style={styles.matchCountPill}>
-                          <Text style={styles.matchCountPillText}>{group.matches.length} Laga</Text>
-                        </View>
-                        <Ionicons
-                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={17}
-                          color={colors.textSecondary}
-                        />
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Dropdown Match List ketika Liga Ditekan */}
-                    {isExpanded && (
-                      <View style={styles.dropdownMatchesContainer}>
-                        {group.matches.map((fixture) => (
-                          <CompactMatchCard
-                            key={fixture.id}
-                            fixture={fixture}
-                            onPress={() => setSelectedFixture(fixture)}
-                            showLeagueBadge={false}
-                          />
-                        ))}
-                      </View>
-                    )}
+                  <View style={styles.filterCountBadge}>
+                    <Text style={styles.filterCountBadgeText}>{activeFilterCount}</Text>
                   </View>
-                );
-              })
-            )}
-          </ScrollView>
-        </Animated.View>
+                ) : null}
+              </TouchableOpacity>
+
+              {/* Sisi Kanan: Ringkasan Tanggal dengan Panah Kiri-Kanan */}
+              <View style={styles.dateNavigatorRight}>
+                <TouchableOpacity
+                  style={[styles.dateNavArrow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => handleDateShift(-1)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-back" size={17} color={colors.textPrimary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.dateCenterBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => {
+                    const todayKey = getWitaDateKey(getTodayWitaDate());
+                    if (selectedDateKey !== todayKey) {
+                      animateDateTransition(selectedDateKey < todayKey ? 1 : -1, todayKey);
+                    }
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="calendar" size={13} color={colors.primary} />
+                  <Text style={[styles.dateCenterText, { color: colors.textPrimary }]}>{formatWitaShortDate(selectedDateKey)}</Text>
+                  {relativeLabel ? (
+                    <View style={styles.relativePill}>
+                      <Text style={styles.relativePillText}>{relativeLabel}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.dateNavArrow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => handleDateShift(1)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="chevron-forward" size={17} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* ================= SEARCH BAR ================= */}
+          <View style={[styles.searchContainer, { backgroundColor: colors.background }]}>
+            <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="search" size={15} color={colors.textMuted} />
+              <TextInput
+                style={[styles.searchInput, { color: colors.textPrimary }]}
+                placeholder="Cari klub atau liga di tanggal ini..."
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 ? (
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+
+          {/* ================= ACTIVE FILTER CHIPS (JIKA ADA FILTER AKTIF) ================= */}
+          {activeFilterCount > 0 && (
+            <View style={[styles.activeFiltersRow, { backgroundColor: colors.background }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilterChipsScroll}>
+                {filters.league !== 'ALL' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>
+                      Liga: {filters.league === 'TOP5' ? 'Top 5 Eropa' : filters.league}
+                    </Text>
+                    <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, league: 'ALL' }))}>
+                      <Ionicons name="close" size={12} color="#10B981" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {filters.valueOnly && (
+                  <View style={styles.activeFilterChip}>
+                    <Ionicons name="sparkles" size={10} color="#10B981" />
+                    <Text style={styles.activeFilterChipText}>Value Bet Only</Text>
+                    <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, valueOnly: false }))}>
+                      <Ionicons name="close" size={12} color="#10B981" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {filters.ouPick !== 'ALL' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>O/U: {filters.ouPick}</Text>
+                    <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, ouPick: 'ALL' }))}>
+                      <Ionicons name="close" size={12} color="#10B981" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {filters.ftrPick !== 'ALL' && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>1X2: Pick {filters.ftrPick}</Text>
+                    <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, ftrPick: 'ALL' }))}>
+                      <Ionicons name="close" size={12} color="#10B981" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {filters.highOddsOnly && (
+                  <View style={styles.activeFilterChip}>
+                    <Text style={styles.activeFilterChipText}>Odds ≥ 2.00</Text>
+                    <TouchableOpacity onPress={() => setFilters((p) => ({ ...p, highOddsOnly: false }))}>
+                      <Ionicons name="close" size={12} color="#10B981" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={[styles.resetFilterChip, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}
+                  onPress={() => setFilters(INITIAL_FILTERS)}
+                >
+                  <Text style={[styles.resetFilterChipText, { color: colors.textMuted }]}>Reset Semua</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          )}
+
+          {/* ================= DAFTAR LIGA VERTIKAL DENGAN EFEK GESER ANIMASI ================= */}
+          {loading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.loadingText, { color: colors.textMuted }]}>Memuat jadwal pertandingan (WITA)...</Text>
+            </View>
+          ) : (
+            <Animated.View
+              style={[
+                styles.animatedContainer,
+                {
+                  transform: [{ translateX: slideAnim }],
+                  opacity: fadeAnim,
+                },
+              ]}
+            >
+              <ScrollView
+                style={styles.listContainer}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={colors.primary}
+                    colors={[colors.primary]}
+                  />
+                }
+              >
+                {/* Header Summary Laga di Tanggal Tersebut */}
+                <View style={styles.summaryBar}>
+                  <Text style={[styles.summaryText, { color: colors.textMuted }]}>
+                    <Text style={{ color: colors.textPrimary, fontWeight: '800' }}>
+                      {dateFixtures.length}
+                    </Text>{' '}
+                    Pertandingan • {groupedLeagues.length} Liga
+                  </Text>
+                  {selectedDateKey !== getWitaDateKey(getTodayWitaDate()) && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        const todayKey = getWitaDateKey(getTodayWitaDate());
+                        animateDateTransition(selectedDateKey < todayKey ? 1 : -1, todayKey);
+                      }}
+                      style={[styles.todayJumpBtn, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="today-outline" size={12} color={colors.primary} />
+                      <Text style={[styles.todayJumpText, { color: colors.primary }]}>Ke Hari Ini</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {groupedLeagues.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="calendar-outline" size={44} color={colors.textMuted} />
+                    <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Tidak Ada Pertandingan</Text>
+                    <Text style={[styles.emptyDesc, { color: colors.textMuted }]}>
+                      Tidak ada pertandingan pada {formatWitaFullDate(selectedDateKey)}.
+                      {activeFilterCount > 0
+                        ? ' Coba longgarkan kriteria filter Anda.'
+                        : ' Geser ke kanan / kiri atau pilih tanggal lain di atas.'}
+                    </Text>
+                    {activeFilterCount > 0 ? (
+                      <TouchableOpacity
+                        style={styles.jumpDateBtn}
+                        onPress={() => setFilters(INITIAL_FILTERS)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="refresh-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.jumpDateBtnText}>Reset Filter</Text>
+                      </TouchableOpacity>
+                    ) : firstAvailableDate && firstAvailableDate !== selectedDateKey ? (
+                      <TouchableOpacity
+                        style={styles.jumpDateBtn}
+                        onPress={() => {
+                          animateDateTransition(
+                            firstAvailableDate > selectedDateKey ? 1 : -1,
+                            firstAvailableDate
+                          );
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="flash-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.jumpDateBtnText}>
+                          Buka Jadwal Terdekat ({formatWitaShortDate(firstAvailableDate)})
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ) : (
+                  groupedLeagues.map((group) => {
+                    const isExpanded = Boolean(
+                      expandedLeagues[group.leagueName] || searchQuery.trim().length > 0 || activeFilterCount > 0
+                    );
+                    const leagueLogo = getLeagueLogoUrl(group.leagueName);
+
+                    return (
+                      <View key={group.leagueName} style={[styles.leagueCardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        {/* Vertical League Header Card (Tekan untuk Dropdown) */}
+                        <TouchableOpacity
+                          style={[
+                            styles.leagueAccordionHeader,
+                            { backgroundColor: colors.surface },
+                            isExpanded && [styles.leagueAccordionHeaderActive, { borderBottomColor: colors.border }],
+                          ]}
+                          onPress={() => toggleLeague(group.leagueName)}
+                          activeOpacity={0.75}
+                        >
+                          <View style={styles.leagueHeaderLeft}>
+                            {leagueLogo ? (
+                              <View style={[styles.leagueLogoCircle, { backgroundColor: colors.logoBackdrop }]}>
+                                <Image
+                                  source={{ uri: leagueLogo }}
+                                  style={styles.leagueLogoMini}
+                                  resizeMode="contain"
+                                />
+                              </View>
+                            ) : (
+                              <Ionicons
+                                name="trophy"
+                                size={15}
+                                color={group.priority <= 5 ? '#F59E0B' : colors.primaryLight}
+                              />
+                            )}
+                            <Text style={[styles.leagueAccordionTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                              {group.leagueName}
+                            </Text>
+                            {group.priority <= 5 ? (
+                              <View style={styles.topLeagueBadge}>
+                                <Text style={styles.topLeagueBadgeText}>TOP 5</Text>
+                              </View>
+                            ) : null}
+                          </View>
+
+                          <View style={styles.leagueHeaderRight}>
+                            <View style={[styles.matchCountPill, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0', borderColor: colors.border }]}>
+                              <Text style={[styles.matchCountPillText, { color: colors.textSecondary }]}>{group.matches.length} Laga</Text>
+                            </View>
+                            <Ionicons
+                              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                              size={17}
+                              color={colors.textSecondary}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Dropdown Match List ketika Liga Ditekan */}
+                        {isExpanded && (
+                          <View style={[styles.dropdownMatchesContainer, { backgroundColor: colors.background }]}>
+                            {group.matches.map((fixture) => (
+                              <CompactMatchCard
+                                key={fixture.id}
+                                fixture={fixture}
+                                onPress={() => setSelectedFixture(fixture)}
+                                showLeagueBadge={false}
+                              />
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </Animated.View>
+          )}
+        </View>
       )}
 
       {/* ================= MODAL FILTER LENGKAP ================= */}
@@ -930,14 +1045,59 @@ export const FixturesScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+  },
+  topSegmentContainer: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+  },
+  segmentPillWrapper: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 3,
+    borderWidth: 1,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    borderRadius: 6,
+    gap: 6,
+  },
+  segmentBtnActive: {
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  segmentBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  segmentBtnTextActive: {
+    fontWeight: '800',
+  },
+  leagueLogoCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 2,
+  },
+  leagueLogoMini: {
+    width: 16,
+    height: 16,
   },
   topControlCard: {
-    backgroundColor: '#0F172A',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
     paddingTop: 10,
     paddingBottom: 8,
+    borderBottomWidth: 1,
     gap: 8,
   },
   controlRow: {

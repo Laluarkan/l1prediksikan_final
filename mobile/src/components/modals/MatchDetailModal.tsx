@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { Fixture, MatchHistory } from '../../services/api';
-import { shareMatchPrediction } from '../../services/shareService';
+import { shareImageFile } from '../../services/shareService';
 import { formatWitaFullDate, formatWitaTime } from '../../utils/dateUtils';
+import { getTeamLogoUrl, getLeagueLogoUrl } from '../../utils/logo';
+import { captureRef } from 'react-native-view-shot';
 
 interface MatchDetailModalProps {
   visible: boolean;
@@ -26,6 +29,10 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   fixture,
   onClose,
 }) => {
+  const { colors, isDark } = useTheme();
+  const shareCardRef = useRef<any>(null);
+  const [isSharing, setIsSharing] = useState<boolean>(false);
+
   if (!fixture) return null;
 
   const fullDateLabel = formatWitaFullDate(fixture.date);
@@ -38,7 +45,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   const probOver = Math.round((fixture.prob_ou25_over || 0.5) * 100);
   const probUnder = Math.max(0, 100 - probOver);
 
-  // 1. Sanitasi Rekomendasi 1X2 - Selalu ambil probabilitas tertinggi dari model ML
+  // 1. Rekomendasi 1X2
   const rawFtr = (fixture.rl_pick_ftr || '').trim().toUpperCase();
   let ftrPick: 'H' | 'D' | 'A';
   if (probH >= probD && probH >= probA) ftrPick = 'H';
@@ -53,8 +60,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   }
   const ftrOdds = Number(rawFtrOdds).toFixed(2);
 
-  // 2. Sanitasi Rekomendasi O/U - Selalu ambil probabilitas ML Over/Under 2.5
-  const rawOu = (fixture.rl_pick_ou || '').trim().toUpperCase();
+  // 2. Rekomendasi O/U
   let ouPickShort: 'O 2.5' | 'U 2.5';
   let ouPickLong: 'OVER 2.5' | 'UNDER 2.5';
   let rawOuOdds: number | undefined;
@@ -74,28 +80,76 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   }
   const ouOdds = Number(rawOuOdds).toFixed(2);
 
-  const hasValueFtr = fixture.has_value_bet || (rawFtr === 'H' || rawFtr === 'D' || rawFtr === 'A') || (typeof fixture.rl_stake_ftr === 'number' && fixture.rl_stake_ftr > 0);
-  const hasValueOu = fixture.has_value_bet_ou || rawOu.includes('OVER') || rawOu.includes('UNDER') || rawOu === 'O' || rawOu === 'U' || (typeof fixture.rl_stake_ou === 'number' && fixture.rl_stake_ou > 0);
+  // Perbaikan bug Value Bet: hanya jika rl_stake > 0
+  const hasValueFtr = typeof fixture.rl_stake_ftr === 'number' && fixture.rl_stake_ftr > 0;
+  const hasValueOu = typeof fixture.rl_stake_ou === 'number' && fixture.rl_stake_ou > 0;
+
+  // Resolusi logo resmi liga & tim
+  const leagueLogoUrl = getLeagueLogoUrl(
+    fixture.league_code,
+    fixture.league_name,
+    fixture.league_logo,
+    fixture.home_team_name
+  );
+  const homeLogoUrl = getTeamLogoUrl(fixture.home_team_name, fixture.home_team_logo);
+  const awayLogoUrl = getTeamLogoUrl(fixture.away_team_name, fixture.away_team_logo);
+
+  // Extended Features (H2H & Statistik)
+  const ext = (fixture as any).extended_features || {};
+  const h2hHome = ext.h2h_home_wins != null ? Math.round(Number(ext.h2h_home_wins)) : null;
+  const h2hDraw = ext.h2h_draws != null ? Math.round(Number(ext.h2h_draws)) : null;
+  const h2hAway = ext.h2h_away_wins != null ? Math.round(Number(ext.h2h_away_wins)) : null;
+  const hasH2H = h2hHome !== null || h2hDraw !== null || h2hAway !== null;
+
+  const hasStats =
+    ext.elo_home != null ||
+    ext.home_ppg != null ||
+    ext.home_league_pos != null ||
+    ext.home_avg_scored != null;
+
+  // Tangkap gambar & bagikan via expo-sharing
+  const handleShareAsImage = async () => {
+    if (!shareCardRef.current) return;
+    try {
+      setIsSharing(true);
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
+      });
+      await shareImageFile(
+        uri,
+        `Prediksi ${fixture.home_team_name} vs ${fixture.away_team_name}`
+      );
+    } catch (err) {
+      console.error('Error sharing match prediction image:', err);
+      Alert.alert('Gagal Membuat Gambar', 'Tidak dapat memproses snapshot gambar prediksi match.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+        <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.borderLight }]}>
           {/* Header Bar */}
-          <View style={styles.headerBar}>
+          <View style={[styles.headerBar, { backgroundColor: isDark ? '#090D1A' : '#F1F5F9', borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
-              <Ionicons name="trophy-outline" size={16} color={colors.primaryLight} />
-              <Text style={styles.leagueTitle} numberOfLines={1}>
+              <View style={[styles.leagueLogoWrapper, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                <Image
+                  source={{ uri: leagueLogoUrl }}
+                  style={styles.headerLeagueLogo}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={[styles.leagueTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                 {fixture.league_name}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -104,192 +158,323 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Match Kickoff Banner */}
-            <View style={styles.kickoffBanner}>
-              <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
-              <Text style={styles.kickoffDate}>{fullDateLabel}</Text>
-              <Text style={styles.kickoffBullet}>•</Text>
-              <Ionicons name="time-outline" size={13} color={colors.primaryLight} />
-              <Text style={styles.kickoffTime}>{timeLabel}</Text>
-            </View>
-
-            {/* Teams VS Section */}
-            <View style={styles.teamsSection}>
-              {/* Home Team */}
-              <View style={styles.teamCol}>
-                {fixture.home_team_logo ? (
-                  <Image source={{ uri: fixture.home_team_logo }} style={styles.teamLogo} resizeMode="contain" />
-                ) : (
-                  <View style={styles.teamLogoFallback}>
-                    <Ionicons name="shield-outline" size={24} color={colors.textPrimary} />
-                  </View>
-                )}
-                <Text style={styles.teamName} numberOfLines={2}>{fixture.home_team_name}</Text>
-                <View style={styles.homeBadge}>
-                  <Text style={styles.homeBadgeText}>KANDANG</Text>
+            {/* AREA YANG DI-CAPTURE SEBAGAI GAMBAR TIKET PREDIKSI */}
+            <View
+              ref={shareCardRef}
+              collapsable={false}
+              style={[
+                styles.captureContainer,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              {/* Watermark Brand Header (Tampak rapi saat dibagikan) */}
+              <View style={[styles.shareBrandingHeader, { borderBottomColor: colors.borderLight }]}>
+                <View style={styles.brandRow}>
+                  <Ionicons name="football" size={14} color={colors.primary} />
+                  <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>PREDIKSIKAN AI</Text>
+                  <Text style={[styles.brandSubtitle, { color: colors.textMuted }]}>• Analisis & Prediksi Resmi</Text>
                 </View>
-              </View>
-
-              {/* VS Center or Final Score */}
-              <View style={styles.vsCol}>
-                {typeof fixture.fthg === 'number' && typeof fixture.ftag === 'number' ? (
-                  <View style={styles.ftScoreBox}>
-                    <Text style={styles.ftScoreText}>
-                      {fixture.fthg} - {fixture.ftag}
-                    </Text>
-                    <View style={styles.ftPill}>
-                      <Text style={styles.ftPillText}>FULL TIME</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={styles.vsBadge}>
-                    <Text style={styles.vsText}>VS</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Away Team */}
-              <View style={styles.teamCol}>
-                {fixture.away_team_logo ? (
-                  <Image source={{ uri: fixture.away_team_logo }} style={styles.teamLogo} resizeMode="contain" />
-                ) : (
-                  <View style={styles.teamLogoFallback}>
-                    <Ionicons name="shield-outline" size={24} color={colors.textPrimary} />
-                  </View>
-                )}
-                <Text style={styles.teamName} numberOfLines={2}>{fixture.away_team_name}</Text>
-                <View style={styles.awayBadge}>
-                  <Text style={styles.awayBadgeText}>TANDANG</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* AI Recommendation Highlight Box */}
-            <View style={styles.aiBox}>
-              <View style={styles.aiBoxHeader}>
-                <Ionicons name="sparkles" size={16} color="#10B981" />
-                <Text style={styles.aiBoxTitle}>Rekomendasi Utama AI (Reinforcement Learning)</Text>
-              </View>
-
-              <View style={styles.aiPicksRow}>
-                {/* Pick 1X2 */}
-                <View style={[styles.aiPickCard, hasValueFtr && styles.aiPickCardValue]}>
-                  <Text style={styles.aiPickLabel}>REKOMENDASI 1X2</Text>
-                  <Text style={styles.aiPickMain}>{ftrPickLong}</Text>
-                  <View style={styles.aiPickBadgeRow}>
-                    <Text style={styles.aiPickOdds}>@{ftrOdds}</Text>
-                    {hasValueFtr && (
-                      <View style={styles.valueTag}>
-                        <Ionicons name="diamond" size={10} color="#F59E0B" />
-                        <Text style={styles.valueTagText}>BEST VALUE</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {/* Pick O/U */}
-                <View style={[styles.aiPickCard, hasValueOu && styles.aiPickCardValue]}>
-                  <Text style={styles.aiPickLabel}>REKOMENDASI O/U 2.5</Text>
-                  <Text style={styles.aiPickMain}>{ouPickLong}</Text>
-                  <View style={styles.aiPickBadgeRow}>
-                    <Text style={styles.aiPickOdds}>@{ouOdds}</Text>
-                    {hasValueOu && (
-                      <View style={styles.valueTag}>
-                        <Ionicons name="diamond" size={10} color="#F59E0B" />
-                        <Text style={styles.valueTagText}>BEST VALUE</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {(hasValueFtr || hasValueOu) && (
-                <View style={styles.valueNotice}>
-                  <Ionicons name="information-circle-outline" size={14} color="#F59E0B" />
-                  <Text style={styles.valueNoticeText}>
-                    Peluang kalkulasi AI lebih tinggi dibanding probabilitas implisit bandar (Market Edge).
+                <View style={[styles.leaguePill, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                  <Image source={{ uri: leagueLogoUrl }} style={styles.pillLeagueLogo} resizeMode="contain" />
+                  <Text style={[styles.pillLeagueText, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {fixture.league_name}
                   </Text>
                 </View>
+              </View>
+
+              {/* Match Kickoff Banner */}
+              <View style={[styles.kickoffBanner, { backgroundColor: isDark ? '#1E293B50' : '#F8FAFC', borderColor: colors.border }]}>
+                <Ionicons name="calendar-outline" size={13} color={colors.textMuted} />
+                <Text style={[styles.kickoffDate, { color: colors.textSecondary }]}>{fullDateLabel}</Text>
+                <Text style={[styles.kickoffBullet, { color: colors.textMuted }]}>•</Text>
+                <Ionicons name="time-outline" size={13} color={colors.primary} />
+                <Text style={[styles.kickoffTime, { color: colors.primary }]}>{timeLabel}</Text>
+              </View>
+
+              {/* Teams VS Section with Logos */}
+              <View style={[styles.teamsSection, { backgroundColor: isDark ? '#090D1A' : '#F8FAFC', borderColor: colors.border }]}>
+                {/* Home Team */}
+                <View style={styles.teamCol}>
+                  <View style={[styles.teamLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                    <Image source={{ uri: homeLogoUrl }} style={styles.teamLogo} resizeMode="contain" />
+                  </View>
+                  <Text style={[styles.teamName, { color: colors.textPrimary }]} numberOfLines={2}>
+                    {fixture.home_team_name}
+                  </Text>
+                  <View style={styles.homeBadge}>
+                    <Text style={styles.homeBadgeText}>KANDANG</Text>
+                  </View>
+                </View>
+
+                {/* VS Center or Final Score */}
+                <View style={styles.vsCol}>
+                  {typeof fixture.fthg === 'number' && typeof fixture.ftag === 'number' ? (
+                    <View style={styles.ftScoreBox}>
+                      <Text style={styles.ftScoreText}>
+                        {fixture.fthg} - {fixture.ftag}
+                      </Text>
+                      <View style={styles.ftPill}>
+                        <Text style={styles.ftPillText}>FULL TIME</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.vsBadge}>
+                      <Text style={styles.vsText}>VS</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Away Team */}
+                <View style={styles.teamCol}>
+                  <View style={[styles.teamLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                    <Image source={{ uri: awayLogoUrl }} style={styles.teamLogo} resizeMode="contain" />
+                  </View>
+                  <Text style={[styles.teamName, { color: colors.textPrimary }]} numberOfLines={2}>
+                    {fixture.away_team_name}
+                  </Text>
+                  <View style={styles.awayBadge}>
+                    <Text style={styles.awayBadgeText}>TANDANG</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* AI Recommendation Highlight Box */}
+              <View style={[styles.aiBox, { backgroundColor: isDark ? '#0F231D' : '#ECFDF5', borderColor: isDark ? '#05966950' : '#A7F3D0' }]}>
+                <View style={styles.aiBoxHeader}>
+                  <Ionicons name="sparkles" size={16} color={colors.primary} />
+                  <Text style={[styles.aiBoxTitle, { color: colors.primary }]}>Rekomendasi Utama AI</Text>
+                </View>
+
+                <View style={styles.aiPicksRow}>
+                  {/* Pick 1X2 */}
+                  <View style={[styles.aiPickCard, { backgroundColor: colors.surface, borderColor: hasValueFtr ? '#F59E0B' : colors.border }]}>
+                    <Text style={[styles.aiPickLabel, { color: colors.textMuted }]}>REKOMENDASI 1X2</Text>
+                    <Text style={[styles.aiPickMain, { color: colors.textPrimary }]}>{ftrPickLong}</Text>
+                    <View style={styles.aiPickBadgeRow}>
+                      <Text style={[styles.aiPickOdds, { color: colors.primary }]}>@{ftrOdds}</Text>
+                      {hasValueFtr && (
+                        <View style={styles.valueTag}>
+                          <Ionicons name="diamond" size={10} color="#F59E0B" />
+                          <Text style={styles.valueTagText}>VALUE BET</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Pick O/U */}
+                  <View style={[styles.aiPickCard, { backgroundColor: colors.surface, borderColor: hasValueOu ? '#F59E0B' : colors.border }]}>
+                    <Text style={[styles.aiPickLabel, { color: colors.textMuted }]}>REKOMENDASI O/U 2.5</Text>
+                    <Text style={[styles.aiPickMain, { color: colors.textPrimary }]}>{ouPickLong}</Text>
+                    <View style={styles.aiPickBadgeRow}>
+                      <Text style={[styles.aiPickOdds, { color: colors.primary }]}>@{ouOdds}</Text>
+                      {hasValueOu && (
+                        <View style={styles.valueTag}>
+                          <Ionicons name="diamond" size={10} color="#F59E0B" />
+                          <Text style={styles.valueTagText}>VALUE BET</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* ================= HEAD-TO-HEAD (H2H) SECTION ================= */}
+              {hasH2H && (
+                <View style={[styles.sectionBlock, { backgroundColor: isDark ? '#0B132B' : '#F8FAFC', borderColor: colors.border }]}>
+                  <View style={styles.blockTitleRow}>
+                    <Ionicons name="swap-horizontal" size={15} color="#38BDF8" />
+                    <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>HEAD-TO-HEAD (H2H)</Text>
+                  </View>
+
+                  <View style={styles.h2hColumnsRow}>
+                    <View style={styles.h2hCol}>
+                      <Text style={[styles.h2hValText, { color: '#38BDF8' }]}>{h2hHome ?? 0}</Text>
+                      <Text style={[styles.h2hLabelText, { color: colors.textMuted }]}>Home Wins</Text>
+                    </View>
+                    <View style={styles.h2hCol}>
+                      <Text style={[styles.h2hValText, { color: colors.textSecondary }]}>{h2hDraw ?? 0}</Text>
+                      <Text style={[styles.h2hLabelText, { color: colors.textMuted }]}>Draws</Text>
+                    </View>
+                    <View style={styles.h2hCol}>
+                      <Text style={[styles.h2hValText, { color: '#A855F7' }]}>{h2hAway ?? 0}</Text>
+                      <Text style={[styles.h2hLabelText, { color: colors.textMuted }]}>Away Wins</Text>
+                    </View>
+                  </View>
+
+                  {/* Visual H2H Proportion Bar */}
+                  {((h2hHome ?? 0) + (h2hDraw ?? 0) + (h2hAway ?? 0)) > 0 && (
+                    <View style={styles.h2hBarContainer}>
+                      <View style={[styles.h2hBarSegment, { flex: Math.max(1, h2hHome ?? 0), backgroundColor: '#38BDF8' }]} />
+                      <View style={[styles.h2hBarSegment, { flex: Math.max(1, h2hDraw ?? 0), backgroundColor: '#94A3B8' }]} />
+                      <View style={[styles.h2hBarSegment, { flex: Math.max(1, h2hAway ?? 0), backgroundColor: '#A855F7' }]} />
+                    </View>
+                  )}
+                </View>
               )}
-            </View>
 
-            {/* Odds Pasar Lengkap */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.blockTitle}>ODDS PASAR RESMI</Text>
+              {/* ================= STATISTIK PERFORMA KLUB ================= */}
+              {hasStats && (
+                <View style={[styles.sectionBlock, { backgroundColor: isDark ? '#0B132B' : '#F8FAFC', borderColor: colors.border }]}>
+                  <View style={styles.blockTitleRow}>
+                    <Ionicons name="bar-chart-outline" size={15} color={colors.primary} />
+                    <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>STATISTIK & PERFORMA TIM</Text>
+                  </View>
 
-              {/* 1X2 */}
-              <View style={styles.oddsGrid3}>
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>1 (Home)</Text>
-                  <Text style={styles.oddsTileValue}>{fixture.avg_h?.toFixed(2) || '-'}</Text>
-                  <Text style={styles.oddsTileProb}>{probH}% AI</Text>
+                  <View style={[styles.statsTable, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                    {/* Header Row */}
+                    <View style={[styles.statsTableRow, styles.statsTableHeader, { backgroundColor: isDark ? '#090D1A' : '#F1F5F9' }]}>
+                      <Text style={[styles.statsTableTh, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {fixture.home_team_name}
+                      </Text>
+                      <Text style={[styles.statsTableParamTh, { color: colors.textMuted }]}>PARAMETER</Text>
+                      <Text style={[styles.statsTableTh, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {fixture.away_team_name}
+                      </Text>
+                    </View>
+
+                    {/* Elo Rating */}
+                    {ext.elo_home != null && ext.elo_away != null && (
+                      <View style={[styles.statsTableRow, { borderTopColor: colors.borderLight }]}>
+                        <Text style={[styles.statsTableVal, { color: '#38BDF8' }]}>
+                          {Math.round(Number(ext.elo_home))}
+                        </Text>
+                        <Text style={[styles.statsTableParam, { color: colors.textMuted }]}>Rating Elo</Text>
+                        <Text style={[styles.statsTableVal, { color: '#38BDF8' }]}>
+                          {Math.round(Number(ext.elo_away))}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* League Position */}
+                    {ext.home_league_pos != null && ext.away_league_pos != null && (
+                      <View style={[styles.statsTableRow, { borderTopColor: colors.borderLight }]}>
+                        <Text style={[styles.statsTableVal, { color: colors.textPrimary }]}>
+                          #{Math.round(Number(ext.home_league_pos))}
+                        </Text>
+                        <Text style={[styles.statsTableParam, { color: colors.textMuted }]}>Peringkat Klasemen</Text>
+                        <Text style={[styles.statsTableVal, { color: colors.textPrimary }]}>
+                          #{Math.round(Number(ext.away_league_pos))}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Points Per Game (PPG) */}
+                    {ext.home_ppg != null && ext.away_ppg != null && (
+                      <View style={[styles.statsTableRow, { borderTopColor: colors.borderLight }]}>
+                        <Text style={[styles.statsTableVal, { color: colors.primary }]}>
+                          {Number(ext.home_ppg).toFixed(2)}
+                        </Text>
+                        <Text style={[styles.statsTableParam, { color: colors.textMuted }]}>Poin Per Laga (PPG)</Text>
+                        <Text style={[styles.statsTableVal, { color: colors.primary }]}>
+                          {Number(ext.away_ppg).toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Avg Goals Scored */}
+                    {ext.home_avg_scored != null && ext.away_avg_scored != null && (
+                      <View style={[styles.statsTableRow, { borderTopColor: colors.borderLight }]}>
+                        <Text style={[styles.statsTableVal, { color: colors.textPrimary }]}>
+                          {Number(ext.home_avg_scored).toFixed(2)}
+                        </Text>
+                        <Text style={[styles.statsTableParam, { color: colors.textMuted }]}>Rata-rata Gol Cetak</Text>
+                        <Text style={[styles.statsTableVal, { color: colors.textPrimary }]}>
+                          {Number(ext.away_avg_scored).toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Win Rate */}
+                    {ext.home_win_rate != null && ext.away_win_rate != null && (
+                      <View style={[styles.statsTableRow, { borderTopColor: colors.borderLight }]}>
+                        <Text style={[styles.statsTableVal, { color: colors.primary }]}>
+                          {(Number(ext.home_win_rate) * 100).toFixed(0)}%
+                        </Text>
+                        <Text style={[styles.statsTableParam, { color: colors.textMuted }]}>Win Rate</Text>
+                        <Text style={[styles.statsTableVal, { color: colors.primary }]}>
+                          {(Number(ext.away_win_rate) * 100).toFixed(0)}%
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>X (Seri)</Text>
-                  <Text style={styles.oddsTileValue}>{fixture.avg_d?.toFixed(2) || '-'}</Text>
-                  <Text style={styles.oddsTileProb}>{probD}% AI</Text>
+              )}
+
+              {/* Odds Pasar Lengkap */}
+              <View style={[styles.sectionBlock, { backgroundColor: isDark ? '#0B132B' : '#F8FAFC', borderColor: colors.border }]}>
+                <View style={styles.blockTitleRow}>
+                  <Ionicons name="pricetag-outline" size={15} color={colors.primary} />
+                  <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>ODDS PASAR RESMI</Text>
                 </View>
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>2 (Away)</Text>
-                  <Text style={styles.oddsTileValue}>{fixture.avg_a?.toFixed(2) || '-'}</Text>
-                  <Text style={styles.oddsTileProb}>{probA}% AI</Text>
+
+                {/* 1X2 */}
+                <View style={styles.oddsGrid3}>
+                  <View style={[styles.oddsTile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.oddsTileLabel, { color: colors.textMuted }]}>1 (Home)</Text>
+                    <Text style={[styles.oddsTileValue, { color: colors.textPrimary }]}>{fixture.avg_h?.toFixed(2) || '-'}</Text>
+                    <Text style={[styles.oddsTileProb, { color: colors.primary }]}>{probH}% AI</Text>
+                  </View>
+                  <View style={[styles.oddsTile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.oddsTileLabel, { color: colors.textMuted }]}>X (Seri)</Text>
+                    <Text style={[styles.oddsTileValue, { color: colors.textPrimary }]}>{fixture.avg_d?.toFixed(2) || '-'}</Text>
+                    <Text style={[styles.oddsTileProb, { color: colors.textSecondary }]}>{probD}% AI</Text>
+                  </View>
+                  <View style={[styles.oddsTile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.oddsTileLabel, { color: colors.textMuted }]}>2 (Away)</Text>
+                    <Text style={[styles.oddsTileValue, { color: colors.textPrimary }]}>{fixture.avg_a?.toFixed(2) || '-'}</Text>
+                    <Text style={[styles.oddsTileProb, { color: '#38BDF8' }]}>{probA}% AI</Text>
+                  </View>
+                </View>
+
+                {/* Over / Under 2.5 */}
+                <View style={[styles.oddsGrid2, { marginTop: 8 }]}>
+                  <View style={[styles.oddsTile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.oddsTileLabel, { color: colors.textMuted }]}>Over 2.5 Gol</Text>
+                    <Text style={[styles.oddsTileValue, { color: colors.textPrimary }]}>{fixture.avg_over_25?.toFixed(2) || '-'}</Text>
+                    <Text style={[styles.oddsTileProb, { color: colors.primary }]}>{probOver}% AI</Text>
+                  </View>
+                  <View style={[styles.oddsTile, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.oddsTileLabel, { color: colors.textMuted }]}>Under 2.5 Gol</Text>
+                    <Text style={[styles.oddsTileValue, { color: colors.textPrimary }]}>{fixture.avg_under_25?.toFixed(2) || '-'}</Text>
+                    <Text style={[styles.oddsTileProb, { color: colors.textSecondary }]}>{probUnder}% AI</Text>
+                  </View>
                 </View>
               </View>
 
-              {/* Over / Under 2.5 */}
-              <View style={[styles.oddsGrid2, { marginTop: 10 }]}>
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>Over 2.5 Gol</Text>
-                  <Text style={styles.oddsTileValue}>{fixture.avg_over_25?.toFixed(2) || '-'}</Text>
-                  <Text style={styles.oddsTileProb}>{probOver}% AI</Text>
-                </View>
-                <View style={styles.oddsTile}>
-                  <Text style={styles.oddsTileLabel}>Under 2.5 Gol</Text>
-                  <Text style={styles.oddsTileValue}>{fixture.avg_under_25?.toFixed(2) || '-'}</Text>
-                  <Text style={styles.oddsTileProb}>{probUnder}% AI</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Probability Breakdown Bar */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.blockTitle}>PROBABILITAS HASIL PERTANDINGAN</Text>
-              <View style={styles.probLegendRow}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-                  <Text style={styles.legendText}>Home ({probH}%)</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#64748B' }]} />
-                  <Text style={styles.legendText}>Seri ({probD}%)</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} />
-                  <Text style={styles.legendText}>Away ({probA}%)</Text>
-                </View>
-              </View>
-
-              <View style={styles.probBarContainer}>
-                <View style={[styles.probBarSegment, { flex: Math.max(1, probH), backgroundColor: colors.primary }]} />
-                <View style={[styles.probBarSegment, { flex: Math.max(1, probD), backgroundColor: '#64748B' }]} />
-                <View style={[styles.probBarSegment, { flex: Math.max(1, probA), backgroundColor: '#3B82F6' }]} />
+              {/* Watermark Footer in Image */}
+              <View style={[styles.shareCardFooter, { borderTopColor: colors.borderLight }]}>
+                <Text style={[styles.watermarkText, { color: colors.textMuted }]}>
+                  Dianalisis oleh Antigravity AI Engine • https://www.l1prediksikan.my.id
+                </Text>
               </View>
             </View>
           </ScrollView>
 
-          {/* Bottom Actions */}
-          <View style={styles.bottomBar}>
+          {/* Bottom Action Buttons */}
+          <View style={[styles.bottomBar, { backgroundColor: isDark ? '#090D1A' : '#F1F5F9', borderTopColor: colors.border }]}>
             <TouchableOpacity
-              style={styles.shareBtn}
-              onPress={() => shareMatchPrediction(fixture)}
+              style={[styles.shareBtn, { backgroundColor: colors.primary }]}
+              onPress={handleShareAsImage}
               activeOpacity={0.8}
+              disabled={isSharing}
             >
-              <Ionicons name="share-social" size={16} color="#FFFFFF" />
-              <Text style={styles.shareBtnText}>Bagikan Prediksi</Text>
+              {isSharing ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="image-outline" size={17} color="#FFFFFF" />
+                  <Text style={styles.shareBtnText}>Bagikan Gambar Prediksi</Text>
+                </>
+              )}
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.closeActionBtn} onPress={onClose} activeOpacity={0.7}>
-              <Text style={styles.closeActionBtnText}>Tutup</Text>
+            <TouchableOpacity
+              style={[styles.closeActionBtn, { borderColor: colors.border }]}
+              onPress={onClose}
+              activeOpacity={0.7}
+              disabled={isSharing}
+            >
+              <Text style={[styles.closeActionBtnText, { color: colors.textSecondary }]}>Tutup</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -301,18 +486,16 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
   },
   modalCard: {
     width: '100%',
-    maxHeight: '90%',
-    backgroundColor: '#0F172A',
+    maxHeight: '92%',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
     overflow: 'hidden',
   },
   headerBar: {
@@ -322,8 +505,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-    backgroundColor: '#090D1A',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -332,10 +513,22 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  leagueLogoWrapper: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    padding: 2,
+  },
+  headerLeagueLogo: {
+    width: '100%',
+    height: '100%',
+  },
   leagueTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   closeBtn: {
     padding: 4,
@@ -344,143 +537,177 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   scrollContent: {
-    padding: 16,
-    gap: 14,
+    padding: 12,
+  },
+  captureContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+  },
+  shareBrandingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  brandTitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  leaguePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  pillLeagueLogo: {
+    width: 12,
+    height: 12,
+  },
+  pillLeagueText: {
+    fontSize: 10,
+    fontWeight: '700',
+    maxWidth: 110,
   },
   kickoffBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1E293B50',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   kickoffDate: {
     fontSize: 11,
-    color: colors.textSecondary,
     fontWeight: '600',
   },
   kickoffBullet: {
-    color: colors.textMuted,
     fontSize: 10,
   },
   kickoffTime: {
     fontSize: 11,
-    color: '#10B981',
     fontWeight: '800',
   },
   teamsSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#090D1A',
+    padding: 14,
     borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   teamCol: {
     flex: 1,
     alignItems: 'center',
     gap: 6,
   },
-  teamLogo: {
-    width: 48,
-    height: 48,
-  },
-  teamLogoFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#1E293B',
+  teamLogoBox: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  teamLogo: {
+    width: '100%',
+    height: '100%',
   },
   teamName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
     textAlign: 'center',
-    minHeight: 32,
+    minHeight: 30,
   },
   homeBadge: {
-    backgroundColor: '#064E3B40',
-    paddingHorizontal: 6,
+    backgroundColor: '#38BDF820',
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#38BDF840',
   },
   homeBadgeText: {
+    color: '#0284C7',
     fontSize: 9,
     fontWeight: '800',
-    color: '#10B981',
   },
   awayBadge: {
-    backgroundColor: '#1E1B4B',
-    paddingHorizontal: 6,
+    backgroundColor: '#A855F720',
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#A855F740',
   },
   awayBadgeText: {
+    color: '#7E22CE',
     fontSize: 9,
     fontWeight: '800',
-    color: '#818CF8',
   },
   vsCol: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     alignItems: 'center',
   },
   vsBadge: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#334155',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vsText: {
-    fontSize: 11,
+    color: '#FFFFFF',
     fontWeight: '900',
-    color: colors.textMuted,
+    fontSize: 12,
   },
   ftScoreBox: {
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
   },
   ftScoreText: {
-    fontSize: 15,
+    color: '#10B981',
     fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: 1,
+    fontSize: 18,
   },
   ftPill: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 3,
+    backgroundColor: '#10B98120',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   ftPillText: {
-    fontSize: 7.5,
+    color: '#10B981',
+    fontSize: 8,
     fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 0.5,
   },
   aiBox: {
-    backgroundColor: '#064E3B15',
-    borderRadius: 14,
-    padding: 14,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#05966950',
     gap: 10,
   },
   aiBoxHeader: {
@@ -489,37 +716,28 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   aiBoxTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#34D399',
-    letterSpacing: 0.3,
   },
   aiPicksRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   aiPickCard: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
     padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1E293B',
     gap: 4,
-  },
-  aiPickCardValue: {
-    borderColor: '#F59E0B80',
-    backgroundColor: '#F59E0B10',
   },
   aiPickLabel: {
     fontSize: 9,
-    fontWeight: '800',
-    color: colors.textMuted,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   aiPickMain: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '900',
-    color: '#FFFFFF',
   },
   aiPickBadgeRow: {
     flexDirection: 'row',
@@ -530,44 +748,105 @@ const styles = StyleSheet.create({
   aiPickOdds: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#F59E0B',
   },
   valueTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#F59E0B25',
+    backgroundColor: '#F59E0B20',
     paddingHorizontal: 5,
-    paddingVertical: 1.5,
+    paddingVertical: 2,
     borderRadius: 4,
   },
   valueTagText: {
-    fontSize: 8,
-    fontWeight: '800',
     color: '#F59E0B',
+    fontSize: 8,
+    fontWeight: '900',
   },
-  valueNotice: {
+  sectionBlock: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  blockTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F59E0B15',
-    padding: 8,
-    borderRadius: 6,
-  },
-  valueNoticeText: {
-    fontSize: 10,
-    color: '#FDE68A',
-    flex: 1,
-    lineHeight: 14,
-  },
-  sectionBlock: {
-    gap: 8,
   },
   blockTitle: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.textMuted,
     letterSpacing: 0.5,
+  },
+  h2hColumnsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  h2hCol: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  h2hValText: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  h2hLabelText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  h2hBarContainer: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  h2hBarSegment: {
+    height: '100%',
+  },
+  statsTable: {
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  statsTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderTopWidth: 1,
+  },
+  statsTableHeader: {
+    borderTopWidth: 0,
+    paddingVertical: 6,
+  },
+  statsTableTh: {
+    flex: 1.4,
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  statsTableParamTh: {
+    flex: 1.8,
+    fontSize: 9,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  statsTableVal: {
+    flex: 1.4,
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  statsTableParam: {
+    flex: 1.8,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   oddsGrid3: {
     flexDirection: 'row',
@@ -579,94 +858,65 @@ const styles = StyleSheet.create({
   },
   oddsTile: {
     flex: 1,
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    padding: 8,
     alignItems: 'center',
-    gap: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    gap: 2,
   },
   oddsTileLabel: {
     fontSize: 10,
-    color: colors.textMuted,
     fontWeight: '600',
   },
   oddsTileValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
   },
   oddsTileProb: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#10B981',
   },
-  probLegendRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  legendItem: {
-    flexDirection: 'row',
+  shareCardFooter: {
+    paddingTop: 8,
+    borderTopWidth: 1,
     alignItems: 'center',
-    gap: 5,
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textSecondary,
+  watermarkText: {
+    fontSize: 9,
     fontWeight: '600',
-  },
-  probBarContainer: {
-    flexDirection: 'row',
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-    backgroundColor: '#1E293B',
-  },
-  probBarSegment: {
-    height: '100%',
+    textAlign: 'center',
   },
   bottomBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    padding: 14,
-    backgroundColor: '#090D1A',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
   },
   shareBtn: {
-    flex: 2,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 11,
+    borderRadius: 12,
   },
   shareBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   closeActionBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E293B',
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   closeActionBtnText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontWeight: '700',
   },
 });

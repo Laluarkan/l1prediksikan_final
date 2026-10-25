@@ -17,9 +17,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { ParlayTicket, fetchParlayTickets, getCurrentSeason } from '../services/api';
 import { shareImageFile } from '../services/shareService';
 import { captureRef } from 'react-native-view-shot';
+import { getTeamLogoUrl, getLeagueLogoUrl } from '../utils/logo';
+
+// Helper pemilah tim & logo untuk kaki parlay
+const parseLegMatch = (leg: any) => {
+  const matchTitle = leg.match_name || leg.match || 'Pertandingan';
+  const parts = matchTitle.split(/\s+(?:vs\.?|v|-)\s+/i);
+  const homeTeam = parts[0]?.trim() || matchTitle;
+  const awayTeam = parts[1]?.trim() || '';
+  const homeLogo = getTeamLogoUrl(homeTeam);
+  const awayLogo = awayTeam ? getTeamLogoUrl(awayTeam) : null;
+  const leagueLogo = getLeagueLogoUrl(leg.league_code, leg.league_name, null, homeTeam);
+  return { matchTitle, homeTeam, awayTeam, homeLogo, awayLogo, leagueLogo };
+};
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -28,6 +42,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const PRESET_STAKES = [10000, 25000, 50000, 100000];
 
 export const ParlayScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
   const defaultSeason = getCurrentSeason(); // Musim saat ini (misal '26/27')
 
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
@@ -39,7 +54,7 @@ export const ParlayScreen: React.FC = () => {
   const [stake, setStake] = useState<number>(10000);
   const [ticketToShare, setTicketToShare] = useState<ParlayTicket | null>(null);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
-  const shareCardRef = useRef<View>(null);
+  const shareCardRef = useRef<any>(null);
 
   // Filter & Musim untuk Riwayat Parlay
   const [selectedSeason, setSelectedSeason] = useState<string>(defaultSeason);
@@ -492,7 +507,9 @@ export const ParlayScreen: React.FC = () => {
                   <View style={styles.metricDivider} />
                   <View style={styles.metricItem}>
                     <Text style={styles.metricLabel}>Probabilitas AI</Text>
-                    <Text style={styles.metricValueProb}>{(totalProb * 100).toFixed(1)}%</Text>
+                    <Text style={styles.metricValueProb}>
+                      {((Number(totalProb) || 0) * 100).toFixed(1)}%
+                    </Text>
                   </View>
                   <View style={styles.metricDivider} />
                   <View style={styles.metricItem}>
@@ -520,6 +537,8 @@ export const ParlayScreen: React.FC = () => {
                       <Text style={styles.emptyLegsText}>Rincian laga tidak tersedia.</Text>
                     ) : (
                       legs.map((leg, idx) => {
+                        const { homeTeam, awayTeam, homeLogo, awayLogo, leagueLogo } = parseLegMatch(leg);
+
                         let legStatusIcon = (
                           <Ionicons name="time-outline" size={14} color={colors.textMuted} />
                         );
@@ -534,27 +553,60 @@ export const ParlayScreen: React.FC = () => {
                         }
 
                         return (
-                          <View key={idx} style={styles.legCard}>
+                          <View key={idx} style={[styles.legCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: colors.borderLight }]}>
+                            {/* Index */}
                             <View style={styles.legIndexCircle}>
                               <Text style={styles.legIndexText}>{idx + 1}</Text>
                             </View>
+
+                            {/* Logo Liga di sebelah kiri */}
+                            <View style={[styles.legLeagueBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                              <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
+                            </View>
+
+                            {/* Batas pemisah vertikal */}
+                            <View style={[styles.legVerticalDivider, { backgroundColor: colors.borderLight }]} />
+
+                            {/* Detail Tim & Rekomendasi di sebelah kanan batas */}
                             <View style={styles.legContent}>
-                              <View style={styles.legHeaderRow}>
-                                <Text style={styles.legMatchName} numberOfLines={1}>{leg.match}</Text>
-                                <View style={styles.legTimePill}>
-                                  <Ionicons name="time-outline" size={10} color={colors.primaryLight} />
-                                  <Text style={styles.legTimeText}>{formatLegKickoff(leg.date, ticket.date)}</Text>
+                              <View style={styles.legTeamsRow}>
+                                <View style={styles.teamMiniItem}>
+                                  <View style={[styles.teamMiniLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                                    <Image source={{ uri: homeLogo }} style={styles.teamMiniLogo} resizeMode="contain" />
+                                  </View>
+                                  <Text style={[styles.teamMiniName, { color: colors.textPrimary }]} numberOfLines={1}>
+                                    {homeTeam}
+                                  </Text>
+                                </View>
+
+                                <Text style={[styles.vsMiniText, { color: colors.textMuted }]}>vs</Text>
+
+                                <View style={styles.teamMiniItem}>
+                                  {awayLogo && (
+                                    <View style={[styles.teamMiniLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                                      <Image source={{ uri: awayLogo }} style={styles.teamMiniLogo} resizeMode="contain" />
+                                    </View>
+                                  )}
+                                  <Text style={[styles.teamMiniName, { color: colors.textPrimary }]} numberOfLines={1}>
+                                    {awayTeam}
+                                  </Text>
                                 </View>
                               </View>
+
                               <View style={styles.legMetaRow}>
                                 <View style={styles.pickBadge}>
                                   <Text style={styles.pickBadgeText}>
                                     Pilihan: {leg.pick.toUpperCase()}
                                   </Text>
                                 </View>
-                                <Text style={styles.legOddsText}>@{Number(leg.odds).toFixed(2)}</Text>
+                                <Text style={[styles.legOddsText, { color: colors.primary }]}>@{Number(leg.odds).toFixed(2)}</Text>
+                                <View style={styles.legTimePill}>
+                                  <Ionicons name="time-outline" size={10} color={colors.primary} />
+                                  <Text style={styles.legTimeText}>{formatLegKickoff(leg.date, ticket.date)}</Text>
+                                </View>
                               </View>
                             </View>
+
                             <View style={styles.legStatusWrapper}>{legStatusIcon}</View>
                           </View>
                         );
@@ -671,7 +723,7 @@ export const ParlayScreen: React.FC = () => {
                     <View style={styles.slipMetricItemMiddle}>
                       <Text style={styles.slipMetricLabel} numberOfLines={1}>PROBABILITAS AI</Text>
                       <Text style={styles.slipMetricProb}>
-                        {(Number(ticketToShare.total_prob || 0) * 100).toFixed(1)}%
+                        {((Number(ticketToShare.total_prob) || 0) * 100).toFixed(1)}%
                       </Text>
                     </View>
                     <View style={styles.slipMetricDivider} />
@@ -686,43 +738,75 @@ export const ParlayScreen: React.FC = () => {
                   {/* Slip Matches List dengan Jam Bermain */}
                   <View style={styles.slipLegsContainer}>
                     <Text style={styles.slipLegsTitle}>DETAIL KOMBINASI PERTANDINGAN</Text>
-                    {(ticketToShare.legs_details || []).map((leg, idx) => (
-                      <View key={idx} style={styles.slipLegRow}>
-                        <View style={styles.slipLegIndex}>
-                          <Text style={styles.slipLegIndexText}>{idx + 1}</Text>
-                        </View>
-                        <View style={styles.slipLegMain}>
-                          <View style={styles.slipLegTopRow}>
-                            <Text style={styles.slipLegMatch} numberOfLines={1}>
-                              {leg.match}
-                            </Text>
-                            <View style={styles.slipTimeBadge}>
-                              <Ionicons name="time-outline" size={10} color={colors.primaryLight} />
-                              <Text style={styles.slipTimeText}>
-                                {formatLegKickoff(leg.date, ticketToShare.date)}
-                              </Text>
+                    {(ticketToShare.legs_details || []).map((leg, idx) => {
+                      const { homeTeam, awayTeam, homeLogo, awayLogo, leagueLogo } = parseLegMatch(leg);
+                      return (
+                        <View key={idx} style={styles.slipLegRow}>
+                          <View style={styles.slipLegIndex}>
+                            <Text style={styles.slipLegIndexText}>{idx + 1}</Text>
+                          </View>
+
+                          {/* Logo Liga di sebelah kiri */}
+                          <View style={[styles.legLeagueBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                            <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
+                          </View>
+
+                          {/* Batas pemisah vertikal */}
+                          <View style={[styles.legVerticalDivider, { backgroundColor: '#334155' }]} />
+
+                          <View style={styles.slipLegMain}>
+                            <View style={styles.legTeamsRow}>
+                              <View style={styles.teamMiniItem}>
+                                <View style={[styles.teamMiniLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                                  <Image source={{ uri: homeLogo }} style={styles.teamMiniLogo} resizeMode="contain" />
+                                </View>
+                                <Text style={styles.slipLegMatch} numberOfLines={1}>
+                                  {homeTeam}
+                                </Text>
+                              </View>
+
+                              <Text style={styles.vsMiniText}>vs</Text>
+
+                              <View style={styles.teamMiniItem}>
+                                {awayLogo && (
+                                  <View style={[styles.teamMiniLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                                    <Image source={{ uri: awayLogo }} style={styles.teamMiniLogo} resizeMode="contain" />
+                                  </View>
+                                )}
+                                <Text style={styles.slipLegMatch} numberOfLines={1}>
+                                  {awayTeam}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.slipLegMeta}>
+                              <View style={styles.slipPickBadge}>
+                                <Text style={styles.slipPickText}>
+                                  {leg.pick.toUpperCase()}
+                                </Text>
+                              </View>
+                              <Text style={styles.slipOddsText}>@{Number(leg.odds).toFixed(2)}</Text>
+                              <View style={styles.slipTimeBadge}>
+                                <Ionicons name="time-outline" size={10} color={colors.primaryLight} />
+                                <Text style={styles.slipTimeText}>
+                                  {formatLegKickoff(leg.date, ticketToShare.date)}
+                                </Text>
+                              </View>
                             </View>
                           </View>
-                          <View style={styles.slipLegMeta}>
-                            <View style={styles.slipPickBadge}>
-                              <Text style={styles.slipPickText}>
-                                {leg.pick.toUpperCase()}
-                              </Text>
-                            </View>
-                            <Text style={styles.slipOddsText}>@{Number(leg.odds).toFixed(2)}</Text>
+
+                          <View style={styles.slipLegResult}>
+                            {leg.is_won === true ? (
+                              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                            ) : leg.is_won === false ? (
+                              <Ionicons name="close-circle" size={16} color="#EF4444" />
+                            ) : (
+                              <Ionicons name="hourglass-outline" size={14} color="#10B981" />
+                            )}
                           </View>
                         </View>
-                        <View style={styles.slipLegResult}>
-                          {leg.is_won === true ? (
-                            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                          ) : leg.is_won === false ? (
-                            <Ionicons name="close-circle" size={16} color="#EF4444" />
-                          ) : (
-                            <Ionicons name="hourglass-outline" size={14} color="#10B981" />
-                          )}
-                        </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
 
                   {/* Slip Watermark Footer */}
@@ -1353,41 +1437,79 @@ const styles = StyleSheet.create({
   legCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 10,
+    gap: 8,
   },
   legIndexCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   legIndexText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    color: colors.textSecondary,
+    color: '#94A3B8',
+  },
+  legLeagueBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 0.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  legLeagueLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  legVerticalDivider: {
+    width: 1.5,
+    height: 32,
+    marginHorizontal: 2,
   },
   legContent: {
     flex: 1,
     gap: 4,
   },
-  legHeaderRow: {
+  legTeamsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 6,
+    gap: 5,
+    flexWrap: 'wrap',
   },
-  legMatchName: {
-    fontSize: 12,
+  teamMiniItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '45%',
+  },
+  teamMiniLogoBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 0.6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 1.5,
+  },
+  teamMiniLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  teamMiniName: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.textPrimary,
-    flex: 1,
+    flexShrink: 1,
+  },
+  vsMiniText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   legTimePill: {
     flexDirection: 'row',

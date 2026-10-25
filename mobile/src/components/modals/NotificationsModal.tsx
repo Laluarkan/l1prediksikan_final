@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import {
   AppNotification,
   NotificationSettings,
@@ -39,6 +40,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'inbox' | 'settings' | 'admin'>('inbox');
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [userSession, setUserSession] = useState<UserSession | null>(null);
@@ -177,14 +179,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerTitleRow}>
               <View style={styles.headerIconContainer}>
                 <Ionicons name="notifications" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.headerTitle}>Notifikasi & Pemberitahuan</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifikasi & Pemberitahuan</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textSecondary} />
@@ -581,12 +583,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#0F172A',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
     borderTopWidth: 1,
-    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',

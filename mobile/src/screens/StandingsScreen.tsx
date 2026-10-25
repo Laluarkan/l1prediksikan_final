@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,98 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { League, TeamStanding, fetchLeagues, fetchStandings } from '../services/api';
+import { getTeamLogoUrl, getLeagueLogoUrl } from '../utils/logo';
 
 const AVAILABLE_SEASONS = ['26/27', '25/26', '24/25', '23/24', '22/23', '21/22'];
 
+interface ZoneRule {
+  ranks: number[];
+  name: string;
+  shortName: string;
+  colorBorder: string;
+  badgeBg: string;
+  badgeText: string;
+}
+
+// Konfigurasi Zona Kualifikasi & Degradasi Resmi untuk 11 Liga Top Eropa
+const LEAGUE_RULES: Record<string, ZoneRule[]> = {
+  E0: [
+    { ranks: [1, 2, 3, 4], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [5], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [18, 19, 20], name: 'Zona Degradasi ke Championship', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  SP1: [
+    { ranks: [1, 2, 3, 4], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [5], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [6], name: 'UEFA Conference League', shortName: 'UECL', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [18, 19, 20], name: 'Zona Degradasi ke Segunda', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  I1: [
+    { ranks: [1, 2, 3, 4], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [5], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [6], name: 'UEFA Conference League', shortName: 'UECL', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [18, 19, 20], name: 'Zona Degradasi ke Serie B', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  D1: [
+    { ranks: [1, 2, 3, 4], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [5], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [6], name: 'UEFA Conference League', shortName: 'UECL', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [16], name: 'Play-off Degradasi', shortName: 'PO Deg.', colorBorder: '#D946EF', badgeBg: '#D946EF20', badgeText: '#C026D3' },
+    { ranks: [17, 18], name: 'Zona Degradasi ke 2. Bundesliga', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  F1: [
+    { ranks: [1, 2, 3], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [4], name: 'Kualifikasi UCL', shortName: 'Kual. UCL', colorBorder: '#22D3EE', badgeBg: '#22D3EE20', badgeText: '#0891B2' },
+    { ranks: [5], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [6], name: 'UEFA Conference League', shortName: 'UECL', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [16], name: 'Play-off Degradasi Ligue 1', shortName: 'PO Deg.', colorBorder: '#D946EF', badgeBg: '#D946EF20', badgeText: '#C026D3' },
+    { ranks: [17, 18], name: 'Zona Degradasi ke Ligue 2', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  N1: [
+    { ranks: [1, 2], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [3], name: 'Kualifikasi UCL', shortName: 'Kual. UCL', colorBorder: '#22D3EE', badgeBg: '#22D3EE20', badgeText: '#0891B2' },
+    { ranks: [4], name: 'Kualifikasi UEL', shortName: 'Kual. UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [5, 6, 7, 8], name: 'Play-off Tiket Eropa', shortName: 'PO Eropa', colorBorder: '#D946EF', badgeBg: '#D946EF20', badgeText: '#C026D3' },
+    { ranks: [16], name: 'Play-off Degradasi', shortName: 'PO Deg.', colorBorder: '#D946EF', badgeBg: '#D946EF20', badgeText: '#C026D3' },
+    { ranks: [17, 18], name: 'Zona Degradasi ke Eerste Divisie', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  P1: [
+    { ranks: [1, 2], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [3], name: 'Kualifikasi UCL', shortName: 'Kual. UCL', colorBorder: '#22D3EE', badgeBg: '#22D3EE20', badgeText: '#0891B2' },
+    { ranks: [4], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [5], name: 'UEFA Conference League', shortName: 'UECL', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [16], name: 'Play-off Degradasi Primeira Liga', shortName: 'PO Deg.', colorBorder: '#D946EF', badgeBg: '#D946EF20', badgeText: '#C026D3' },
+    { ranks: [17, 18], name: 'Zona Degradasi ke Liga Portugal 2', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  B1: [
+    { ranks: [1, 2, 3, 4, 5, 6], name: 'Champions\' Play-offs', shortName: 'Champ PO', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [7, 8, 9, 10, 11, 12], name: 'Europe Play-offs', shortName: 'Europe PO', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [13, 14, 15, 16], name: 'Relegation Play-offs', shortName: 'Relegation', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  T1: [
+    { ranks: [1, 2], name: 'UEFA Champions League', shortName: 'UCL', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [3], name: 'UEFA Europa League', shortName: 'UEL', colorBorder: '#F59E0B', badgeBg: '#F59E0B20', badgeText: '#D97706' },
+    { ranks: [4], name: 'UEFA Conference League', shortName: 'UECL', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [16, 17, 18, 19], name: 'Zona Degradasi ke TFF 1. Lig', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  G1: [
+    { ranks: [1, 2, 3, 4], name: 'Championship Play-offs', shortName: 'Champ PO', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [5, 6, 7, 8], name: 'Europe Play-offs', shortName: 'Europe PO', colorBorder: '#10B981', badgeBg: '#10B98120', badgeText: '#059669' },
+    { ranks: [9, 10, 11, 12, 13, 14], name: 'Relegation Round', shortName: 'Relegation', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+  SC0: [
+    { ranks: [1, 2, 3, 4, 5, 6], name: 'Championship Group', shortName: 'Champ', colorBorder: '#38BDF8', badgeBg: '#38BDF820', badgeText: '#0284C7' },
+    { ranks: [7, 8, 9, 10], name: 'Relegation Group (Aman)', shortName: 'Aman', colorBorder: '#64748B', badgeBg: '#64748B20', badgeText: '#475569' },
+    { ranks: [11], name: 'Play-off Degradasi Premiership', shortName: 'PO Deg.', colorBorder: '#D946EF', badgeBg: '#D946EF20', badgeText: '#C026D3' },
+    { ranks: [12], name: 'Zona Degradasi', shortName: 'Degradasi', colorBorder: '#F43F5E', badgeBg: '#F43F5E20', badgeText: '#E11D48' },
+  ],
+};
+
 export const StandingsScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
+
   const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<string>('26/27');
@@ -28,7 +114,6 @@ export const StandingsScreen: React.FC = () => {
     fetchLeagues().then((data) => {
       setLeagues(data);
       if (data.length > 0) {
-        // Default ke EPL (E0) jika ada, atau liga pertama
         const epl = data.find((l) => l.code === 'E0') || data[0];
         setSelectedLeague(epl);
       }
@@ -59,24 +144,23 @@ export const StandingsScreen: React.FC = () => {
     loadStandingsData();
   };
 
-  // Penentu warna zona kualifikasi kompetisi eropa / degradasi
-  const getRankZoneStyle = (rank: number, totalTeams: number) => {
-    if (rank <= 4) {
-      return { borderLeftColor: '#3B82F6', borderLeftWidth: 3 }; // Champions League
-    }
-    if (rank === 5) {
-      return { borderLeftColor: '#F59E0B', borderLeftWidth: 3 }; // Europa League
-    }
-    if (rank > totalTeams - 3 && totalTeams > 10) {
-      return { borderLeftColor: '#EF4444', borderLeftWidth: 3 }; // Degradasi
-    }
-    return { borderLeftColor: 'transparent', borderLeftWidth: 3 };
-  };
+  // Ambil aturan zona kualifikasi untuk liga yang aktif
+  const currentRules = useMemo(() => {
+    if (!selectedLeague) return [];
+    return LEAGUE_RULES[selectedLeague.code] || [];
+  }, [selectedLeague]);
+
+  const getRankZone = useCallback(
+    (rank: number): ZoneRule | undefined => {
+      return currentRules.find((rule) => rule.ranks.includes(rank));
+    },
+    [currentRules]
+  );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* ================= LEAGUE SELECTOR CHIPS ================= */}
-      <View style={styles.selectorWrapper}>
+      <View style={[styles.selectorWrapper, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -84,14 +168,26 @@ export const StandingsScreen: React.FC = () => {
         >
           {leagues.map((l) => {
             const isSelected = selectedLeague?.code === l.code;
+            const logoUrl = getLeagueLogoUrl(l.code, l.name, l.logo_url);
             return (
               <TouchableOpacity
                 key={l.code}
-                style={[styles.leagueChip, isSelected && styles.leagueChipActive]}
+                style={[
+                  styles.leagueChip,
+                  { backgroundColor: isSelected ? colors.primary : (isDark ? '#1E293B' : '#F1F5F9'), borderColor: isSelected ? colors.primary : colors.border },
+                ]}
                 onPress={() => setSelectedLeague(l)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.leagueChipText, isSelected && styles.leagueChipTextActive]}>
+                <View style={[styles.chipLogoBox, { backgroundColor: colors.logoBackdrop }]}>
+                  <Image source={{ uri: logoUrl }} style={styles.chipLogo} resizeMode="contain" />
+                </View>
+                <Text
+                  style={[
+                    styles.leagueChipText,
+                    { color: isSelected ? '#FFFFFF' : colors.textPrimary },
+                  ]}
+                >
                   {l.name}
                 </Text>
               </TouchableOpacity>
@@ -101,18 +197,26 @@ export const StandingsScreen: React.FC = () => {
 
         {/* Season Selector Chips */}
         <View style={styles.seasonRow}>
-          <Text style={styles.seasonLabel}>Musim:</Text>
+          <Text style={[styles.seasonLabel, { color: colors.textMuted }]}>Musim:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
             {AVAILABLE_SEASONS.map((season) => {
               const isSelected = selectedSeason === season;
               return (
                 <TouchableOpacity
                   key={season}
-                  style={[styles.seasonChip, isSelected && styles.seasonChipActive]}
+                  style={[
+                    styles.seasonChip,
+                    { backgroundColor: isSelected ? colors.primary : (isDark ? '#1E293B' : '#F1F5F9'), borderColor: isSelected ? colors.primary : colors.border },
+                  ]}
                   onPress={() => setSelectedSeason(season)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.seasonChipText, isSelected && styles.seasonChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.seasonChipText,
+                      { color: isSelected ? '#FFFFFF' : colors.textSecondary },
+                    ]}
+                  >
                     {season}
                   </Text>
                 </TouchableOpacity>
@@ -126,13 +230,15 @@ export const StandingsScreen: React.FC = () => {
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Memuat tabel klasemen {selectedLeague?.name}...</Text>
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>
+            Memuat tabel klasemen {selectedLeague?.name}...
+          </Text>
         </View>
       ) : standings.length === 0 ? (
         <View style={styles.centerContainer}>
           <Ionicons name="trophy-outline" size={44} color={colors.textMuted} />
-          <Text style={styles.emptyTitle}>Data Klasemen Belum Tersedia</Text>
-          <Text style={styles.emptyDesc}>
+          <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Data Klasemen Belum Tersedia</Text>
+          <Text style={[styles.emptyDesc, { color: colors.textMuted }]}>
             Belum ada catatan laga untuk {selectedLeague?.name} musim {selectedSeason} di database.
           </Text>
         </View>
@@ -151,76 +257,110 @@ export const StandingsScreen: React.FC = () => {
           }
         >
           {/* Table Container Card */}
-          <View style={styles.tableCard}>
+          <View style={[styles.tableCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {/* Table Header */}
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.thText, styles.colRank]}>#</Text>
-              <Text style={[styles.thText, styles.colTeam]}>KLUB</Text>
-              <Text style={[styles.thText, styles.colStat]}>MN</Text>
-              <Text style={[styles.thText, styles.colStat]}>M</Text>
-              <Text style={[styles.thText, styles.colStat]}>S</Text>
-              <Text style={[styles.thText, styles.colStat]}>K</Text>
-              <Text style={[styles.thText, styles.colStat]}>SG</Text>
-              <Text style={[styles.thText, styles.colPts]}>PTS</Text>
+            <View style={[styles.tableHeaderRow, { backgroundColor: isDark ? '#090D1A' : '#F1F5F9', borderBottomColor: colors.border }]}>
+              <Text style={[styles.thText, styles.colRank, { color: colors.textMuted }]}>#</Text>
+              <Text style={[styles.thText, styles.colTeam, { color: colors.textPrimary }]}>KLUB</Text>
+              <Text style={[styles.thText, styles.colStat, { color: colors.textMuted }]}>MN</Text>
+              <Text style={[styles.thText, styles.colStat, { color: colors.textMuted }]}>M</Text>
+              <Text style={[styles.thText, styles.colStat, { color: colors.textMuted }]}>S</Text>
+              <Text style={[styles.thText, styles.colStat, { color: colors.textMuted }]}>K</Text>
+              <Text style={[styles.thText, styles.colStat, { color: colors.textMuted }]}>SG</Text>
+              <Text style={[styles.thText, styles.colPts, { color: colors.primary }]}>PTS</Text>
             </View>
 
             {/* Table Body Rows */}
             {standings.map((team, idx) => {
-              const zoneStyle = getRankZoneStyle(team.rank, standings.length);
+              const zone = getRankZone(team.rank);
               const isEven = idx % 2 === 0;
+              const teamLogoUrl = getTeamLogoUrl(team.team, team.logo);
 
               return (
                 <View
                   key={team.team}
                   style={[
                     styles.tableRow,
-                    isEven && styles.tableRowEven,
-                    zoneStyle,
+                    {
+                      borderTopColor: colors.borderLight,
+                      backgroundColor: isEven ? (isDark ? '#111827' : '#FFFFFF') : (isDark ? '#0F172A' : '#F8FAFC'),
+                      borderLeftColor: zone ? zone.colorBorder : 'transparent',
+                      borderLeftWidth: zone ? 4 : 4,
+                    },
                   ]}
                 >
-                  {/* Rank */}
+                  {/* Rank with Zone Pill */}
                   <View style={styles.colRank}>
-                    <Text style={styles.rankText}>{team.rank}</Text>
+                    <View
+                      style={[
+                        styles.rankPill,
+                        {
+                          backgroundColor: zone ? zone.badgeBg : (isDark ? '#1E293B' : '#E2E8F0'),
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.rankText,
+                          {
+                            color: zone ? zone.badgeText : colors.textSecondary,
+                            fontWeight: zone ? '900' : '700',
+                          },
+                        ]}
+                      >
+                        {team.rank}
+                      </Text>
+                    </View>
                   </View>
 
-                  {/* Club (Logo + Name) */}
+                  {/* Club (Logo + Name + Honor Badge) */}
                   <View style={styles.colTeam}>
                     <View style={styles.teamInfoRow}>
-                      {team.logo ? (
-                        <Image
-                          source={{ uri: team.logo }}
-                          style={styles.teamLogo}
-                          resizeMode="contain"
-                        />
-                      ) : (
-                        <View style={styles.logoFallback}>
-                          <Ionicons name="shield-outline" size={14} color={colors.textMuted} />
-                        </View>
-                      )}
-                      <Text style={styles.teamNameText} numberOfLines={1}>
-                        {team.team}
-                      </Text>
+                      <View style={[styles.teamLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
+                        <Image source={{ uri: teamLogoUrl }} style={styles.teamLogo} resizeMode="contain" />
+                      </View>
+                      <View style={styles.teamNameCol}>
+                        <Text style={[styles.teamNameText, { color: colors.textPrimary }]} numberOfLines={1}>
+                          {team.team}
+                        </Text>
+                        {/* Status Tim: Juara Bertahan / Top 3 Musim Lalu / Promosi */}
+                        {team.honor && (
+                          <Text
+                            style={[
+                              styles.honorText,
+                              team.honor === 'Juara Bertahan'
+                                ? styles.honorChamp
+                                : team.honor === 'Top 3 Musim Lalu'
+                                  ? styles.honorTop3
+                                  : styles.honorPromoted,
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {team.honor}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   </View>
 
                   {/* Matches Played (P) */}
                   <View style={styles.colStat}>
-                    <Text style={styles.statText}>{team.p}</Text>
+                    <Text style={[styles.statText, { color: colors.textSecondary }]}>{team.p}</Text>
                   </View>
 
                   {/* Won (W) */}
                   <View style={styles.colStat}>
-                    <Text style={styles.statText}>{team.w}</Text>
+                    <Text style={[styles.statText, { color: colors.primary, fontWeight: '700' }]}>{team.w}</Text>
                   </View>
 
                   {/* Draw (D) */}
                   <View style={styles.colStat}>
-                    <Text style={styles.statText}>{team.d}</Text>
+                    <Text style={[styles.statText, { color: colors.textSecondary }]}>{team.d}</Text>
                   </View>
 
                   {/* Lost (L) */}
                   <View style={styles.colStat}>
-                    <Text style={styles.statText}>{team.l}</Text>
+                    <Text style={[styles.statText, { color: colors.danger }]}>{team.l}</Text>
                   </View>
 
                   {/* Goal Difference (GD) */}
@@ -228,7 +368,7 @@ export const StandingsScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.statText,
-                        team.gd > 0 ? { color: colors.primaryLight } : team.gd < 0 ? { color: '#EF4444' } : null,
+                        team.gd > 0 ? { color: colors.primary } : team.gd < 0 ? { color: colors.danger } : { color: colors.textMuted },
                       ]}
                     >
                       {team.gd > 0 ? `+${team.gd}` : team.gd}
@@ -237,34 +377,32 @@ export const StandingsScreen: React.FC = () => {
 
                   {/* Total Points (PTS) */}
                   <View style={styles.colPts}>
-                    <Text style={styles.ptsText}>{team.pts}</Text>
+                    <Text style={[styles.ptsText, { color: colors.primary }]}>{team.pts}</Text>
                   </View>
                 </View>
               );
             })}
           </View>
 
-          {/* ================= ZONA KETERANGAN ================= */}
-          <View style={styles.legendCard}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendIndicator, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.legendText}>Liga Champions (Top 4)</Text>
+          {/* ================= ZONA KETERANGAN (LEGEND) ================= */}
+          {currentRules.length > 0 && (
+            <View style={[styles.legendCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.legendHeaderRow}>
+                <Ionicons name="information-circle-outline" size={15} color={colors.primary} />
+                <Text style={[styles.legendTitle, { color: colors.textPrimary }]}>Keterangan Zona Kualifikasi & Degradasi</Text>
+              </View>
+              <View style={styles.legendList}>
+                {currentRules.map((r, i) => (
+                  <View key={i} style={styles.legendItem}>
+                    <View style={[styles.legendIndicator, { backgroundColor: r.colorBorder }]} />
+                    <Text style={[styles.legendDesc, { color: colors.textSecondary }]}>
+                      Pos {r.ranks[0]}{r.ranks.length > 1 ? ` - ${r.ranks[r.ranks.length - 1]}` : ''}: {r.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendIndicator, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.legendText}>Liga Europa (Peringkat 5)</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendIndicator, { backgroundColor: '#EF4444' }]} />
-              <Text style={styles.legendText}>Zona Degradasi (3 Terbawah)</Text>
-            </View>
-          </View>
-
-          <View style={styles.captionRow}>
-            <Text style={styles.captionText}>
-              Keterangan: MN = Main, M = Menang, S = Seri, K = Kalah, SG = Selisih Gol, PTS = Poin
-            </Text>
-          </View>
+          )}
         </ScrollView>
       )}
     </View>
@@ -274,175 +412,169 @@ export const StandingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   selectorWrapper: {
-    backgroundColor: colors.background,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingTop: 10,
-    paddingBottom: 10,
-    gap: 10,
   },
   leaguesScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     gap: 8,
   },
   leagueChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    gap: 6,
   },
-  leagueChipActive: {
-    backgroundColor: '#064E3B',
-    borderColor: colors.primary,
+  chipLogoBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipLogo: {
+    width: '100%',
+    height: '100%',
   },
   leagueChipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  leagueChipTextActive: {
-    color: '#FFFFFF',
     fontWeight: '700',
   },
   seasonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    marginTop: 8,
     gap: 8,
   },
   seasonLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textMuted,
   },
   seasonChip: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  seasonChipActive: {
-    backgroundColor: '#1E293B',
-    borderColor: colors.primaryLight,
   },
   seasonChipText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  seasonChipTextActive: {
-    color: colors.primaryLight,
     fontWeight: '700',
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 30,
-    gap: 12,
+    padding: 24,
+    gap: 8,
   },
   loadingText: {
-    fontSize: 13,
-    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 8,
   },
   emptyTitle: {
     fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
+    marginTop: 4,
   },
   emptyDesc: {
     fontSize: 12,
-    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 18,
   },
-
-  /* Table */
   tableScroll: {
     flex: 1,
   },
   tableContent: {
-    padding: 16,
-    paddingBottom: 30,
-    gap: 14,
+    padding: 10,
+    gap: 12,
   },
   tableCard: {
-    backgroundColor: colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
   },
   tableHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingVertical: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   thText: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.textMuted,
     textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B50',
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
   },
-  tableRowEven: {
-    backgroundColor: '#151F32',
-  },
-
-  /* Column Widths & Alignments */
   colRank: {
     width: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  rankPill: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   rankText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textMuted,
-    textAlign: 'center',
+    fontSize: 10,
   },
   colTeam: {
     flex: 1,
-    paddingRight: 6,
+    paddingHorizontal: 4,
   },
   teamInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  teamLogo: {
-    width: 22,
-    height: 22,
-  },
-  logoFallback: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.surfaceLight,
+  teamLogoBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 0.8,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 1.5,
+  },
+  teamLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  teamNameCol: {
+    flex: 1,
   },
   teamNameText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  honorText: {
+    fontSize: 9,
     fontWeight: '700',
-    color: colors.textPrimary,
-    flexShrink: 1,
+    marginTop: 1,
+  },
+  honorChamp: {
+    color: '#D97706',
+  },
+  honorTop3: {
+    color: '#0284C7',
+  },
+  honorPromoted: {
+    color: '#059669',
   },
   colStat: {
     width: 26,
@@ -451,29 +583,37 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 11,
-    color: colors.textSecondary,
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
   colPts: {
-    width: 38,
+    width: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ptsText: {
     fontSize: 13,
-    fontWeight: '800',
-    color: colors.textPrimary,
+    fontWeight: '900',
     textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
-
-  /* Legend */
   legendCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    padding: 12,
     gap: 8,
+  },
+  legendHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  legendList: {
+    gap: 6,
   },
   legendItem: {
     flexDirection: 'row',
@@ -483,19 +623,10 @@ const styles = StyleSheet.create({
   legendIndicator: {
     width: 10,
     height: 10,
-    borderRadius: 2,
+    borderRadius: 3,
   },
-  legendText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '600',
-  },
-  captionRow: {
-    paddingHorizontal: 4,
-  },
-  captionText: {
+  legendDesc: {
     fontSize: 10,
-    color: colors.textMuted,
-    lineHeight: 14,
+    fontWeight: '600',
   },
 });

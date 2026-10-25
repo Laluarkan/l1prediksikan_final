@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 import { UserSession, saveUserSession, deleteUserAccount } from '../../services/auth';
 import { FULL_VERSION_STRING } from '../../config/version';
 
@@ -36,6 +37,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onOpenNotifications,
   onOpenAuth,
 }) => {
+  const { colors, isDark } = useTheme();
   const [displayName, setDisplayName] = useState(user?.name || '');
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -175,14 +177,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerTitleRow}>
               <View style={styles.headerIconContainer}>
                 <Ionicons name="person-circle" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.headerTitle}>Profil & Akun Saya</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profil & Akun Saya</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textSecondary} />
@@ -464,12 +466,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#0F172A',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
     borderTopWidth: 1,
-    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
+import { getTeamLogoUrl, getLeagueLogoUrl } from '../utils/logo';
 import {
   League,
   MatchHistory,
@@ -55,6 +57,7 @@ const getSanitizedPicks = (match: MatchHistory) => {
 };
 
 export const HistoryScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
   const defaultSeason = getCurrentSeason(); // Musim saat ini (misal '26/27')
 
   const [history, setHistory] = useState<MatchHistory[]>([]);
@@ -137,14 +140,14 @@ export const HistoryScreen: React.FC = () => {
   }, [selectedSeason]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* ================= TOP SEARCH & FILTER BAR ================= */}
-      <View style={styles.topControlCard}>
+      <View style={[styles.topControlCard, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {/* Search Bar */}
-        <View style={styles.searchBar}>
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={15} color={colors.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Cari klub di riwayat..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
@@ -164,7 +167,7 @@ export const HistoryScreen: React.FC = () => {
         {/* Filter Baris 1: Pilihan Musim & Status Hasil */}
         <View style={styles.filterRow}>
           {/* Status Hasil: Semua / Menang / Kalah */}
-          <View style={styles.statusGroup}>
+          <View style={[styles.statusGroup, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0', borderColor: colors.border }]}>
             {[
               { id: 'ALL', label: 'Semua' },
               { id: 'WIN', label: 'Menang' },
@@ -176,7 +179,7 @@ export const HistoryScreen: React.FC = () => {
                   key={st.id}
                   style={[
                     styles.statusPill,
-                    isSelected && styles.statusPillActive,
+                    isSelected && [styles.statusPillActive, { backgroundColor: colors.surface }],
                     isSelected && st.id === 'WIN' && styles.statusPillWin,
                     isSelected && st.id === 'LOSE' && styles.statusPillLose,
                   ]}
@@ -186,6 +189,7 @@ export const HistoryScreen: React.FC = () => {
                   <Text
                     style={[
                       styles.statusPillText,
+                      { color: isSelected ? '#FFFFFF' : colors.textMuted },
                       isSelected && styles.statusPillTextActive,
                     ]}
                   >
@@ -197,9 +201,9 @@ export const HistoryScreen: React.FC = () => {
           </View>
 
           {/* Badge Musim Aktif (Musim Saat Ini) */}
-          <View style={styles.seasonBadge}>
+          <View style={[styles.seasonBadge, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0', borderColor: colors.border }]}>
             <Ionicons name="calendar-outline" size={11} color={colors.primaryLight} />
-            <Text style={styles.seasonBadgeText}>{seasonLabel}</Text>
+            <Text style={[styles.seasonBadgeText, { color: colors.primary }]}>{seasonLabel}</Text>
           </View>
         </View>
 
@@ -210,13 +214,18 @@ export const HistoryScreen: React.FC = () => {
           contentContainerStyle={styles.leagueScroll}
         >
           <TouchableOpacity
-            style={[styles.leagueChip, selectedLeague === '' && styles.leagueChipActive]}
+            style={[
+              styles.leagueChip,
+              { backgroundColor: isDark ? '#1E293B' : '#E2E8F0', borderColor: colors.border },
+              selectedLeague === '' && styles.leagueChipActive,
+            ]}
             onPress={() => setSelectedLeague('')}
             activeOpacity={0.7}
           >
             <Text
               style={[
                 styles.leagueChipText,
+                { color: selectedLeague === '' ? '#FFFFFF' : colors.textSecondary },
                 selectedLeague === '' && styles.leagueChipTextActive,
               ]}
             >
@@ -226,16 +235,27 @@ export const HistoryScreen: React.FC = () => {
 
           {leagues.map((l) => {
             const isSelected = selectedLeague === l.code;
+            const lLogo = getLeagueLogoUrl(l.name);
             return (
               <TouchableOpacity
                 key={l.code}
-                style={[styles.leagueChip, isSelected && styles.leagueChipActive]}
+                style={[
+                  styles.leagueChip,
+                  { backgroundColor: isDark ? '#1E293B' : '#E2E8F0', borderColor: colors.border },
+                  isSelected && styles.leagueChipActive,
+                ]}
                 onPress={() => setSelectedLeague(isSelected ? '' : l.code)}
                 activeOpacity={0.7}
               >
+                {lLogo ? (
+                  <View style={[styles.chipLogoWrapper, { backgroundColor: colors.logoBackdrop }]}>
+                    <Image source={{ uri: lLogo }} style={styles.chipLogo} resizeMode="contain" />
+                  </View>
+                ) : null}
                 <Text
                   style={[
                     styles.leagueChipText,
+                    { color: isSelected ? '#FFFFFF' : colors.textSecondary },
                     isSelected && styles.leagueChipTextActive,
                   ]}
                 >
@@ -314,28 +334,41 @@ export const HistoryScreen: React.FC = () => {
               const actualOu = totalGoals !== null ? (totalGoals > 2.5 ? 'O 2.5' : 'U 2.5') : null;
               const isOuWin = actualOu !== null ? ouPickShort === actualOu : match.is_won_ou;
 
+              const homeLogo = match.home_team_logo || getTeamLogoUrl(match.home_team_name, match.league_name);
+              const awayLogo = match.away_team_logo || getTeamLogoUrl(match.away_team_name, match.league_name);
+              const leagueLogo = getLeagueLogoUrl(match.league_name);
+
               return (
                 <TouchableOpacity
                   key={match.id}
-                  style={styles.card}
+                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
                   onPress={() => setSelectedMatch(match)}
                   activeOpacity={0.75}
                 >
                   {/* Top Meta Bar */}
-                  <View style={styles.topMetaBar}>
+                  <View style={[styles.topMetaBar, { borderBottomColor: colors.border }]}>
                     <View style={styles.timeWrapper}>
-                      <Ionicons name="time-outline" size={11} color={colors.primaryLight} />
-                      <Text style={styles.timeText}>{kickoffLabel}</Text>
+                      <Ionicons name="time-outline" size={11} color={colors.primary} />
+                      <Text style={[styles.timeText, { color: colors.primary }]}>{kickoffLabel}</Text>
                     </View>
 
                     <View style={styles.topMetaRight}>
-                      <View style={styles.leagueBadge}>
-                        <Text style={styles.leagueText} numberOfLines={1}>
+                      <View style={[styles.leagueBadge, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                        {leagueLogo ? (
+                          <View style={[styles.leagueLogoWrapper, { backgroundColor: colors.logoBackdrop }]}>
+                            <Image
+                              source={{ uri: leagueLogo }}
+                              style={styles.leagueLogoMini}
+                              resizeMode="contain"
+                            />
+                          </View>
+                        ) : null}
+                        <Text style={[styles.leagueText, { color: colors.textSecondary }]} numberOfLines={1}>
                           {match.league_name}
                         </Text>
                       </View>
-                      <View style={styles.ftBadge}>
-                        <Text style={styles.ftBadgeText}>FT</Text>
+                      <View style={[styles.ftBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <Text style={[styles.ftBadgeText, { color: colors.textMuted }]}>FT</Text>
                       </View>
                     </View>
                   </View>
@@ -346,61 +379,63 @@ export const HistoryScreen: React.FC = () => {
                     <View style={styles.teamsCol}>
                       {/* Home Team */}
                       <View style={styles.teamRow}>
-                        {match.home_team_logo ? (
-                          <Image
-                            source={{ uri: match.home_team_logo }}
-                            style={styles.teamLogo}
-                            resizeMode="contain"
-                          />
-                        ) : (
-                          <View style={styles.teamLogoFallback}>
+                        <View style={[styles.teamLogoWrapper, { backgroundColor: colors.logoBackdrop }]}>
+                          {homeLogo ? (
+                            <Image
+                              source={{ uri: homeLogo }}
+                              style={styles.teamLogo}
+                              resizeMode="contain"
+                            />
+                          ) : (
                             <Ionicons name="shield-outline" size={11} color={colors.textPrimary} />
-                          </View>
-                        )}
+                          )}
+                        </View>
                         <Text
                           style={[
                             styles.teamName,
-                            isHomeWin && styles.teamNameWinner,
+                            { color: colors.textPrimary },
+                            isHomeWin && (isDark ? styles.teamNameWinner : { color: '#0F172A', fontWeight: '900' }),
                           ]}
                           numberOfLines={1}
                         >
                           {match.home_team_name}
                         </Text>
-                        <Text style={[styles.scoreText, isHomeWin && styles.scoreTextWinner]}>
+                        <Text style={[styles.scoreText, { color: colors.textMuted }, isHomeWin && styles.scoreTextWinner]}>
                           {typeof match.fthg === 'number' ? match.fthg : '-'}
                         </Text>
                       </View>
 
                       {/* Away Team */}
                       <View style={styles.teamRow}>
-                        {match.away_team_logo ? (
-                          <Image
-                            source={{ uri: match.away_team_logo }}
-                            style={styles.teamLogo}
-                            resizeMode="contain"
-                          />
-                        ) : (
-                          <View style={styles.teamLogoFallback}>
+                        <View style={[styles.teamLogoWrapper, { backgroundColor: colors.logoBackdrop }]}>
+                          {awayLogo ? (
+                            <Image
+                              source={{ uri: awayLogo }}
+                              style={styles.teamLogo}
+                              resizeMode="contain"
+                            />
+                          ) : (
                             <Ionicons name="shield-outline" size={11} color={colors.textPrimary} />
-                          </View>
-                        )}
+                          )}
+                        </View>
                         <Text
                           style={[
                             styles.teamName,
-                            isAwayWin && styles.teamNameWinner,
+                            { color: colors.textPrimary },
+                            isAwayWin && (isDark ? styles.teamNameWinner : { color: '#0F172A', fontWeight: '900' }),
                           ]}
                           numberOfLines={1}
                         >
                           {match.away_team_name}
                         </Text>
-                        <Text style={[styles.scoreText, isAwayWin && styles.scoreTextWinner]}>
+                        <Text style={[styles.scoreText, { color: colors.textMuted }, isAwayWin && styles.scoreTextWinner]}>
                           {typeof match.ftag === 'number' ? match.ftag : '-'}
                         </Text>
                       </View>
                     </View>
 
                     {/* Separator Line */}
-                    <View style={styles.colDivider} />
+                    <View style={[styles.colDivider, { backgroundColor: colors.border }]} />
 
                     {/* Sisi Kanan: Rekomendasi 1X2 & O/U dengan label Menang / Kalah */}
                     <View style={styles.picksCol}>
@@ -408,13 +443,14 @@ export const HistoryScreen: React.FC = () => {
                       <View
                         style={[
                           styles.pickRow,
+                          { backgroundColor: isDark ? '#131D33' : '#F8FAFC' },
                           isFtrWin === true && styles.pickRowWin,
                           isFtrWin === false && styles.pickRowLose,
                         ]}
                       >
                         <View style={styles.pickLabelRow}>
-                          <Text style={styles.pickTag}>1X2</Text>
-                          <Text style={styles.pickText} numberOfLines={1}>
+                          <Text style={[styles.pickTag, { color: colors.textMuted }]}>1X2</Text>
+                          <Text style={[styles.pickText, { color: colors.textPrimary }]} numberOfLines={1}>
                             {hdaLabel} <Text style={styles.oddsText}>@{hdaOdds || '-'}</Text>
                           </Text>
                         </View>
@@ -430,7 +466,7 @@ export const HistoryScreen: React.FC = () => {
                           </View>
                         ) : (
                           <View style={styles.badgeNeutral}>
-                            <Text style={styles.badgeNeutralText}>-</Text>
+                            <Text style={[styles.badgeNeutralText, { color: colors.textMuted }]}>-</Text>
                           </View>
                         )}
                       </View>
@@ -439,13 +475,14 @@ export const HistoryScreen: React.FC = () => {
                       <View
                         style={[
                           styles.pickRow,
+                          { backgroundColor: isDark ? '#131D33' : '#F8FAFC' },
                           isOuWin === true && styles.pickRowWin,
                           isOuWin === false && styles.pickRowLose,
                         ]}
                       >
                         <View style={styles.pickLabelRow}>
-                          <Text style={styles.pickTag}>O/U</Text>
-                          <Text style={styles.pickText} numberOfLines={1}>
+                          <Text style={[styles.pickTag, { color: colors.textMuted }]}>O/U</Text>
+                          <Text style={[styles.pickText, { color: colors.textPrimary }]} numberOfLines={1}>
                             {ouLabel} <Text style={styles.oddsText}>@{ouOdds || '-'}</Text>
                           </Text>
                         </View>
@@ -713,30 +750,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
   },
+  chipLogoWrapper: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+    overflow: 'hidden',
+  },
+  chipLogo: {
+    width: 12,
+    height: 12,
+  },
   leagueBadge: {
-    backgroundColor: '#1E293B70',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 4,
-    maxWidth: 140,
+    maxWidth: 150,
+  },
+  leagueLogoWrapper: {
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 3.5,
+    overflow: 'hidden',
+  },
+  leagueLogoMini: {
+    width: 11,
+    height: 11,
   },
   leagueText: {
     fontSize: 9,
     fontWeight: '600',
-    color: colors.textMuted,
   },
   ftBadge: {
-    backgroundColor: '#1E293B',
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     borderRadius: 4,
     borderWidth: 0.5,
-    borderColor: '#334155',
   },
   ftBadgeText: {
     fontSize: 8.5,
     fontWeight: '800',
-    color: '#94A3B8',
   },
   mainRow: {
     flexDirection: 'row',
@@ -752,9 +812,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  teamLogo: {
+  teamLogoWrapper: {
     width: 18,
     height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 1,
+  },
+  teamLogo: {
+    width: 16,
+    height: 16,
   },
   teamLogoFallback: {
     width: 18,

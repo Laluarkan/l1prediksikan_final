@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface OddsGuideModalProps {
   visible: boolean;
@@ -19,17 +20,18 @@ export const OddsGuideModal: React.FC<OddsGuideModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { colors, isDark } = useTheme();
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerTitleRow}>
               <View style={styles.headerIconContainer}>
                 <Ionicons name="book" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.headerTitle}>Panduan Nilai Taruhan</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Panduan Nilai Taruhan</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <Ionicons name="close" size={22} color={colors.textSecondary} />
@@ -175,12 +177,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#0F172A',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '92%',
     borderTopWidth: 1,
-    borderColor: colors.border,
   },
   header: {
     flexDirection: 'row',

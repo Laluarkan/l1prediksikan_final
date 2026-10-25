@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../theme/colors';
+import { colors as defaultColors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeContext';
 
 interface GoogleAuthModalProps {
   visible: boolean;
@@ -24,6 +25,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
   onSubmit,
   loading,
 }) => {
+  const { colors, isDark } = useTheme();
   const [googleEmail, setGoogleEmail] = useState('');
   const [error, setError] = useState('');
 
@@ -55,27 +57,31 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.dialogCard}>
+        <View style={[styles.dialogCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Header */}
           <View style={styles.headerRow}>
-            <View style={styles.googleIconCircle}>
+            <View style={[styles.googleIconCircle, { backgroundColor: isDark ? '#FFFFFF' : '#F1F5F9' }]}>
               <Ionicons name="logo-google" size={22} color="#EA4335" />
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.title}>Masuk dengan Akun Google</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Masuk dengan Akun Google</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Sesuai ketentuan sistem, otentikasi akun Google tidak memerlukan pengisian password.
           </Text>
 
           {/* Input Box */}
-          <View style={styles.inputBox}>
+          <View style={[styles.inputBox, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight, borderColor: colors.border }]}>
             <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
             <TextInput
-              style={styles.inputField}
+              style={[styles.inputField, { color: colors.textPrimary }]}
               placeholder="nama.anda@gmail.com"
               placeholderTextColor={colors.textMuted}
               value={googleEmail}
@@ -93,10 +99,18 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
           {/* Quick Domain Suggestion */}
           {!googleEmail.includes('@') && googleEmail.length > 2 && (
             <TouchableOpacity
-              style={styles.suggestionPill}
+              style={[
+                styles.suggestionPill,
+                {
+                  backgroundColor: isDark ? '#064E3B40' : '#DCFCE7',
+                  borderColor: isDark ? '#05966950' : '#86EFAC',
+                },
+              ]}
               onPress={() => handleQuickAppend('@gmail.com')}
             >
-              <Text style={styles.suggestionText}>+ Tambahkan @gmail.com</Text>
+              <Text style={[styles.suggestionText, { color: isDark ? colors.primaryLight : '#15803D' }]}>
+                + Tambahkan @gmail.com
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -110,16 +124,16 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
           {/* Action Buttons */}
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={styles.cancelBtn}
+              style={[styles.cancelBtn, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}
               onPress={onClose}
               disabled={loading}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelBtnText}>Batal</Text>
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Batal</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+              style={[styles.submitBtn, { backgroundColor: colors.primary }, loading && styles.submitBtnDisabled]}
               onPress={handleSubmit}
               disabled={loading}
               activeOpacity={0.85}
@@ -151,11 +165,9 @@ const styles = StyleSheet.create({
   dialogCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#0F172A',
     borderRadius: 20,
     padding: 22,
     borderWidth: 1,
-    borderColor: colors.border,
     gap: 12,
   },
   headerRow: {
@@ -167,31 +179,25 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeBtn: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#1E293B',
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: colors.textSecondary,
     lineHeight: 17,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
     borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     height: 48,
@@ -201,20 +207,16 @@ const styles = StyleSheet.create({
   inputField: {
     flex: 1,
     fontSize: 14,
-    color: colors.textPrimary,
   },
   suggestionPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#064E3B40',
     borderWidth: 1,
-    borderColor: '#05966950',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
   },
   suggestionText: {
     fontSize: 11,
-    color: colors.primaryLight,
     fontWeight: '600',
   },
   errorBox: {
@@ -240,11 +242,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#1E293B',
   },
   cancelBtnText: {
     fontSize: 13,
-    color: colors.textSecondary,
     fontWeight: '600',
   },
   submitBtn: {
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: defaultColors.primary,
   },
   submitBtnDisabled: {
     opacity: 0.6,

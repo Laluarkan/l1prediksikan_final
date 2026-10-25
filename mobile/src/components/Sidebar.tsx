@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 import { UserSession } from '../services/auth';
 import { TabType } from './BottomNav';
 import { APP_VERSION, APP_NAME } from '../config/version';
@@ -49,6 +50,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAbout,
   onOpenAuth,
 }) => {
+  const { colors, isDark, toggleTheme } = useTheme();
+
   const getInitials = (name?: string) => {
     if (!name) return 'U';
     const parts = name.trim().split(' ');
@@ -95,9 +98,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </TouchableWithoutFeedback>
 
         {/* Drawer Content */}
-        <View style={styles.drawerContainer}>
+        <View
+          style={[
+            styles.drawerContainer,
+            {
+              backgroundColor: colors.surface,
+              borderRightColor: isDark ? 'transparent' : colors.border,
+              borderRightWidth: isDark ? 0 : 1,
+            },
+          ]}
+        >
           {/* User Profile Card */}
-          <View style={styles.profileSection}>
+          <View style={[styles.profileSection, { borderBottomColor: isDark ? '#1E293B' : colors.border }]}>
             {user?.avatarUrl ? (
               <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
             ) : (
@@ -106,22 +118,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </View>
             )}
             <View style={styles.profileInfo}>
-              <Text style={styles.userName} numberOfLines={1}>
+              <Text style={[styles.userName, { color: colors.textPrimary }]} numberOfLines={1}>
                 {user?.name || 'Pengguna'}
               </Text>
-              <Text style={styles.userEmail} numberOfLines={1}>
+              <Text style={[styles.userEmail, { color: colors.textMuted }]} numberOfLines={1}>
                 {user?.email || 'tamu@prediksikan.id'}
               </Text>
               <View
                 style={[
                   styles.badgePill,
-                  user?.isGuest ? styles.badgeGuest : styles.badgeMember,
+                  user?.isGuest
+                    ? styles.badgeGuest
+                    : [
+                        styles.badgeMember,
+                        {
+                          backgroundColor: isDark ? '#064E3B40' : '#DCFCE7',
+                          borderColor: isDark ? colors.primary : '#86EFAC',
+                        },
+                      ],
                 ]}
               >
                 <Text
                   style={[
                     styles.badgeText,
-                    user?.isGuest ? styles.badgeGuestText : styles.badgeMemberText,
+                    user?.isGuest
+                      ? styles.badgeGuestText
+                      : [
+                          styles.badgeMemberText,
+                          { color: isDark ? colors.primaryLight : '#15803D' },
+                        ],
                   ]}
                 >
                   {user?.isGuest ? 'Akses Tamu' : 'Member Aktif'}
@@ -133,10 +158,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
             {/* Section 1: Navigasi Utama */}
             <View style={styles.menuGroup}>
-              <Text style={styles.groupTitle}>NAVIGASI UTAMA</Text>
+              <Text style={[styles.groupTitle, { color: colors.textMuted }]}>NAVIGASI UTAMA</Text>
 
               <TouchableOpacity
-                style={[styles.menuItem, currentTab === 'home' ? styles.menuItemActive : null]}
+                style={[
+                  styles.menuItem,
+                  currentTab === 'home' && [
+                    styles.menuItemActive,
+                    { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
+                  ],
+                ]}
                 onPress={() => handleSelectTab('home')}
                 activeOpacity={0.7}
               >
@@ -146,14 +177,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   color={currentTab === 'home' ? colors.primary : colors.textMuted}
                 />
                 <Text
-                  style={[styles.menuItemText, currentTab === 'home' ? styles.menuItemTextActive : null]}
+                  style={[
+                    styles.menuItemText,
+                    { color: currentTab === 'home' ? colors.primary : colors.textSecondary },
+                    currentTab === 'home' && { fontWeight: '700' },
+                  ]}
                 >
                   Beranda
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.menuItem, currentTab === 'fixtures' ? styles.menuItemActive : null]}
+                style={[
+                  styles.menuItem,
+                  currentTab === 'fixtures' && [
+                    styles.menuItemActive,
+                    { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
+                  ],
+                ]}
                 onPress={() => handleSelectTab('fixtures')}
                 activeOpacity={0.7}
               >
@@ -163,14 +204,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   color={currentTab === 'fixtures' ? colors.primary : colors.textMuted}
                 />
                 <Text
-                  style={[styles.menuItemText, currentTab === 'fixtures' ? styles.menuItemTextActive : null]}
+                  style={[
+                    styles.menuItemText,
+                    { color: currentTab === 'fixtures' ? colors.primary : colors.textSecondary },
+                    currentTab === 'fixtures' && { fontWeight: '700' },
+                  ]}
                 >
                   Jadwal Pertandingan
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.menuItem, currentTab === 'parlay' ? styles.menuItemActive : null]}
+                style={[
+                  styles.menuItem,
+                  currentTab === 'parlay' && [
+                    styles.menuItemActive,
+                    { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
+                  ],
+                ]}
                 onPress={() => handleSelectTab('parlay')}
                 activeOpacity={0.7}
               >
@@ -180,14 +231,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   color={currentTab === 'parlay' ? colors.primary : colors.textMuted}
                 />
                 <Text
-                  style={[styles.menuItemText, currentTab === 'parlay' ? styles.menuItemTextActive : null]}
+                  style={[
+                    styles.menuItemText,
+                    { color: currentTab === 'parlay' ? colors.primary : colors.textSecondary },
+                    currentTab === 'parlay' && { fontWeight: '700' },
+                  ]}
                 >
                   Tiket Parlay AI
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.menuItem, currentTab === 'standings' ? styles.menuItemActive : null]}
+                style={[
+                  styles.menuItem,
+                  currentTab === 'standings' && [
+                    styles.menuItemActive,
+                    { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
+                  ],
+                ]}
                 onPress={() => handleSelectTab('standings')}
                 activeOpacity={0.7}
               >
@@ -197,33 +258,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   color={currentTab === 'standings' ? colors.primary : colors.textMuted}
                 />
                 <Text
-                  style={[styles.menuItemText, currentTab === 'standings' ? styles.menuItemTextActive : null]}
+                  style={[
+                    styles.menuItemText,
+                    { color: currentTab === 'standings' ? colors.primary : colors.textSecondary },
+                    currentTab === 'standings' && { fontWeight: '700' },
+                  ]}
                 >
                   Klasemen Liga
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.menuItem, currentTab === 'history' ? styles.menuItemActive : null]}
-                onPress={() => handleSelectTab('history')}
+                style={[
+                  styles.menuItem,
+                  currentTab === 'user' && [
+                    styles.menuItemActive,
+                    { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
+                  ],
+                ]}
+                onPress={() => handleSelectTab('user')}
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name={currentTab === 'history' ? 'time' : 'time-outline'}
+                  name={currentTab === 'user' ? 'person' : 'person-outline'}
                   size={20}
-                  color={currentTab === 'history' ? colors.primary : colors.textMuted}
+                  color={currentTab === 'user' ? colors.primary : colors.textMuted}
                 />
                 <Text
-                  style={[styles.menuItemText, currentTab === 'history' ? styles.menuItemTextActive : null]}
+                  style={[
+                    styles.menuItemText,
+                    { color: currentTab === 'user' ? colors.primary : colors.textSecondary },
+                    currentTab === 'user' && { fontWeight: '700' },
+                  ]}
                 >
-                  Riwayat & Evaluasi
+                  Akun & Tersimpan
                 </Text>
               </TouchableOpacity>
             </View>
 
             {/* Section 2: Perintilan & Pengaturan */}
             <View style={styles.menuGroup}>
-              <Text style={styles.groupTitle}>PENGATURAN & LAINNYA</Text>
+              <Text style={[styles.groupTitle, { color: colors.textMuted }]}>PENGATURAN & LAINNYA</Text>
+
+              {/* Tema Tampilan Quick Toggle */}
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={toggleTheme}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isDark ? "sunny-outline" : "moon-outline"}
+                  size={20}
+                  color={isDark ? "#F59E0B" : colors.textPrimary}
+                />
+                <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Tema Tampilan</Text>
+                  <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700' }}>
+                    {isDark ? 'Gelap' : 'Terang'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.menuItem}
@@ -233,8 +327,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="person-outline" size={20} color={colors.primaryLight} />
-                <Text style={styles.menuItemText}>Profil & Akun</Text>
+                <Ionicons name="person-outline" size={20} color={colors.primary} />
+                <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Profil & Akun</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -246,7 +340,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 activeOpacity={0.7}
               >
                 <Ionicons name="notifications-outline" size={20} color="#F59E0B" />
-                <Text style={styles.menuItemText}>Notifikasi Jadwal</Text>
+                <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Notifikasi Jadwal</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -258,7 +352,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 activeOpacity={0.7}
               >
                 <Ionicons name="sparkles-outline" size={20} color="#38BDF8" />
-                <Text style={styles.menuItemText}>Tur Pengenalan Aplikasi</Text>
+                <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Tur Pengenalan Aplikasi</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -270,7 +364,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 activeOpacity={0.7}
               >
                 <Ionicons name="book-outline" size={20} color="#818CF8" />
-                <Text style={styles.menuItemText}>Panduan Nilai Taruhan</Text>
+                <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Panduan Nilai Taruhan</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -282,13 +376,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 activeOpacity={0.7}
               >
                 <Ionicons name="shield-checkmark-outline" size={20} color="#10B981" />
-                <Text style={styles.menuItemText}>Tentang & Privasi</Text>
+                <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Tentang & Privasi</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
 
           {/* Bottom Section: Logout or Guest Login Button */}
-          <View style={styles.bottomSection}>
+          <View style={[styles.bottomSection, { borderTopColor: isDark ? '#1E293B' : colors.border }]}>
             {user?.isGuest ? (
               <TouchableOpacity
                 style={styles.guestLoginBtn}
@@ -311,7 +405,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <Text style={styles.logoutText}>Keluar Akun</Text>
               </TouchableOpacity>
             )}
-            <Text style={styles.versionText}>L1 {APP_NAME} v{APP_VERSION}</Text>
+            <Text style={[styles.versionText, { color: colors.textMuted }]}>L1 {APP_NAME} v{APP_VERSION}</Text>
           </View>
         </View>
       </View>
@@ -334,9 +428,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: '#0F172A',
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
     paddingTop: 48,
     display: 'flex',
     flexDirection: 'column',

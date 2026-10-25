@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
-export type TabType = 'home' | 'fixtures' | 'parlay' | 'standings' | 'history';
+export type TabType = 'home' | 'fixtures' | 'parlay' | 'standings' | 'user' | 'history';
 
 interface BottomNavProps {
   currentTab: TabType;
@@ -43,18 +43,28 @@ const NAV_ITEMS: NavItem[] = [
     iconInactive: 'trophy-outline',
   },
   {
-    id: 'history',
-    label: 'Riwayat',
-    iconActive: 'time',
-    iconInactive: 'time-outline',
+    id: 'user',
+    label: 'Akun',
+    iconActive: 'person',
+    iconInactive: 'person-outline',
   },
 ];
 
 export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab }) => {
+  const { colors, isDark } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+      ]}
+    >
       {NAV_ITEMS.map((item) => {
-        const isActive = currentTab === item.id;
+        const isActive = currentTab === item.id || (item.id === 'fixtures' && currentTab === 'history');
         return (
           <TouchableOpacity
             key={item.id}
@@ -62,14 +72,28 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
             onPress={() => onSelectTab(item.id)}
             activeOpacity={0.7}
           >
-            <View style={[styles.iconWrapper, isActive && styles.activeIconWrapper]}>
+            <View
+              style={[
+                styles.iconWrapper,
+                isActive && [
+                  styles.activeIconWrapper,
+                  { backgroundColor: isDark ? '#064E3B40' : '#DCFCE7' },
+                ],
+              ]}
+            >
               <Ionicons
                 name={isActive ? item.iconActive : item.iconInactive}
                 size={20}
                 color={isActive ? colors.primary : colors.textMuted}
               />
             </View>
-            <Text style={[styles.label, isActive ? styles.activeLabel : styles.inactiveLabel]}>
+            <Text
+              style={[
+                styles.label,
+                { color: isActive ? colors.primary : colors.textMuted },
+                isActive ? styles.activeLabel : styles.inactiveLabel,
+              ]}
+            >
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -82,43 +106,36 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onSelectTab })
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     paddingHorizontal: 8,
     justifyContent: 'space-around',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
   },
   tabButton: {
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   iconWrapper: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 4,
     borderRadius: 16,
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  activeIconWrapper: {
-    backgroundColor: '#064E3B40',
-  },
+  activeIconWrapper: {},
   label: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
   },
   activeLabel: {
-    color: colors.primary,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  inactiveLabel: {
-    color: colors.textMuted,
-  },
+  inactiveLabel: {},
 });
