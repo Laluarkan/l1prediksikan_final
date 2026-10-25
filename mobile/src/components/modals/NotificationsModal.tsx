@@ -188,13 +188,22 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </View>
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifikasi & Pemberitahuan</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Segmented Tabs Switcher */}
-          <View style={styles.tabsContainer}>
+          <View
+            style={[
+              styles.tabsContainer,
+              { backgroundColor: isDark ? '#0B1120' : colors.surfaceLight, borderBottomColor: colors.border },
+            ]}
+          >
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'inbox' && styles.tabButtonActive]}
               onPress={() => setActiveTab('inbox')}
@@ -282,7 +291,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   <View style={styles.inboxActionsRow}>
                     {unreadCount > 0 && (
                       <TouchableOpacity
-                        style={styles.actionBtnSmall}
+                        style={[
+                          styles.actionBtnSmall,
+                          { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight, borderColor: colors.border },
+                        ]}
                         onPress={handleMarkAllRead}
                         activeOpacity={0.7}
                       >
@@ -291,7 +303,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity
-                      style={[styles.actionBtnSmall, { backgroundColor: '#7F1D1D20', borderColor: '#EF444440' }]}
+                      style={[
+                        styles.actionBtnSmall,
+                        { backgroundColor: isDark ? '#7F1D1D20' : '#FEE2E2', borderColor: isDark ? '#EF444440' : '#FECACA' },
+                      ]}
                       onPress={handleClearAllConfirm}
                       activeOpacity={0.7}
                     >
@@ -304,7 +319,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 {/* Notifications List */}
                 {notifications.length === 0 ? (
                   <View style={styles.emptyContainer}>
-                    <View style={styles.emptyIconCircle}>
+                    <View style={[styles.emptyIconCircle, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}>
                       <Ionicons name="notifications-off-outline" size={32} color={colors.textMuted} />
                     </View>
                     <Text style={styles.emptyTitle}>Belum Ada Pemberitahuan</Text>
@@ -328,7 +343,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                         key={item.id}
                         style={[
                           styles.notifCard,
-                          !item.isRead && styles.notifCardUnread,
+                          { backgroundColor: colors.surface, borderColor: colors.border },
+                          !item.isRead && {
+                            borderColor: isDark ? colors.primaryDark : '#10B981',
+                            backgroundColor: isDark ? '#0F261E50' : '#ECFDF5',
+                          },
                         ]}
                         onPress={() => handleMarkAsRead(item.id)}
                         activeOpacity={0.8}
@@ -369,14 +388,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </Text>
 
                 {/* List Item 1: Kick-off reminder */}
-                <View style={styles.toggleItem}>
+                <View style={[styles.toggleItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.toggleIconCol}>
                     <View style={[styles.iconCircle, { backgroundColor: '#064E3B40' }]}>
                       <Ionicons name="alarm-outline" size={20} color={colors.primary} />
                     </View>
                   </View>
                   <View style={styles.toggleTextCol}>
-                    <Text style={styles.toggleTitle}>Pengingat Kick-Off Pertandingan</Text>
+                    <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Pengingat Kick-Off Pertandingan</Text>
                     <Text style={styles.toggleDesc}>
                       Pemberitahuan 30 menit sebelum laga tim unggulan dan 11 liga top Eropa dimulai.
                     </Text>
@@ -390,7 +409,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </View>
 
                 {/* List Item 2: Value Bet Alert */}
-                <View style={styles.toggleItem}>
+                <View style={[styles.toggleItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.toggleIconCol}>
                     <View style={[styles.iconCircle, { backgroundColor: '#78350F35' }]}>
                       <Ionicons name="flash-outline" size={20} color="#F59E0B" />
@@ -398,7 +417,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   </View>
                   <View style={styles.toggleTextCol}>
                     <View style={styles.titleBadgeRow}>
-                      <Text style={styles.toggleTitle}>Peringatan Value Bet AI</Text>
+                      <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Peringatan Value Bet AI</Text>
                       <View style={styles.hotBadge}>
                         <Text style={styles.hotBadgeText}>UNGGULAN</Text>
                       </View>
@@ -416,14 +435,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </View>
 
                 {/* List Item 3: Skor & Evaluasi Pasca Laga */}
-                <View style={styles.toggleItem}>
+                <View style={[styles.toggleItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.toggleIconCol}>
                     <View style={[styles.iconCircle, { backgroundColor: '#0C4A6E40' }]}>
                       <Ionicons name="checkmark-done-circle-outline" size={20} color="#38BDF8" />
                     </View>
                   </View>
                   <View style={styles.toggleTextCol}>
-                    <Text style={styles.toggleTitle}>Update Skor & Evaluasi Hasil</Text>
+                    <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Update Skor & Evaluasi Hasil</Text>
                     <Text style={styles.toggleDesc}>
                       Laporan rekapitulasi skor akhir dan status menang/kalah (Won/Lost) untuk laga yang Anda ikuti.
                     </Text>
@@ -437,14 +456,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </View>
 
                 {/* List Item 4: Rangkuman Mingguan Parlay */}
-                <View style={styles.toggleItem}>
+                <View style={[styles.toggleItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.toggleIconCol}>
-                    <View style={[styles.iconCircle, { backgroundColor: '#1E1B4B' }]}>
-                      <Ionicons name="layers-outline" size={20} color="#818CF8" />
+                    <View style={[styles.iconCircle, { backgroundColor: isDark ? '#1E1B4B' : '#E0E7FF' }]}>
+                      <Ionicons name="layers-outline" size={20} color="#6366F1" />
                     </View>
                   </View>
                   <View style={styles.toggleTextCol}>
-                    <Text style={styles.toggleTitle}>Rangkuman Tiket Parlay Mingguan</Text>
+                    <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Rangkuman Tiket Parlay Mingguan</Text>
                     <Text style={styles.toggleDesc}>
                       Analisis performa kombinasi tiket ganda dan akumulasi profit mingguan setiap hari Senin.
                     </Text>
@@ -458,27 +477,41 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 </View>
 
                 {/* Section: Jam Tenang (Do Not Disturb) */}
-                <View style={styles.dndCard}>
+                <View
+                  style={[
+                    styles.dndCard,
+                    {
+                      backgroundColor: isDark ? '#1E1B4B30' : '#EEF2FF',
+                      borderColor: isDark ? '#4338CA40' : '#C7D2FE',
+                    },
+                  ]}
+                >
                   <View style={styles.dndHeaderRow}>
                     <View style={styles.dndTitleRow}>
-                      <Ionicons name="moon-outline" size={18} color="#A78BFA" />
-                      <Text style={styles.dndTitle}>Mode Malam (Jam Tenang)</Text>
+                      <Ionicons name="moon-outline" size={18} color="#6366F1" />
+                      <Text style={[styles.dndTitle, { color: isDark ? '#C7D2FE' : '#3730A3' }]}>Mode Malam (Jam Tenang)</Text>
                     </View>
                     <Switch
                       value={settings.dndMode}
                       onValueChange={(val) => handleToggleSetting('dndMode', val)}
                       trackColor={{ false: '#334155', true: '#6D28D9' }}
-                      thumbColor={settings.dndMode ? '#A78BFA' : '#94A3B8'}
+                      thumbColor={settings.dndMode ? '#6366F1' : '#94A3B8'}
                     />
                   </View>
-                  <Text style={styles.dndDesc}>
+                  <Text style={[styles.dndDesc, { color: isDark ? '#94A3B8' : '#475569' }]}>
                     Bisukan seluruh nada dering dan getaran notifikasi antara pukul 23:00 s/d 06:00 WIB.
                   </Text>
                 </View>
 
                 {/* Test Notification Button */}
                 <TouchableOpacity
-                  style={styles.testBtn}
+                  style={[
+                    styles.testBtn,
+                    {
+                      backgroundColor: isDark ? '#064E3B30' : '#ECFDF5',
+                      borderColor: isDark ? colors.primaryDark : '#A7F3D0',
+                    },
+                  ]}
                   onPress={handleSendTestNotification}
                   activeOpacity={0.8}
                 >
@@ -489,9 +522,17 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             ) : (
               /* ================= PANEL SIARAN ADMIN ================= */
               <View style={styles.adminPanel}>
-                <View style={styles.adminNotice}>
+                <View
+                  style={[
+                    styles.adminNotice,
+                    {
+                      backgroundColor: isDark ? '#064E3B25' : '#ECFDF5',
+                      borderColor: isDark ? '#05966950' : '#A7F3D0',
+                    },
+                  ]}
+                >
                   <Ionicons name="shield-checkmark" size={18} color={colors.primaryLight} />
-                  <Text style={styles.adminNoticeText}>
+                  <Text style={[styles.adminNoticeText, { color: isDark ? '#D1FAE5' : '#065F46' }]}>
                     Anda masuk sebagai <Text style={{ fontWeight: '700', color: colors.primaryLight }}>Staf Admin</Text>. Siaran notifikasi manual yang dikirimkan dari sini akan disimpan ke database server dan langsung terdistribusi ke seluruh pengguna aplikasi mobile & web.
                   </Text>
                 </View>
@@ -511,6 +552,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       key={cat.id}
                       style={[
                         styles.catChip,
+                        {
+                          backgroundColor: isDark ? '#1E293B' : colors.surfaceLight,
+                          borderColor: colors.border,
+                        },
                         adminType === cat.id && styles.catChipActive,
                       ]}
                       onPress={() => setAdminType(cat.id)}
@@ -531,7 +576,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 {/* Input Judul */}
                 <Text style={styles.inputLabel}>Judul Notifikasi</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: isDark ? '#0B1120' : colors.surfaceLight,
+                      borderColor: colors.border,
+                      color: colors.textPrimary,
+                    },
+                  ]}
                   placeholder="Misal: Sinyal Value Bet Pekan Ini ⚡"
                   placeholderTextColor={colors.textMuted}
                   value={adminTitle}
@@ -541,7 +593,15 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                 {/* Input Pesan */}
                 <Text style={styles.inputLabel}>Isi Pesan Notifikasi</Text>
                 <TextInput
-                  style={[styles.textInput, styles.textArea]}
+                  style={[
+                    styles.textInput,
+                    styles.textArea,
+                    {
+                      backgroundColor: isDark ? '#0B1120' : colors.surfaceLight,
+                      borderColor: colors.border,
+                      color: colors.textPrimary,
+                    },
+                  ]}
                   placeholder="Tuliskan isi pengumuman atau info pertandingan..."
                   placeholderTextColor={colors.textMuted}
                   value={adminMessage}

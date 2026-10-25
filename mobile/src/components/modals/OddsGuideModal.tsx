@@ -33,83 +33,87 @@ export const OddsGuideModal: React.FC<OddsGuideModalProps> = ({
               </View>
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Panduan Nilai Taruhan</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
             {/* Lead Intro */}
-            <View style={styles.introCard}>
+            <View style={[styles.introCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Ionicons name="bulb-outline" size={24} color={colors.primary} />
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.introTitle}>Filosofi Analitik Prediksikan</Text>
-                <Text style={styles.introDesc}>
+                <Text style={[styles.introTitle, { color: colors.textPrimary }]}>Filosofi Analitik Prediksikan</Text>
+                <Text style={[styles.introDesc, { color: colors.textSecondary }]}>
                   Kami menggunakan algoritma Machine Learning & Reinforcement Learning untuk menemukan peluang matematis di mana bandar salah menilai probabilitas suatu pertandingan.
                 </Text>
               </View>
             </View>
 
             {/* Section 1: 1X2 Full Time Result */}
-            <View style={styles.guideCard}>
+            <View style={[styles.guideCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.cardHeaderRow}>
                 <View style={[styles.badgeIcon, { backgroundColor: '#064E3B40' }]}>
                   <Text style={[styles.badgeText, { color: colors.primary }]}>1X2</Text>
                 </View>
-                <Text style={styles.cardTitle}>Pasar 1X2 (Tebak Hasil Akhir)</Text>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Pasar 1X2 (Tebak Hasil Akhir)</Text>
               </View>
 
-              <Text style={styles.cardText}>
+              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
                 Pasar taruhan sepak bola paling standar dengan 3 pilihan hasil pertandingan waktu normal (90 menit + injury time):
               </Text>
 
               <View style={styles.optionsRow}>
-                <View style={styles.optionBox}>
+                <View style={[styles.optionBox, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                   <Text style={styles.optionCode}>1</Text>
-                  <Text style={styles.optionName}>Home Win</Text>
+                  <Text style={[styles.optionName, { color: colors.textPrimary }]}>Home Win</Text>
                   <Text style={styles.optionSub}>Tuan Rumah Menang</Text>
                 </View>
-                <View style={styles.optionBox}>
+                <View style={[styles.optionBox, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                   <Text style={styles.optionCode}>X</Text>
-                  <Text style={styles.optionName}>Draw</Text>
+                  <Text style={[styles.optionName, { color: colors.textPrimary }]}>Draw</Text>
                   <Text style={styles.optionSub}>Skor Imbang/Seri</Text>
                 </View>
-                <View style={styles.optionBox}>
+                <View style={[styles.optionBox, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                   <Text style={styles.optionCode}>2</Text>
-                  <Text style={styles.optionName}>Away Win</Text>
+                  <Text style={[styles.optionName, { color: colors.textPrimary }]}>Away Win</Text>
                   <Text style={styles.optionSub}>Tim Tamu Menang</Text>
                 </View>
               </View>
             </View>
 
             {/* Section 2: Over/Under 2.5 Goals */}
-            <View style={styles.guideCard}>
+            <View style={[styles.guideCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.cardHeaderRow}>
                 <View style={[styles.badgeIcon, { backgroundColor: '#0C4A6E40' }]}>
                   <Text style={[styles.badgeText, { color: '#38BDF8' }]}>O/U</Text>
                 </View>
-                <Text style={styles.cardTitle}>Pasar Over / Under 2.5 Gol</Text>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Pasar Over / Under 2.5 Gol</Text>
               </View>
 
-              <Text style={styles.cardText}>
+              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
                 Memprediksi total akumulasi gol yang dicetak oleh kedua tim dalam 90 menit pertandingan:
               </Text>
 
               <View style={styles.ouContainer}>
-                <View style={styles.ouItem}>
+                <View style={[styles.ouItem, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                   <View style={styles.ouBadgeGreen}>
                     <Text style={styles.ouBadgeText}>Over 2.5 Gol</Text>
                   </View>
-                  <Text style={styles.ouDetail}>
+                  <Text style={[styles.ouDetail, { color: colors.textSecondary }]}>
                     Minimal tercipta 3 gol atau lebih. Contoh skor: 2-1, 3-0, 2-2, 3-1.
                   </Text>
                 </View>
 
-                <View style={styles.ouItem}>
+                <View style={[styles.ouItem, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                   <View style={styles.ouBadgeBlue}>
                     <Text style={styles.ouBadgeText}>Under 2.5 Gol</Text>
                   </View>
-                  <Text style={styles.ouDetail}>
+                  <Text style={[styles.ouDetail, { color: colors.textSecondary }]}>
                     Maksimal tercipta 2 gol saja. Contoh skor: 0-0, 1-0, 0-1, 1-1, 2-0.
                   </Text>
                 </View>
@@ -117,43 +121,51 @@ export const OddsGuideModal: React.FC<OddsGuideModalProps> = ({
             </View>
 
             {/* Section 3: Apa itu Value Bet? */}
-            <View style={[styles.guideCard, { borderColor: '#F59E0B60' }]}>
+            <View style={[styles.guideCard, { backgroundColor: colors.surface, borderColor: '#F59E0B60' }]}>
               <View style={styles.cardHeaderRow}>
                 <View style={[styles.badgeIcon, { backgroundColor: '#78350F30' }]}>
                   <Ionicons name="sparkles" size={16} color="#F59E0B" />
                 </View>
-                <Text style={styles.cardTitle}>Bagaimana AI Menemukan &quot;Value Bet&quot;?</Text>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Bagaimana AI Menemukan &quot;Value Bet&quot;?</Text>
               </View>
 
-              <Text style={styles.cardText}>
+              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
                 &quot;Value&quot; terjadi jika probabilitas kemenangan yang dihitung model AI kami lebih tinggi daripada probabilitas implisit bandar odds pasar:
               </Text>
 
-              <View style={styles.formulaBox}>
+              <View
+                style={[
+                  styles.formulaBox,
+                  {
+                    backgroundColor: isDark ? '#1E293B' : '#FEF3C7',
+                    borderLeftColor: '#F59E0B',
+                  },
+                ]}
+              >
                 <Text style={styles.formulaTitle}>Rumus Expected Value (EV):</Text>
-                <Text style={styles.formulaMath}>EV = (Probabilitas AI × Odds Pasar) - 1</Text>
-                <Text style={styles.formulaDesc}>
+                <Text style={[styles.formulaMath, { color: isDark ? '#FFFFFF' : '#92400E' }]}>EV = (Probabilitas AI × Odds Pasar) - 1</Text>
+                <Text style={[styles.formulaDesc, { color: colors.textMuted }]}>
                   Jika EV bernilai positif (&gt; 0), AI akan memberikan badge &quot;VALUE BET&quot; karena dalam jangka panjang keputusan ini memberikan ekspektasi profit positif.
                 </Text>
               </View>
             </View>
 
             {/* Section 4: Konsep Unit */}
-            <View style={styles.guideCard}>
+            <View style={[styles.guideCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.cardHeaderRow}>
-                <View style={[styles.badgeIcon, { backgroundColor: '#1E1B4B' }]}>
-                  <Ionicons name="cash-outline" size={16} color="#818CF8" />
+                <View style={[styles.badgeIcon, { backgroundColor: isDark ? '#1E1B4B' : '#E0E7FF' }]}>
+                  <Ionicons name="cash-outline" size={16} color="#6366F1" />
                 </View>
-                <Text style={styles.cardTitle}>Apa itu Satuan &quot;Unit&quot;?</Text>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Apa itu Satuan &quot;Unit&quot;?</Text>
               </View>
 
-              <Text style={styles.cardText}>
+              <Text style={[styles.cardText, { color: colors.textSecondary }]}>
                 Unit adalah ukuran standar taruhan untuk mengukur performa secara objektif terlepas dari jumlah modal individu:
               </Text>
 
-              <View style={styles.unitBox}>
+              <View style={[styles.unitBox, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                 <Text style={styles.unitHighlight}>1 Unit = Ukuran Taruhan Standar Anda</Text>
-                <Text style={styles.unitExample}>
+                <Text style={[styles.unitExample, { color: colors.textSecondary }]}>
                   Contoh: Jika modal Anda Rp 2.000.000, 1 Unit bisa bernilai Rp 50.000 (2.5%). Jika aplikasi mencatat performa +10 Units, Anda untung 10x dari ukuran standar (Rp 500.000).
                 </Text>
               </View>

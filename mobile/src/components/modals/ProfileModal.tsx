@@ -186,7 +186,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               </View>
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Profil & Akun Saya</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
@@ -370,7 +374,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 {isEditing ? (
                   <View style={styles.editContainer}>
                     <TextInput
-                      style={styles.inputField}
+                      style={[
+                        styles.inputField,
+                        {
+                          backgroundColor: isDark ? '#0F172A' : colors.surfaceLight,
+                          color: colors.textPrimary,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       value={displayName}
                       onChangeText={setDisplayName}
                       placeholder="Masukkan nama baru"
@@ -378,13 +389,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     />
                     <View style={styles.editActionRow}>
                       <TouchableOpacity
-                        style={styles.cancelEditBtn}
+                        style={[
+                          styles.cancelEditBtn,
+                          { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight },
+                        ]}
                         onPress={() => {
                           setDisplayName(user?.name || '');
                           setIsEditing(false);
                         }}
                       >
-                        <Text style={styles.cancelEditText}>Batal</Text>
+                        <Text style={[styles.cancelEditText, { color: colors.textSecondary }]}>Batal</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.saveEditBtn}
@@ -414,14 +428,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>KEBIJAKAN PRIVASI & HUKUM</Text>
               <TouchableOpacity
-                style={styles.legalBtn}
+                style={[
+                  styles.legalBtn,
+                  {
+                    backgroundColor: isDark ? '#0F172A' : colors.surfaceLight,
+                    borderColor: colors.border,
+                  },
+                ]}
                 onPress={handleOpenPrivacyPolicy}
                 activeOpacity={0.7}
               >
                 <View style={styles.legalBtnLeft}>
                   <Ionicons name="document-text-outline" size={20} color={colors.primaryLight} />
                   <View style={{ gap: 2 }}>
-                    <Text style={styles.legalBtnTitle}>Kebijakan Privasi & Ketentuan</Text>
+                    <Text style={[styles.legalBtnTitle, { color: colors.textPrimary }]}>Kebijakan Privasi & Ketentuan</Text>
                     <Text style={styles.legalBtnSub}>Sesuai Regulasi Google Play Store 2024</Text>
                   </View>
                 </View>

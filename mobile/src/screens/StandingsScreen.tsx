@@ -150,6 +150,19 @@ export const StandingsScreen: React.FC = () => {
     return LEAGUE_RULES[selectedLeague.code] || [];
   }, [selectedLeague]);
 
+  // Hitung jumlah tim resmi maksimum berdasarkan zona aturan liga untuk mencegah tim liar / ekstra
+  const maxOfficialRank = useMemo(() => {
+    if (!currentRules || currentRules.length === 0) return undefined;
+    return Math.max(...currentRules.flatMap((r) => r.ranks));
+  }, [currentRules]);
+
+  const displayedStandings = useMemo(() => {
+    if (maxOfficialRank && standings.length > maxOfficialRank) {
+      return standings.slice(0, maxOfficialRank);
+    }
+    return standings;
+  }, [standings, maxOfficialRank]);
+
   const getRankZone = useCallback(
     (rank: number): ZoneRule | undefined => {
       return currentRules.find((rule) => rule.ranks.includes(rank));
@@ -271,7 +284,7 @@ export const StandingsScreen: React.FC = () => {
             </View>
 
             {/* Table Body Rows */}
-            {standings.map((team, idx) => {
+            {displayedStandings.map((team, idx) => {
               const zone = getRankZone(team.rank);
               const isEven = idx % 2 === 0;
               const teamLogoUrl = getTeamLogoUrl(team.team, team.logo);

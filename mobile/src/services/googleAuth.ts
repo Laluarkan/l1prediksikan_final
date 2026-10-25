@@ -1,6 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import { NativeModules, TurboModuleRegistry } from 'react-native';
-import Constants, { AppOwnership } from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { syncGoogleAccount, UserSession } from './auth';
 
 // Menutup sesi auth browser jika selesai
@@ -37,12 +37,23 @@ export interface GoogleSignInResult {
 let isConfigured = false;
 
 /**
+ * Memeriksa apakah aplikasi sedang berjalan di dalam lingkungan Expo Go (local development).
+ */
+export const isRunningInExpoGo = (): boolean => {
+  return (
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+    (Constants as any).appOwnership === 'expo' ||
+    Boolean((Constants as any).expoVersion)
+  );
+};
+
+/**
  * Memeriksa apakah modul native biner 'RNGoogleSignin' tersedia pada runtime saat ini.
  * Sangat penting untuk mencegah Invariant Violation crash saat dijalankan di Expo Go.
  */
 export const isNativeGoogleSignInAvailable = (): boolean => {
   // Jika sedang berjalan di Expo Go, modul biner native pasti tidak tersedia
-  if (Constants.appOwnership === AppOwnership.Expo) {
+  if (isRunningInExpoGo()) {
     return false;
   }
 

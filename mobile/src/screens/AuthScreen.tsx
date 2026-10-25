@@ -29,6 +29,7 @@ import {
   fetchGoogleUserProfile,
   signInWithNativeGoogle,
   configureNativeGoogleSignIn,
+  isRunningInExpoGo,
 } from '../services/googleAuth';
 import { GoogleAuthModal } from '../components/modals/GoogleAuthModal';
 
@@ -249,6 +250,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
     setLoading(true);
 
     try {
+      // Jika berjalan di Expo Go (development lokal), modul native Android tidak tersedia
+      // dan browser OAuth akan diblokir Google dengan Error 400 (redirect_uri_mismatch)
+      // karena kunci yang didaftarkan di Google Cloud adalah Android Client ID (dengan SHA-1 dan id.prediksikan.app).
+      // Oleh karena itu, di Expo Go kita langsung arahkan ke modal sinkronisasi Google.
+      if (isRunningInExpoGo()) {
+        setShowGoogleModal(true);
+        setLoading(false);
+        return;
+      }
+
       const result = await signInWithNativeGoogle();
 
       if (result.cancelled) {
@@ -265,22 +276,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess, onClose }) =>
         return;
       }
 
-      // Jika Google Play Services meminta fallback (misalnya di Expo Go saat development)
+      // Jika Google Play Services meminta fallback
       if (result.requiresFallback) {
-        const isExpoGo = Constants.appOwnership === AppOwnership.Expo;
-        if (!isExpoGo && promptGoogleAsync) {
-          try {
-            const oauthRes = await promptGoogleAsync();
-            if (oauthRes.type === 'cancel' || oauthRes.type === 'dismiss') {
-              setLoading(false);
-              return;
-            }
-          } catch (e) {
-            setShowGoogleModal(true);
-          }
-        } else {
-          setShowGoogleModal(true);
-        }
+        setShowGoogleModal(true);
         setLoading(false);
         return;
       }

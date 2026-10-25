@@ -36,66 +36,70 @@ export const AboutModal: React.FC<AboutModalProps> = ({
               </View>
               <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Tentang & Privasi</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={[styles.closeBtn, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight }]}
+              activeOpacity={0.7}
+            >
               <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
             {/* App Brand Header */}
-            <View style={styles.brandCard}>
+            <View style={[styles.brandCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Image
                 source={require('../../../assets/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
-              <Text style={styles.brandName}>{APP_NAME}</Text>
-              <Text style={styles.tagline}>Sepak Bola Modern • Prediksi Berbasis AI</Text>
+              <Text style={[styles.brandName, { color: colors.textPrimary }]}>{APP_NAME}</Text>
+              <Text style={[styles.tagline, { color: colors.textSecondary }]}>Sepak Bola Modern • Prediksi Berbasis AI</Text>
               <View style={styles.versionBadge}>
                 <Text style={styles.versionText}>{FULL_VERSION_STRING}</Text>
               </View>
             </View>
 
             {/* About Platform */}
-            <View style={styles.infoCard}>
+            <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={styles.cardHeader}>TENTANG PLATFORM</Text>
-              <Text style={styles.cardParagraph}>
+              <Text style={[styles.cardParagraph, { color: colors.textSecondary }]}>
                 L1 {APP_NAME} adalah sistem analitik prediktif dan machine learning mandiri yang dirancang untuk memproses puluhan ribu rekaman data pertandingan, pergerakan odds pasar historis, dan formasi tim di 11 liga teratas Eropa.
               </Text>
-              <Text style={styles.cardParagraph}>
+              <Text style={[styles.cardParagraph, { color: colors.textSecondary }]}>
                 Platform ini bertujuan memberikan transparansi penuh terhadap probabilitas matematika sepak bola sebelum pertandingan dimulai.
               </Text>
             </View>
 
             {/* Security & Data Privacy */}
-            <View style={styles.infoCard}>
+            <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={styles.cardHeader}>KEAMANAN & PRIVASI DATA</Text>
 
-              <View style={styles.securityItem}>
+              <View style={[styles.securityItem, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                 <Ionicons name="lock-closed" size={18} color="#10B981" />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.securityTitle}>Enkripsi Password Tingkat Tinggi</Text>
-                  <Text style={styles.securityDesc}>
+                  <Text style={[styles.securityTitle, { color: colors.textPrimary }]}>Enkripsi Password Tingkat Tinggi</Text>
+                  <Text style={[styles.securityDesc, { color: colors.textMuted }]}>
                     Password akun Anda dienkripsi menggunakan algoritma standar industri PBKDF2 dengan salt unik pada database server.
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.securityItem}>
+              <View style={[styles.securityItem, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                 <Ionicons name="logo-google" size={18} color="#EA4335" />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.securityTitle}>Privasi Login Google</Text>
-                  <Text style={styles.securityDesc}>
+                  <Text style={[styles.securityTitle, { color: colors.textPrimary }]}>Privasi Login Google</Text>
+                  <Text style={[styles.securityDesc, { color: colors.textMuted }]}>
                     Masuk dengan akun Google tidak pernah membagikan password Google Anda kepada server kami.
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.securityItem}>
+              <View style={[styles.securityItem, { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border }]}>
                 <Ionicons name="server" size={18} color="#38BDF8" />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.securityTitle}>Koneksi API Aman (SSL/TLS)</Text>
-                  <Text style={styles.securityDesc}>
+                  <Text style={[styles.securityTitle, { color: colors.textPrimary }]}>Koneksi API Aman (SSL/TLS)</Text>
+                  <Text style={[styles.securityDesc, { color: colors.textMuted }]}>
                     Seluruh komunikasi data antara aplikasi mobile dan server cloud dilindungi enkripsi end-to-end HTTPS.
                   </Text>
                 </View>
@@ -104,7 +108,10 @@ export const AboutModal: React.FC<AboutModalProps> = ({
 
             {/* Privacy Policy Link Card */}
             <TouchableOpacity
-              style={styles.privacyLinkCard}
+              style={[
+                styles.privacyLinkCard,
+                { backgroundColor: isDark ? '#0F172A' : colors.surfaceLight, borderColor: colors.border },
+              ]}
               onPress={() => Linking.openURL('https://l1prediksikan.my.id/legal')}
               activeOpacity={0.7}
             >

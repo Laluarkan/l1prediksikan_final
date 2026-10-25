@@ -230,12 +230,15 @@ export const ParlayScreen: React.FC = () => {
   }, [tickets, activeTab, filterResult, filterFold, selectedSeason]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header Info & Tab Switcher */}
-      <View style={styles.topBar}>
-        <View style={styles.tabSwitcher}>
+      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.tabSwitcher, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight, borderColor: colors.border }]}>
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'upcoming' && styles.activeTabButton]}
+            style={[
+              styles.tabButton,
+              activeTab === 'upcoming' && [styles.activeTabButton, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF', borderColor: colors.border }],
+            ]}
             onPress={() => {
               setActiveTab('upcoming');
               setExpandedId(null);
@@ -247,13 +250,16 @@ export const ParlayScreen: React.FC = () => {
               size={15}
               color={activeTab === 'upcoming' ? '#10B981' : colors.textMuted}
             />
-            <Text style={[styles.tabText, activeTab === 'upcoming' && styles.activeTabText]}>
+            <Text style={[styles.tabText, activeTab === 'upcoming' && [styles.activeTabText, { color: colors.textPrimary }]]}>
               Tiket Mendatang
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'history' && styles.activeTabButton]}
+            style={[
+              styles.tabButton,
+              activeTab === 'history' && [styles.activeTabButton, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF', borderColor: colors.border }],
+            ]}
             onPress={() => {
               setActiveTab('history');
               setExpandedId(null);
@@ -265,7 +271,7 @@ export const ParlayScreen: React.FC = () => {
               size={15}
               color={activeTab === 'history' ? '#38BDF8' : colors.textMuted}
             />
-            <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
+            <Text style={[styles.tabText, activeTab === 'history' && [styles.activeTabText, { color: colors.textPrimary }]]}>
               Riwayat Selesai
             </Text>
           </TouchableOpacity>
@@ -273,10 +279,10 @@ export const ParlayScreen: React.FC = () => {
 
         {/* Stake Calculator Quick Controls (for Upcoming) */}
         {activeTab === 'upcoming' && (
-          <View style={styles.stakeBar}>
+          <View style={[styles.stakeBar, { backgroundColor: isDark ? '#1E293B70' : colors.surfaceLight, borderColor: colors.border }]}>
             <View style={styles.stakeBarLeft}>
               <Ionicons name="calculator-outline" size={15} color={colors.primaryLight} />
-              <Text style={styles.stakeLabel}>Simulasi Stake:</Text>
+              <Text style={[styles.stakeLabel, { color: colors.textSecondary }]}>Simulasi Stake:</Text>
             </View>
             <View style={styles.presetChips}>
               {PRESET_STAKES.map((amt) => {
@@ -284,7 +290,11 @@ export const ParlayScreen: React.FC = () => {
                 return (
                   <TouchableOpacity
                     key={amt}
-                    style={[styles.presetChip, isSelected && styles.presetChipActive]}
+                    style={[
+                      styles.presetChip,
+                      { backgroundColor: isDark ? '#0F172A' : '#FFFFFF', borderColor: colors.border },
+                      isSelected && styles.presetChipActive,
+                    ]}
                     onPress={() => setStake(amt)}
                     activeOpacity={0.7}
                   >
@@ -304,7 +314,7 @@ export const ParlayScreen: React.FC = () => {
             {/* Baris 1: Status Hasil & Tombol Pilihan Musim */}
             <View style={styles.historyFilterRow}>
               {/* Status Hasil: Semua / Menang / Kalah */}
-              <View style={styles.statusFilterGroup}>
+              <View style={[styles.statusFilterGroup, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight, borderColor: colors.border }]}>
                 {[
                   { id: 'ALL', label: 'Semua' },
                   { id: 'WON', label: 'Menang' },
@@ -316,7 +326,7 @@ export const ParlayScreen: React.FC = () => {
                       key={st.id}
                       style={[
                         styles.statusFilterPill,
-                        isSelected && styles.statusFilterPillActive,
+                        isSelected && [styles.statusFilterPillActive, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF', borderColor: colors.border }],
                         isSelected && st.id === 'WON' && styles.statusFilterPillWin,
                         isSelected && st.id === 'LOST' && styles.statusFilterPillLose,
                       ]}
@@ -326,7 +336,7 @@ export const ParlayScreen: React.FC = () => {
                       <Text
                         style={[
                           styles.statusFilterText,
-                          isSelected && styles.statusFilterTextActive,
+                          isSelected && [styles.statusFilterTextActive, { color: colors.textPrimary }],
                         ]}
                       >
                         {st.label}
@@ -338,7 +348,13 @@ export const ParlayScreen: React.FC = () => {
 
               {/* Tombol Pilih Musim */}
               <TouchableOpacity
-                style={styles.seasonPickerBtn}
+                style={[
+                  styles.seasonPickerBtn,
+                  {
+                    backgroundColor: isDark ? '#1E293B' : colors.surfaceLight,
+                    borderColor: isDark ? '#3B82F660' : '#BFDBFE',
+                  },
+                ]}
                 onPress={() => setIsSeasonModalVisible(true)}
                 activeOpacity={0.75}
               >
@@ -351,10 +367,10 @@ export const ParlayScreen: React.FC = () => {
         )}
 
         {/* Search Input */}
-        <View style={styles.searchRow}>
+        <View style={[styles.searchRow, { backgroundColor: isDark ? '#1E293B' : colors.surfaceLight, borderColor: colors.border }]}>
           <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder={activeTab === 'upcoming' ? "Cari tim atau laga dalam parlay..." : "Cari tim, ID parlay, atau laga..."}
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
@@ -456,17 +472,23 @@ export const ParlayScreen: React.FC = () => {
             }
 
             return (
-              <View key={ticket.id} style={styles.ticketCard}>
+              <View key={ticket.id} style={[styles.ticketCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 {/* Header Ticket */}
                 <TouchableOpacity
-                  style={styles.ticketHeader}
+                  style={[
+                    styles.ticketHeader,
+                    {
+                      backgroundColor: isDark ? '#0F172A50' : colors.surfaceLight,
+                      borderBottomColor: colors.border,
+                    },
+                  ]}
                   onPress={() => toggleExpand(ticket.id)}
                   activeOpacity={0.8}
                 >
                   <View style={styles.ticketHeaderLeft}>
                     <View style={styles.ticketIdRow}>
                       <Ionicons name="ticket" size={16} color={colors.primary} />
-                      <Text style={styles.ticketIdText} numberOfLines={1} ellipsizeMode="tail">
+                      <Text style={[styles.ticketIdText, { color: colors.textPrimary }]} numberOfLines={1} ellipsizeMode="tail">
                         #{ticket.ticket_id || `PARLAY-${ticket.id}`}
                       </Text>
                     </View>
@@ -499,19 +521,26 @@ export const ParlayScreen: React.FC = () => {
                 </TouchableOpacity>
 
                 {/* Metrics Summary Strip */}
-                <View style={styles.metricsStrip}>
+                <View
+                  style={[
+                    styles.metricsStrip,
+                    {
+                      backgroundColor: isDark ? '#1E293B30' : (isDark ? '#1E293B' : '#F1F5F9'),
+                    },
+                  ]}
+                >
                   <View style={styles.metricItem}>
                     <Text style={styles.metricLabel}>Total Odds</Text>
                     <Text style={styles.metricValueOdds}>@{totalOdds.toFixed(2)}</Text>
                   </View>
-                  <View style={styles.metricDivider} />
+                  <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
                   <View style={styles.metricItem}>
                     <Text style={styles.metricLabel}>Probabilitas AI</Text>
                     <Text style={styles.metricValueProb}>
                       {((Number(totalProb) || 0) * 100).toFixed(1)}%
                     </Text>
                   </View>
-                  <View style={styles.metricDivider} />
+                  <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
                   <View style={styles.metricItem}>
                     <Text style={styles.metricLabel}>Estimasi Return</Text>
                     <Text style={styles.metricValueWin}>{formatCurrency(potentialWin)}</Text>
@@ -520,11 +549,25 @@ export const ParlayScreen: React.FC = () => {
 
                 {/* Accordion Legs Details */}
                 {isExpanded && (
-                  <View style={styles.legsContainer}>
+                  <View
+                    style={[
+                      styles.legsContainer,
+                      {
+                        backgroundColor: isDark ? '#0F172A30' : colors.surfaceLight,
+                        borderTopColor: colors.border,
+                      },
+                    ]}
+                  >
                     <View style={styles.legsHeaderRow}>
                       <Text style={styles.legsHeaderTitle}>KOMBINASI PERTANDINGAN ({legs.length})</Text>
                       <TouchableOpacity
-                        style={styles.shareBtn}
+                        style={[
+                          styles.shareBtn,
+                          {
+                            backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                            borderColor: colors.border,
+                          },
+                        ]}
                         onPress={() => handleShareTicketAsImage(ticket)}
                         activeOpacity={0.7}
                       >
@@ -553,10 +596,10 @@ export const ParlayScreen: React.FC = () => {
                         }
 
                         return (
-                          <View key={idx} style={[styles.legCard, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: colors.borderLight }]}>
+                          <View key={idx} style={[styles.legCard, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF', borderColor: colors.borderLight }]}>
                             {/* Index */}
-                            <View style={styles.legIndexCircle}>
-                              <Text style={styles.legIndexText}>{idx + 1}</Text>
+                            <View style={[styles.legIndexCircle, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
+                              <Text style={[styles.legIndexText, { color: colors.textSecondary }]}>{idx + 1}</Text>
                             </View>
 
                             {/* Logo Liga di sebelah kiri */}
@@ -867,11 +910,17 @@ export const ParlayScreen: React.FC = () => {
           activeOpacity={1}
           onPress={() => setIsSeasonModalVisible(false)}
         >
-          <View style={styles.seasonModalCard} onStartShouldSetResponder={() => true}>
-            <View style={styles.seasonModalHeader}>
+          <View
+            style={[
+              styles.seasonModalCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={[styles.seasonModalHeader, { borderBottomColor: colors.border }]}>
               <View style={styles.seasonModalTitleRow}>
                 <Ionicons name="calendar" size={18} color="#60A5FA" />
-                <Text style={styles.seasonModalTitle}>Pilih Musim Riwayat</Text>
+                <Text style={[styles.seasonModalTitle, { color: colors.textPrimary }]}>Pilih Musim Riwayat</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsSeasonModalVisible(false)}
@@ -887,7 +936,11 @@ export const ParlayScreen: React.FC = () => {
                 return (
                   <TouchableOpacity
                     key={s.id}
-                    style={[styles.seasonModalItem, isSelected && styles.seasonModalItemActive]}
+                    style={[
+                      styles.seasonModalItem,
+                      { backgroundColor: isDark ? '#1E293B30' : colors.surfaceLight },
+                      isSelected && styles.seasonModalItemActive,
+                    ]}
                     onPress={() => {
                       setSelectedSeason(s.id);
                       setIsSeasonModalVisible(false);

@@ -580,6 +580,41 @@ class LeagueStandingsAPIView(APIView):
 
         sorted_standings = sorted(standings.values(), key=lambda x: (x['pts'], x['gd'], x['gf']), reverse=True)
 
+        # Kapasitas resmi tim per kompetisi liga (Mencegah tim liar / ekstra muncul di klasemen)
+        LEAGUE_CAPACITIES = {
+            'E0': 20,   # English Premier League
+            'SP1': 20,  # Spanish La Liga
+            'I1': 20,   # Italian Serie A
+            'D1': 18,   # German Bundesliga
+            'F1': 18,   # French Ligue 1 (sejak 23/24: 18 tim; 22/23 ke bawah: 20 tim)
+            'N1': 18,   # Dutch Eredivisie
+            'P1': 18,   # Portuguese Primeira Liga
+            'B1': 16,   # Belgian Jupiler Pro League (sejak 23/24: 16 tim; 22/23 ke bawah: 18 tim)
+            'T1': 19,   # Turkish Süper Lig
+            'G1': 14,   # Greek Super League
+            'SC0': 12,  # Scottish Premiership
+        }
+
+        max_teams = LEAGUE_CAPACITIES.get(league_code)
+        if max_teams:
+            if league_code == 'B1' and '/' in season:
+                try:
+                    y1 = int(season.split('/')[0])
+                    if y1 < 23:
+                        max_teams = 18
+                except Exception:
+                    pass
+            elif league_code == 'F1' and '/' in season:
+                try:
+                    y1 = int(season.split('/')[0])
+                    if y1 < 23:
+                        max_teams = 20
+                except Exception:
+                    pass
+
+            if len(sorted_standings) > max_teams:
+                sorted_standings = sorted_standings[:max_teams]
+
         # Kalkulasi status kehormatan (Juara Bertahan, Top 3 Musim Lalu, Promosi) berdasarkan musim sebelumnya
         prev_champ = None
         prev_top3 = []

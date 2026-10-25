@@ -180,6 +180,8 @@ export default function StandingsPage() {
   }, [selectedLeague, selectedSeason]);
 
   const activeRules = LEAGUE_RULES[selectedLeague] || [];
+  const maxOfficialRank = activeRules.length > 0 ? Math.max(...activeRules.flatMap((r) => r.ranks)) : undefined;
+  const displayedStandings = maxOfficialRank && standings.length > maxOfficialRank ? standings.slice(0, maxOfficialRank) : standings;
 
   const getRankZone = (rank: number): ZoneRule | null => {
     for (const rule of activeRules) {
@@ -314,7 +316,7 @@ export default function StandingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {standings.map((team) => {
+                {displayedStandings.map((team) => {
                   const zone = getRankZone(team.rank);
 
                   return (
