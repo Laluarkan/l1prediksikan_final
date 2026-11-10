@@ -21,11 +21,34 @@ interface PageProps {
 
 async function getArticle(slug: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
+  // Normalisasi slug: decode URI, trim, dan ubah spasi/karakter tidak baku menjadi tanda hubung (-)
+  const rawDecoded = decodeURIComponent(slug).trim();
+  const normalizedSlug = rawDecoded.replace(/\s+/g, '-').toLowerCase();
+
+  const headers: HeadersInit = {
+    'Origin': 'https://www.l1prediksikan.my.id',
+    'Referer': 'https://www.l1prediksikan.my.id/news',
+    'X-Sync-Secret': process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@',
+  };
+
   try {
-    const res = await fetch(`${apiUrl}/articles/${slug}/`, {
+    let res = await fetch(`${apiUrl}/articles/${normalizedSlug}/`, {
+      headers,
       next: { revalidate: 1800 }, // ISR Cache 30 menit
     });
-    if (!res.ok) return null;
+
+    // Fallback: Jika tidak ditemukan dengan normalizedSlug, coba slug aslinya
+    if (!res.ok && normalizedSlug !== slug) {
+      res = await fetch(`${apiUrl}/articles/${slug}/`, {
+        headers,
+        next: { revalidate: 1800 },
+      });
+    }
+
+    if (!res.ok) {
+      console.error(`getArticle failed: status ${res.status} for slug '${normalizedSlug}'`);
+      return null;
+    }
     return await res.json();
   } catch (e) {
     console.error('Error fetching article:', e);
@@ -37,6 +60,11 @@ async function getRelatedArticles(category: string, currentSlug: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
   try {
     const res = await fetch(`${apiUrl}/articles/?category=${category}&page_size=4`, {
+      headers: {
+        'Origin': 'https://www.l1prediksikan.my.id',
+        'Referer': 'https://www.l1prediksikan.my.id/news',
+        'X-Sync-Secret': process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@',
+      },
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];

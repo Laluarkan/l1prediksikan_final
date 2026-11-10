@@ -21,16 +21,17 @@ DEV_ALLOWED_ORIGINS = {
 }
 
 PROD_REFERER_REGEX = re.compile(
-    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id)(/.*)?$'
+    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|[a-zA-Z0-9-]+\.vercel\.app)(/.*)?$'
 )
 
 DEV_REFERER_REGEX = re.compile(
-    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|localhost:3000|127\.0\.0\.1:3000|localhost:8000|127\.0\.0\.1:8000)(/.*)?$'
+    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|[a-zA-Z0-9-]+\.vercel\.app|localhost:3000|127\.0\.0\.1:3000|localhost:8000|127\.0\.0\.1:8000)(/.*)?$'
 )
 
 EXEMPT_PREFIXES = (
     '/health/',
     '/rahasia-dapur-l1/',
+    '/api/articles/',
 )
 
 class RestrictBackendAccessMiddleware:
@@ -63,10 +64,12 @@ class RestrictBackendAccessMiddleware:
         allowed_origins = PROD_ALLOWED_ORIGINS | DEV_ALLOWED_ORIGINS if settings.DEBUG else PROD_ALLOWED_ORIGINS
         allowed_referer_regex = DEV_REFERER_REGEX if settings.DEBUG else PROD_REFERER_REGEX
 
-        # 3. Validasi Origin browser (Hanya domain resmi di produksi)
+        # 3. Validasi Origin browser (Domain resmi atau preview Vercel di produksi)
         origin = request.headers.get('Origin') or request.META.get('HTTP_ORIGIN')
-        if origin and origin.rstrip('/') in allowed_origins:
-            return self.get_response(request)
+        if origin:
+            cleaned_origin = origin.rstrip('/')
+            if cleaned_origin in allowed_origins or cleaned_origin.endswith('.vercel.app'):
+                return self.get_response(request)
 
         # 4. Validasi Referer jika browser tidak menyertakan Origin
         referer = request.headers.get('Referer') or request.META.get('HTTP_REFERER')

@@ -63,7 +63,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const res = await fetch(`${apiUrl}/articles/?page_size=150`, {
+    const fetchUrl = apiUrl || 'https://l1prediksi-api.onrender.com/api';
+    const res = await fetch(`${fetchUrl}/articles/?page_size=150`, {
+      headers: {
+        'Origin': 'https://www.l1prediksikan.my.id',
+        'Referer': 'https://www.l1prediksikan.my.id/news',
+        'X-Sync-Secret': process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@',
+      },
       next: { revalidate: 3600 },
     });
     
