@@ -40,6 +40,10 @@ jobs:
       working-directory: ./website/backend
       run: python manage.py fetch_history
 
+    - name: Pembuatan Otomatis Berita & Preview Pertandingan (SEO Engine)
+      working-directory: ./website/backend
+      run: python manage.py generate_articles
+
     - name: Bersihkan Cache Redis di Server Render
       if: always()
       run: |

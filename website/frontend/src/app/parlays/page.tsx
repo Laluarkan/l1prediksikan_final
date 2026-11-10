@@ -366,12 +366,42 @@ export default function ParlaysPage() {
                         <span className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                           Ringkasan Pertandingan di Tiket:
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-2">
                           {ticket.legs_details.map((leg, idx) => {
                             const matchName = leg.match_name || leg.match || 'Pertandingan';
+                            const parts = matchName.split(/\s+vs\s+/i);
+                            const homeTeam = leg.home_team || (parts.length > 0 ? parts[0].trim() : '');
+                            const awayTeam = leg.away_team || (parts.length > 1 ? parts[1].trim() : '');
+                            const homeLogo = getTeamLogoUrl(homeTeam, leg.home_team_logo);
+                            const awayLogo = getTeamLogoUrl(awayTeam, leg.away_team_logo);
+
                             return (
-                              <span key={idx} className="bg-slate-950/60 border border-slate-800/70 text-slate-300 text-xs px-2.5 py-1 rounded-lg">
-                                {matchName} <strong className="text-emerald-400 font-mono">({leg.pick})</strong>
+                              <span 
+                                key={idx} 
+                                className="inline-flex items-center gap-1.5 bg-slate-950/70 border border-slate-800/80 text-slate-300 text-xs px-2.5 py-1 rounded-lg"
+                              >
+                                {homeTeam && (
+                                  <img 
+                                    src={homeLogo} 
+                                    alt="" 
+                                    className="w-3.5 h-3.5 object-contain shrink-0" 
+                                    onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
+                                  />
+                                )}
+                                <span className="font-semibold text-slate-200">{homeTeam}</span>
+                                <span className="text-[10px] text-slate-500 font-bold">vs</span>
+                                {awayTeam && (
+                                  <img 
+                                    src={awayLogo} 
+                                    alt="" 
+                                    className="w-3.5 h-3.5 object-contain shrink-0" 
+                                    onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
+                                  />
+                                )}
+                                <span className="font-semibold text-slate-200">{awayTeam}</span>
+                                <strong className="text-emerald-400 font-mono font-bold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[11px] ml-0.5">
+                                  {leg.pick}
+                                </strong>
                               </span>
                             );
                           })}

@@ -12,6 +12,15 @@ const api = axios.create({
 
 // Interceptor untuk menempelkan Token JWT
 api.interceptors.request.use(async (config) => {
+  // Jangan attach token jika request adalah retry setelah 401 atau diberi flag skipAuth
+  if ((config as any)._retry || (config as any)._skipAuth) {
+    if (config.headers) {
+      delete config.headers.Authorization;
+      delete config.headers.authorization;
+    }
+    return config;
+  }
+
   const session = await getSession();
   if (session && (session as any).accessToken) {
     config.headers.Authorization = `Bearer ${(session as any).accessToken}`;
@@ -26,16 +35,17 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     
     // Jika 401 terjadi karena token kedaluwarsa pada request publik, 
-    // ulangi sekali lagi tanpa Authorization header agar data publik (jadwal, histori, klasemen) tetap tampil
+    // ulangi sekali lagi tanpa Authorization header agar data publik (jadwal, histori, klasemen, berita) tetap tampil
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
-      if (originalRequest.headers?.Authorization) {
+      if (originalRequest.headers) {
         delete originalRequest.headers.Authorization;
-        try {
-          return await api(originalRequest);
-        } catch (retryError) {
-          return Promise.reject(retryError);
-        }
+        delete originalRequest.headers.authorization;
+      }
+      try {
+        return await api(originalRequest);
+      } catch (retryError) {
+        return Promise.reject(retryError);
       }
     }
     return Promise.reject(error);

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import (League, Team, MatchHistory, UpcomingFixture, ParlayTicket, 
-                    BroadcastNotification, SavedPrediction, FeatureSuggestion)
+                    BroadcastNotification, SavedPrediction, FeatureSuggestion, Article)
 
 class LeagueSerializer(serializers.ModelSerializer):
     class Meta:
@@ -174,3 +174,89 @@ class FeatureSuggestionSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'user_has_voted'):
             return obj.user_has_voted
         return obj.voters.filter(id=request.user.id).exists()
+
+class ArticleListSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    home_team_name = serializers.CharField(source='fixture.home_team.name', read_only=True, default=None)
+    away_team_name = serializers.CharField(source='fixture.away_team.name', read_only=True, default=None)
+    home_team_logo = serializers.CharField(source='fixture.home_team.logo_url', read_only=True, default=None)
+    away_team_logo = serializers.CharField(source='fixture.away_team.logo_url', read_only=True, default=None)
+    league_name = serializers.CharField(source='fixture.league.name', read_only=True, default=None)
+    match_date = serializers.SerializerMethodField()
+    week_key = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Article
+        fields = [
+            'id', 'title', 'slug', 'excerpt', 'category', 'category_display',
+            'tags', 'featured_image', 'reading_time', 'views_count',
+            'created_at', 'updated_at',
+            'home_team_name', 'away_team_name', 'home_team_logo', 'away_team_logo', 'league_name',
+            'match_date', 'week_key'
+        ]
+
+    def get_match_date(self, obj):
+        if obj.fixture and obj.fixture.date:
+            return obj.fixture.date.isoformat()
+        if obj.parlay_ticket and obj.parlay_ticket.date:
+            return obj.parlay_ticket.date.isoformat()
+        return obj.created_at.isoformat()
+
+    def get_week_key(self, obj):
+        if obj.fixture and obj.fixture.date:
+            iso = obj.fixture.date.isocalendar()
+            return f"{iso[0]}-W{iso[1]:02d}"
+        iso = obj.created_at.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}"
+
+class ArticleDetailSerializer(serializers.ModelSerializer):
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    fixture_details = serializers.SerializerMethodField()
+    parlays_data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Article
+        fields = [
+            'id', 'title', 'slug', 'excerpt', 'content', 'category', 'category_display',
+            'tags', 'featured_image', 'meta_title', 'meta_description',
+            'reading_time', 'views_count', 'created_at', 'updated_at',
+            'fixture', 'fixture_details', 'parlay_ticket', 'parlays_data'
+        ]
+
+    def get_parlays_data(self, obj):
+        if obj.category != 'parlay':
+            return None
+        from .models import ParlayTicket
+        tickets = ParlayTicket.objects.filter(is_historical=False).order_by('-total_prob', '-date')[:10]
+        return ParlayTicketSerializer(tickets, many=True).data
+
+    def get_fixture_details(self, obj):
+        if not obj.fixture:
+            return None
+        f = obj.fixture
+        return {
+            'id': f.id,
+            'date': f.date,
+            'league_name': f.league.name,
+            'league_code': f.league.code,
+            'league_logo': f.league.logo_url,
+            'home_team_name': f.home_team.name,
+            'home_team_logo': f.home_team.logo_url,
+            'away_team_name': f.away_team.name,
+            'away_team_logo': f.away_team.logo_url,
+            'prob_ftr_h': f.prob_ftr_h,
+            'prob_ftr_d': f.prob_ftr_d,
+            'prob_ftr_a': f.prob_ftr_a,
+            'prob_ou25_over': f.prob_ou25_over,
+            'prob_ou25_under': f.prob_ou25_under,
+            'avg_h': f.avg_h,
+            'avg_d': f.avg_d,
+            'avg_a': f.avg_a,
+            'avg_over_25': f.avg_over_25,
+            'avg_under_25': f.avg_under_25,
+            'has_value_bet': f.has_value_bet,
+            'rl_pick_ftr': f.rl_pick_ftr,
+            'has_value_bet_ou': f.has_value_bet_ou,
+            'rl_pick_ou': f.rl_pick_ou,
+            'extended_features': extract_curated_features(f.extended_features)
+        }

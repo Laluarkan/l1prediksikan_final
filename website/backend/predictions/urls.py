@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (LeagueViewSet, TeamViewSet, MatchHistoryViewSet, 
                     UpcomingFixtureViewSet, ParlayTicketViewSet, BroadcastNotificationViewSet,
-                    SavedPredictionViewSet, FeatureSuggestionViewSet,
+                    SavedPredictionViewSet, FeatureSuggestionViewSet, ArticleViewSet,
                     DatasetPreviewView, DatasetConfirmSaveView, 
                     PerformanceMetricsAPIView, LeagueStandingsAPIView,
                     CronTriggerAPIView, SyncUserView, CheckStaffView,
@@ -17,6 +17,7 @@ router.register(r'parlays', ParlayTicketViewSet, basename='parlays')
 router.register(r'broadcasts', BroadcastNotificationViewSet, basename='broadcasts')
 router.register(r'saved-matches', SavedPredictionViewSet, basename='saved-matches')
 router.register(r'features', FeatureSuggestionViewSet, basename='features')
+router.register(r'articles', ArticleViewSet, basename='articles')
 
 
 urlpatterns = [

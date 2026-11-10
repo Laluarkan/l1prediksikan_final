@@ -61,6 +61,12 @@ export default function Navbar() {
     setIsUserDropdownOpen(false);
   }, [pathname]);
 
+  // Pada halaman portal berita (/news/*), sembunyikan navbar gelap utama agar halaman berita mandiri bertema terang
+  // PENTING: Ditempatkan setelah seluruh hooks agar tidak melanggar React Rules of Hooks
+  if (pathname?.startsWith('/news')) {
+    return null;
+  }
+
   return (
     <>
       <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
@@ -176,6 +182,18 @@ export default function Navbar() {
                 }`}
               >
                 Performa Model
+              </Link>
+
+              <Link 
+                href="/news" 
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                  pathname.startsWith('/news') 
+                    ? 'text-white bg-blue-600 font-semibold shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                }`}
+              >
+                <span>Berita</span>
+                <span className="text-[10px] bg-blue-500/30 text-blue-300 border border-blue-400/30 px-1 py-0.2 rounded font-bold">New</span>
               </Link>
             </div>
 
@@ -507,6 +525,17 @@ export default function Navbar() {
               }`}
             >
               Performa Model
+            </Link>
+
+            <Link 
+              href="/news" 
+              onClick={() => setIsMobileMenuOpen(false)} 
+              className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium mt-2 ${
+                pathname.startsWith('/news') ? 'bg-blue-600 text-white font-semibold' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <span>Portal Berita Olahraga</span>
+              <span className="text-[10px] bg-blue-500/30 text-blue-300 border border-blue-400/30 px-1.5 py-0.5 rounded font-bold">New</span>
             </Link>
 
             {/* Unduh APK Mobile Menu CTA */}

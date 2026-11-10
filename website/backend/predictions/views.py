@@ -12,7 +12,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q, Count, F, Sum, Case, When, Value, FloatField
 from django.db.models.functions import Coalesce
@@ -23,10 +23,11 @@ from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 
 from .models import (League, Team, MatchHistory, UpcomingFixture, ParlayTicket, BroadcastNotification, 
-                    SavedPrediction, FeatureSuggestion)
+                    SavedPrediction, FeatureSuggestion, Article)
 from .serializers import (LeagueSerializer, TeamSerializer, MatchHistorySerializer, 
                           UpcomingFixtureSerializer, ParlayTicketSerializer, BroadcastNotificationSerializer,
-                          SavedPredictionSerializer, FeatureSuggestionSerializer)
+                          SavedPredictionSerializer, FeatureSuggestionSerializer,
+                          ArticleListSerializer, ArticleDetailSerializer)
 from .services import preview_uploaded_data, commit_uploaded_data
 
 logger = logging.getLogger(__name__)
@@ -877,6 +878,194 @@ class AppVersionView(APIView):
             'release_notes': self.RELEASE_NOTES,
             'is_critical': self.IS_CRITICAL,
         }, status=status.HTTP_200_OK)
+
+
+def get_current_season_bounds():
+    """
+    Menghitung rentang tanggal musim sepak bola Eropa saat ini (Juli Y - Juni Y+1)
+    berdasarkan jadwal pertandingan paling mutakhir di sistem.
+    """
+    latest_fix = UpcomingFixture.objects.order_by('-date').first()
+    ref_date = latest_fix.date if latest_fix else timezone.now()
+    year = ref_date.year if ref_date.month >= 7 else ref_date.year - 1
+    start = datetime.datetime(year, 7, 1, tzinfo=datetime.timezone.utc)
+    end = datetime.datetime(year + 1, 6, 30, 23, 59, 59, tzinfo=datetime.timezone.utc)
+    return start, end, f"{year}/{year+1}"
+
+
+class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Endpoint Publik untuk Berita & Editorial Pertandingan.
+    Mendukung list artikel terpublikasi dengan filter kategori, pekan (round), pencarian, dan slug lookup.
+    Hanya menyajikan artikel pada musim berjalan (Current Season) dan secara default hanya pekan terakhir.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    lookup_field = 'slug'
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['category']
+    search_fields = ['title', 'excerpt', 'content', 'tags']
+    ordering_fields = ['created_at', 'views_count']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        season_start, season_end, _ = get_current_season_bounds()
+        
+        # 1. Batasi hanya untuk artikel di MUSIM SAAT INI (Current Season Only)
+        qs = Article.objects.filter(is_published=True).filter(
+            Q(fixture__date__gte=season_start, fixture__date__lte=season_end) |
+            Q(fixture__isnull=True, created_at__gte=season_start, created_at__lte=season_end)
+        ).select_related(
+            'fixture__league', 'fixture__home_team', 'fixture__away_team', 'parlay_ticket'
+        )
+
+        # 2. Filter Pekan (Round Selector): Default adalah 'latest' (Pekan Terakhir)
+        round_param = self.request.query_params.get('round', 'latest')
+        
+        if round_param == 'latest':
+            latest_match = qs.filter(fixture__isnull=False).order_by('-fixture__date').first()
+            if latest_match and latest_match.fixture:
+                latest_date = latest_match.fixture.date
+                # Jendela pekan (4 hari sebelum s/d 1 hari setelah laga terbaru)
+                start_window = latest_date - datetime.timedelta(days=4)
+                end_window = latest_date + datetime.timedelta(days=1)
+                qs = qs.filter(
+                    Q(fixture__date__gte=start_window, fixture__date__lte=end_window) |
+                    Q(category='parlay')
+                )
+        elif round_param != 'all':
+            # Format ISO week: YYYY-Www (misal 2026-W45)
+            try:
+                parts = round_param.split('-W')
+                if len(parts) == 2:
+                    y, w = int(parts[0]), int(parts[1])
+                    import datetime as dt_mod
+                    monday = dt_mod.date.fromisocalendar(y, w, 1)
+                    sunday = dt_mod.date.fromisocalendar(y, w, 7)
+                    start_dt = datetime.datetime.combine(monday, datetime.time.min, tzinfo=datetime.timezone.utc)
+                    end_dt = datetime.datetime.combine(sunday, datetime.time.max, tzinfo=datetime.timezone.utc)
+                    qs = qs.filter(
+                        Q(fixture__date__gte=start_dt, fixture__date__lte=end_dt) |
+                        (Q(category='parlay') & Q(created_at__gte=start_dt, created_at__lte=end_dt))
+                    )
+            except Exception:
+                pass
+
+        return qs
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ArticleDetailSerializer
+        return ArticleListSerializer
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        article = self.get_object()
+        Article.objects.filter(id=article.id).update(views_count=F('views_count') + 1)
+        article.views_count += 1
+        serializer = self.get_serializer(article)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def rounds(self, request):
+        """
+        Mengembalikan daftar pekan pertandingan yang tersedia di musim ini,
+        lengkap dengan label tanggal Indonesia, jumlah artikel, dan status pekan terbaru.
+        """
+        season_start, season_end, season_label = get_current_season_bounds()
+        latest_fix = UpcomingFixture.objects.order_by('-date').first()
+        base_qs = Article.objects.filter(is_published=True).filter(
+            Q(fixture__date__gte=season_start, fixture__date__lte=season_end) |
+            Q(fixture__isnull=True, created_at__gte=season_start, created_at__lte=season_end)
+        ).select_related('fixture', 'parlay_ticket')
+
+        weeks_map = {}
+        for a in base_qs:
+            if a.fixture:
+                dt = a.fixture.date
+            elif a.category == 'parlay' and latest_fix:
+                dt = latest_fix.date
+            elif a.parlay_ticket:
+                dt = datetime.datetime.combine(a.parlay_ticket.date, datetime.time.min, tzinfo=datetime.timezone.utc)
+            else:
+                dt = a.created_at
+            
+            iso = dt.isocalendar()
+            key = f"{iso[0]}-W{iso[1]:02d}"
+            if key not in weeks_map:
+                weeks_map[key] = {
+                    'key': key,
+                    'week_num': iso[1],
+                    'year': iso[0],
+                    'count': 0,
+                    'min_date': dt,
+                    'max_date': dt
+                }
+            weeks_map[key]['count'] += 1
+            weeks_map[key]['min_date'] = min(weeks_map[key]['min_date'], dt)
+            weeks_map[key]['max_date'] = max(weeks_map[key]['max_date'], dt)
+
+        sorted_weeks = sorted(weeks_map.values(), key=lambda x: (x['year'], x['week_num']), reverse=True)
+        MONTHS_ID = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+        
+        rounds_list = []
+        for idx, w in enumerate(sorted_weeks):
+            min_d = w['min_date']
+            max_d = w['max_date']
+            if min_d.month == max_d.month:
+                date_str = f"{min_d.day} - {max_d.day} {MONTHS_ID[min_d.month]} {min_d.year}"
+            else:
+                date_str = f"{min_d.day} {MONTHS_ID[min_d.month]} - {max_d.day} {MONTHS_ID[max_d.month]} {max_d.year}"
+            
+            is_latest = (idx == 0)
+            label = f"Pekan Terbaru ({date_str})" if is_latest else f"Pekan {w['week_num']} ({date_str})"
+            
+            rounds_list.append({
+                'key': 'latest' if is_latest else w['key'],
+                'iso_key': w['key'],
+                'label': label,
+                'date_range': date_str,
+                'is_latest': is_latest,
+                'article_count': w['count']
+            })
+
+        rounds_list.append({
+            'key': 'all',
+            'iso_key': 'all',
+            'label': f"Semua Pekan (Musim {season_label})",
+            'date_range': f"Musim {season_label}",
+            'is_latest': False,
+            'article_count': base_qs.count()
+        })
+
+        return Response({
+            'season': season_label,
+            'current_round': 'latest',
+            'rounds': rounds_list,
+            'total_articles': base_qs.count()
+        })
+
+    @action(detail=False, methods=['get'])
+    def featured(self, request):
+        """Mengambil 5 artikel unggulan terbaru untuk Carousel/Hero Banner di halaman news"""
+        qs = self.get_queryset()[:5]
+        serializer = ArticleListSerializer(qs, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def categories(self, request):
+        """Mengembalikan daftar kategori artikel yang tersedia beserta jumlahnya"""
+        qs = self.get_queryset()
+        counts = qs.values('category').annotate(count=Count('id'))
+        category_map = dict(Article.CATEGORY_CHOICES)
+        result = [
+            {'key': item['category'], 'name': category_map.get(item['category'], item['category']), 'count': item['count']}
+            for item in counts
+        ]
+        return Response(result)
+
 
 
 

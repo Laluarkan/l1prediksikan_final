@@ -1,7 +1,17 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import packageJson from '../../package.json';
 
 export default function Footer() {
+  const pathname = usePathname();
+
+  // Pada halaman portal berita (/news/*), sembunyikan footer gelap utama agar tidak terjadi footer ganda
+  if (pathname.startsWith('/news')) {
+    return null;
+  }
+
   return (
     <footer className="bg-slate-900 border-t border-slate-800 mt-auto">
       <div className="w-full px-4 sm:px-6 md:px-12 lg:px-20 py-12">

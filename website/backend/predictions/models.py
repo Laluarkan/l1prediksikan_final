@@ -161,4 +161,42 @@ class FeatureSuggestion(models.Model):
 
     @property
     def total_votes(self):
-        return self.base_votes + self.voters.count()
+        return self.base_votes + self.voters.count()
+
+class Article(models.Model):
+    CATEGORY_CHOICES = (
+        ('big_match', 'Big Match & Derby'),
+        ('value_bet', 'Best Value Bet'),
+        ('parlay', 'Rekomendasi Seluruh Parlay'),
+        ('match_preview', 'Preview Pertandingan'),
+    )
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=280, unique=True, db_index=True)
+    excerpt = models.TextField(blank=True, help_text="Ringkasan singkat untuk SEO meta description")
+    content = models.TextField(help_text="Konten artikel lengkap dalam format Markdown")
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='big_match', db_index=True)
+    tags = models.JSONField(default=list, blank=True, help_text="Tag: ['Derby', 'Top 5', 'Value Bet', 'EPL']")
+    
+    # Relasi opsional ke fixture atau parlay ticket
+    fixture = models.ForeignKey('UpcomingFixture', on_delete=models.SET_NULL, null=True, blank=True, related_name='articles')
+    parlay_ticket = models.ForeignKey('ParlayTicket', on_delete=models.SET_NULL, null=True, blank=True, related_name='articles')
+    
+    # Metadata SEO & OpenGraph
+    featured_image = models.URLField(max_length=500, blank=True, null=True)
+    meta_title = models.CharField(max_length=255, blank=True)
+    meta_description = models.TextField(blank=True)
+    reading_time = models.CharField(max_length=20, default='3 menit')
+    
+    is_published = models.BooleanField(default=True, db_index=True)
+    views_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Artikel Berita'
+        verbose_name_plural = 'Artikel Berita'
+
+    def __str__(self):
+        return self.title
+
