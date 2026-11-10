@@ -14,7 +14,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Q, Count, F
+from django.db.models import Q, Count, F, Sum, Case, When, Value, FloatField
+from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -432,70 +433,83 @@ class PerformanceMetricsAPIView(APIView):
             except Exception:
                 pass
 
-        ftr_wins = ftr_losses = 0
-        ftr_unit_profit = ftr_unit_stake = 0.0
-        
-        ou_wins = ou_losses = 0
-        ou_unit_profit = ou_unit_stake = 0.0
+        # --- OPTIMASI EGRESS: SQL Aggregation langsung di Database (Menghemat 99% Bandwidth) ---
+        ftr_odds = Case(
+            When(rl_pick_ftr='H', then=Coalesce('avg_h', Value(1.0))),
+            When(rl_pick_ftr='D', then=Coalesce('avg_d', Value(1.0))),
+            When(rl_pick_ftr='A', then=Coalesce('avg_a', Value(1.0))),
+            default=Value(1.0),
+            output_field=FloatField()
+        )
 
-        hist_data = history_qs.values(
-            'rl_stake_ftr', 'is_won_ftr', 'rl_pick_ftr', 'avg_h', 'avg_d', 'avg_a',
-            'rl_stake_ou', 'is_won_ou', 'rl_pick_ou', 'avg_over_25', 'avg_under_25'
-        ).iterator(chunk_size=2000)
+        ftr_profit_case = Case(
+            When(is_won_ftr=True, then=(F('rl_stake_ftr') * ftr_odds) - F('rl_stake_ftr')),
+            When(is_won_ftr=False, then=-F('rl_stake_ftr')),
+            default=Value(0.0),
+            output_field=FloatField()
+        )
 
-        for match in hist_data:
-            if match['rl_stake_ftr'] and match['rl_stake_ftr'] > 0:
-                stake = float(match['rl_stake_ftr'])
-                ftr_unit_stake += stake
-                if match['is_won_ftr'] is True:
-                    ftr_wins += 1
-                    odds = match['avg_h'] if match['rl_pick_ftr'] == 'H' else (match['avg_d'] if match['rl_pick_ftr'] == 'D' else match['avg_a'])
-                    ftr_unit_profit += (stake * float(odds or 1)) - stake
-                elif match['is_won_ftr'] is False:
-                    ftr_losses += 1
-                    ftr_unit_profit -= stake
-            
-            if match['rl_stake_ou'] and match['rl_stake_ou'] > 0:
-                stake = float(match['rl_stake_ou'])
-                ou_unit_stake += stake
-                if match['is_won_ou'] is True:
-                    ou_wins += 1
-                    odds = match['avg_over_25'] if match['rl_pick_ou'] == 'Over 2.5' else match['avg_under_25']
-                    ou_unit_profit += (stake * float(odds or 1)) - stake
-                elif match['is_won_ou'] is False:
-                    ou_losses += 1
-                    ou_unit_profit -= stake
+        ou_odds = Case(
+            When(rl_pick_ou='Over 2.5', then=Coalesce('avg_over_25', Value(1.0))),
+            When(rl_pick_ou='Under 2.5', then=Coalesce('avg_under_25', Value(1.0))),
+            default=Value(1.0),
+            output_field=FloatField()
+        )
 
-        parlay_wins = parlay_losses = 0
-        parlay_unit_profit = parlay_unit_stake = 0.0
-        
-        parlay_data = parlay_qs.values('is_won', 'total_odds').iterator(chunk_size=1000)
-        
-        for ticket in parlay_data:
-            stake = 1.0 
-            parlay_unit_stake += stake
-            if ticket['is_won'] is True:
-                parlay_wins += 1
-                parlay_unit_profit += (stake * float(ticket['total_odds'] or 1)) - stake
-            elif ticket['is_won'] is False:
-                parlay_losses += 1
-                parlay_unit_profit -= stake
+        ou_profit_case = Case(
+            When(is_won_ou=True, then=(F('rl_stake_ou') * ou_odds) - F('rl_stake_ou')),
+            When(is_won_ou=False, then=-F('rl_stake_ou')),
+            default=Value(0.0),
+            output_field=FloatField()
+        )
+
+        hist_agg = history_qs.aggregate(
+            ftr_wins=Count('id', filter=Q(rl_stake_ftr__gt=0, is_won_ftr=True)),
+            ftr_losses=Count('id', filter=Q(rl_stake_ftr__gt=0, is_won_ftr=False)),
+            ftr_stake=Coalesce(Sum('rl_stake_ftr', filter=Q(rl_stake_ftr__gt=0)), Value(0.0), output_field=FloatField()),
+            ftr_profit=Coalesce(Sum(ftr_profit_case, filter=Q(rl_stake_ftr__gt=0)), Value(0.0), output_field=FloatField()),
+
+            ou_wins=Count('id', filter=Q(rl_stake_ou__gt=0, is_won_ou=True)),
+            ou_losses=Count('id', filter=Q(rl_stake_ou__gt=0, is_won_ou=False)),
+            ou_stake=Coalesce(Sum('rl_stake_ou', filter=Q(rl_stake_ou__gt=0)), Value(0.0), output_field=FloatField()),
+            ou_profit=Coalesce(Sum(ou_profit_case, filter=Q(rl_stake_ou__gt=0)), Value(0.0), output_field=FloatField()),
+        )
+
+        parlay_profit_case = Case(
+            When(is_won=True, then=Coalesce('total_odds', Value(1.0)) - Value(1.0)),
+            When(is_won=False, then=Value(-1.0)),
+            default=Value(0.0),
+            output_field=FloatField()
+        )
+
+        parlay_agg = parlay_qs.aggregate(
+            parlay_wins=Count('id', filter=Q(is_won=True)),
+            parlay_losses=Count('id', filter=Q(is_won=False)),
+            parlay_stake=Count('id'),
+            parlay_profit=Coalesce(Sum(parlay_profit_case), Value(0.0), output_field=FloatField())
+        )
 
         result = {
             "ftr": {
-                "wins": ftr_wins, "losses": ftr_losses, 
-                "unit_profit": ftr_unit_profit, "unit_stake": ftr_unit_stake
+                "wins": hist_agg['ftr_wins'],
+                "losses": hist_agg['ftr_losses'],
+                "unit_profit": hist_agg['ftr_profit'],
+                "unit_stake": hist_agg['ftr_stake']
             },
             "ou": {
-                "wins": ou_wins, "losses": ou_losses, 
-                "unit_profit": ou_unit_profit, "unit_stake": ou_unit_stake
+                "wins": hist_agg['ou_wins'],
+                "losses": hist_agg['ou_losses'],
+                "unit_profit": hist_agg['ou_profit'],
+                "unit_stake": hist_agg['ou_stake']
             },
             "parlay": {
-                "wins": parlay_wins, "losses": parlay_losses, 
-                "unit_profit": parlay_unit_profit, "unit_stake": parlay_unit_stake
+                "wins": parlay_agg['parlay_wins'],
+                "losses": parlay_agg['parlay_losses'],
+                "unit_profit": parlay_agg['parlay_profit'],
+                "unit_stake": float(parlay_agg['parlay_stake'])
             }
         }
-        cache.set(cache_key, result, timeout=60 * 60 * 12)
+        cache.set(cache_key, result, timeout=60 * 60 * 24)
         resp = Response(result)
         resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return resp

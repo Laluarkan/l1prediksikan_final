@@ -1,9 +1,10 @@
-name: AI Prediction - Night Run (18:40 UTC)
+name: AI Prediction - Night Run (22:25 UTC / 05:25 WIB)
 
 on:
   schedule:
-    # 18:40 UTC = 01:40 WIB / 02:40 WITA (Menyesuaikan update odds UK sesi 2)
-    - cron: '40 18 * * *'
+    # 22:25 UTC = 05:25 WIB / 06:25 WITA (Dini hari/pagi setelah seluruh laga malam Eropa tuntas)
+    # Menggunakan menit non-00 (25) untuk menghindari antrean penundaan GitHub Actions
+    - cron: '25 22 * * *'
   workflow_dispatch:
 
 jobs:
