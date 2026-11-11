@@ -56,12 +56,11 @@ export default function RootLayout({
     <html lang="id">
       <head>
         <link
-          rel="preload"
-          as="image"
-          href="/mobile-showcase/screenshot_1_beranda.webp"
-          type="image/webp"
-          fetchPriority="high"
+          rel="preconnect"
+          href="https://l1prediksi-api.onrender.com"
+          crossOrigin="anonymous"
         />
+        <link rel="dns-prefetch" href="https://l1prediksi-api.onrender.com" />
         <Script
           strategy="lazyOnload"
           src="https://www.googletagmanager.com/gtag/js?id=G-SJ5L2P8WQN"
