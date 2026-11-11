@@ -11,9 +11,12 @@ export default function DownloadCtaBanner() {
         {/* Background Graphic with gradient overlay */}
         <div className="absolute inset-0 opacity-20 md:opacity-25 pointer-events-none mix-blend-luminosity overflow-hidden">
           <img
-            src="/mobile-showcase/feature_graphic_1024x500.png"
+            src="/mobile-showcase/feature_graphic_1024x500.webp"
             alt="Fitur Aplikasi Mobile"
             className="w-full h-full object-cover object-center scale-105 filter blur-[1px]"
+            loading="lazy"
+            width={1024}
+            height={500}
           />
         </div>
 
@@ -84,9 +87,12 @@ export default function DownloadCtaBanner() {
                 {/* Feature Graphic Banner */}
                 <div className="relative rounded-xl overflow-hidden aspect-[16/9] mb-4 border border-slate-700">
                   <img
-                    src="/mobile-showcase/feature_graphic_1024x500.png"
+                    src="/mobile-showcase/feature_graphic_1024x500.webp"
                     alt="L1 Prediksi-Kan Banner"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                    width={500}
+                    height={281}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                   <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
@@ -105,9 +111,11 @@ export default function DownloadCtaBanner() {
                     src="/mobile-showcase/app_icon_512x512.svg"
                     alt="Logo Aplikasi"
                     className="w-12 h-12 rounded-xl border border-slate-700 shadow-md shrink-0"
+                    width={48}
+                    height={48}
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-bold text-white truncate">Prediksikan – Analitik Bola</h4>
+                    <h3 className="text-sm font-bold text-white truncate">Prediksikan – Analitik Bola</h3>
                     <p className="text-xs text-slate-400 truncate">id.prediksikan.app • APKPure Official</p>
                   </div>
                   <a

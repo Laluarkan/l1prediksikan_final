@@ -55,6 +55,13 @@ export default function RootLayout({
   return (
     <html lang="id">
       <head>
+        <link
+          rel="preload"
+          as="image"
+          href="/mobile-showcase/screenshot_1_beranda.webp"
+          type="image/webp"
+          fetchPriority="high"
+        />
         <Script
           strategy="lazyOnload"
           src="https://www.googletagmanager.com/gtag/js?id=G-SJ5L2P8WQN"

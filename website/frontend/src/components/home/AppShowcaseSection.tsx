@@ -46,7 +46,7 @@ const SCREENS: ScreenTab[] = [
     title: 'Rekomendasi Pintar dengan Positive Edge',
     description: 'Menemukan celah pasar (odds edge) antara probabilitas murni statistik dan pasar taruhan secara real-time untuk 11 liga top Eropa.',
     highlightIcon: Sparkles,
-    image: '/mobile-showcase/screenshot_1_beranda.png',
+    image: '/mobile-showcase/screenshot_1_beranda.webp',
     bulletPoints: [
       { title: 'Value Bet Detection', desc: 'Hanya pertandingan dengan Expected Value (EV) positif yang direkomendasikan.' },
       { title: 'Model Reinforcement Learning', desc: 'Kelly Criterion cerdas untuk mengalokasikan ukuran taruhan tanpa risiko emosional.' },
@@ -67,7 +67,7 @@ const SCREENS: ScreenTab[] = [
     title: 'Pemeriksaan Mendalam Odds & Kondisi Laga',
     description: 'Bandingkan pergerakan odds bandar utama (Bet365, Max, Avg) dan pantau perkiraan cuaca stadion untuk memprediksi ritme gol.',
     highlightIcon: Calendar,
-    image: '/mobile-showcase/screenshot_2_jadwal.png',
+    image: '/mobile-showcase/screenshot_2_jadwal.webp',
     bulletPoints: [
       { title: 'Integrasi Cuaca Open-Meteo', desc: 'Suhu, kecepatan angin, dan presipitasi hujan langsung terhubung ke model Over/Under.' },
       { title: 'Multi-Bookmaker Odds', desc: 'Deteksi perbedaan odds Home, Draw, Away, serta Over/Under 2.5.' },
@@ -88,7 +88,7 @@ const SCREENS: ScreenTab[] = [
     title: 'Kombinasi Tiket Parlay dengan Filter Korelasi',
     description: 'Algoritma secara otomatis menyusun tiket kombinasi (2-leg s/d 5-leg) yang memiliki probabilitas kumulatif terbaik tanpa saling bertabrakan.',
     highlightIcon: Ticket,
-    image: '/mobile-showcase/screenshot_3_parlay.png',
+    image: '/mobile-showcase/screenshot_3_parlay.webp',
     bulletPoints: [
       { title: 'Anti-Correlation Filter', desc: 'Menghindari kombinasi laga yang saling melemahkan potensi kemenangan tiket.' },
       { title: 'Total Odds & Probabilitas', desc: 'Perhitungan perkalian odds dan probabilitas realistis sebelum Anda memasang.' },
@@ -109,7 +109,7 @@ const SCREENS: ScreenTab[] = [
     title: 'Peringkat ELO & Statistik Dinamis 11 Liga',
     description: 'Bukan sekadar tabel poin biasa. Pantau rasio gol kandang/tandang, tren kemenangan 5 laga terakhir, dan kekuatan relatif setiap tim.',
     highlightIcon: TrendingUp,
-    image: '/mobile-showcase/screenshot_4_klasemen.png',
+    image: '/mobile-showcase/screenshot_4_klasemen.webp',
     bulletPoints: [
       { title: 'Peringkat ELO Dinamis', desc: 'Menilai bobot kemenangan melawan tim kuat vs tim papan bawah secara adil.' },
       { title: 'Statistik Kandang vs Tandang', desc: 'Filter spesifik kebiasaan bermain saat bertamu atau di hadapan pendukung sendiri.' },
@@ -130,7 +130,7 @@ const SCREENS: ScreenTab[] = [
     title: 'Evaluasi Terbuka Tanpa Ada Rekayasa',
     description: 'Setiap rekomendasi yang diterbitkan dicatat dan dievaluasi otomatis begitu pertandingan selesai. Tidak ada prediksi yang disunting atau disembunyikan.',
     highlightIcon: Award,
-    image: '/mobile-showcase/screenshot_5_riwayat.png',
+    image: '/mobile-showcase/screenshot_5_riwayat.webp',
     bulletPoints: [
       { title: 'Audit Publik Transparan', desc: 'Lihat status WIN / LOSS secara gamblang untuk mengukur reliabilitas jangka panjang.' },
       { title: 'Tracking Yield & Profit Modal', desc: 'Simulasi pertumbuhan saldo jika disiplin mengikuti rekomendasi Kelly Criterion.' },
@@ -284,7 +284,7 @@ export default function AppShowcaseSection() {
                 href="https://d.apkpure.com/b/APK/id.prediksikan.app?version=latest"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 shadow-lg shadow-emerald-900/20"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm transition-all duration-200 hover:-translate-y-0.5 shadow-lg shadow-emerald-900/30"
               >
                 <Download size={16} />
                 <span>Unduh Sekarang (APK)</span>
@@ -349,6 +349,8 @@ export default function AppShowcaseSection() {
                   alt={`Tampilan Aplikasi - ${currentScreen.name}`}
                   className="w-full h-full object-cover object-top transition-opacity duration-300"
                   loading="lazy"
+                  width={300}
+                  height={635}
                 />
 
                 {/* Subtle Glass Glare Reflex */}

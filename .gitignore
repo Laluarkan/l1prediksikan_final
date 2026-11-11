@@ -32,4 +32,10 @@ node_modules/
 .next/
 
 # Catatan Update Lokal
-catatan_update.txt
+catatan_update.txt
+
+# File Backup Database Lokal (Besar & Sensitif)
+backup_*.json
+*.json.gz
+*.sql
+

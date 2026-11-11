@@ -71,7 +71,7 @@ export default function Footer() {
                   Halaman APKPure Resmi
                 </a>
               </li>
-              <li className="pt-2 text-xs text-slate-500 leading-relaxed font-mono">
+              <li className="pt-2 text-xs text-slate-400 leading-relaxed font-mono">
                 Android 7.0+ • ~48 MB • Bebas Iklan Judi &amp; Malware
               </li>
             </ul>
@@ -79,10 +79,10 @@ export default function Footer() {
         </div>
         
         <div className="mt-12 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             &copy; {new Date().getFullYear()} L1 Prediksi-Kan. Hak Cipta Dilindungi.
           </p>
-          <div className="flex gap-4 text-xs text-slate-500 font-mono">
+          <div className="flex gap-4 text-xs text-slate-400 font-mono">
             <span>Versi {packageJson.version}</span>
             <span>|</span>
             <span>Data by API Eksternal</span>

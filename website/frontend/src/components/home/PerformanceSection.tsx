@@ -58,7 +58,7 @@ export default function PerformanceSection() {
           </div>
           <Link
             href="/performance"
-            className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] md:text-sm px-6 py-3 rounded-xl transition-colors text-center font-bold flex-shrink-0"
+            className="w-full md:w-auto bg-emerald-700 hover:bg-emerald-600 text-white text-xs md:text-sm px-6 py-3 rounded-xl transition-colors text-center font-bold flex-shrink-0 shadow-md shadow-emerald-950/40"
           >
             Lihat Detail Metrik
           </Link>

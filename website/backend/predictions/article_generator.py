@@ -122,33 +122,43 @@ def check_derby(home: str, away: str):
 
 
 def generate_with_gemini(prompt: str) -> str:
-    """Memanggil Google Gemini API (Flash 1.5/2.0) jika API key tersedia"""
+    """Memanggil Google Gemini API (model gemini-2.5-flash dengan fallback ke gemini-flash-latest)"""
     api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     if not api_key:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    candidate_models = ["gemini-2.5-flash", "gemini-flash-latest"]
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
         }],
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 1000
+            "maxOutputTokens": 4096
         }
     }
 
-    try:
-        res = requests.post(url, json=payload, timeout=20)
-        if res.status_code == 200:
-            data = res.json()
-            candidates = data.get("candidates", [])
-            if candidates:
-                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                if text and len(text.strip()) > 100:
-                    return text.strip()
-    except Exception as e:
-        logger.warning(f"Panggilan Gemini API gagal: {e}. Mengalihkan ke Dynamic Smart Matrix...")
+    for model in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        try:
+            res = requests.post(url, json=payload, timeout=45)
+            if res.status_code == 200:
+                data = res.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if text and len(text.strip()) > 100:
+                        # Bersihkan kalimat pengantar percakapan jika ada
+                        clean_text = re.sub(r'^(Tentu|Berikut|Baiklah)[^\n]*\n+(---\n+)?', '', text.strip(), flags=re.IGNORECASE)
+                        clean_text = re.sub(r'^\*\*Oleh:[^\n]*\n+', '', clean_text)
+                        logger.info(f"Berhasil menghasilkan konten dengan model {model} ({len(clean_text)} karakter)")
+                        return clean_text.strip()
+            else:
+                logger.warning(f"Gemini API model {model} mengembalikan status {res.status_code}: {res.text[:150]}")
+        except Exception as e:
+            logger.warning(f"Panggilan ke Gemini API ({model}) gagal: {e}")
+
+    logger.warning("Seluruh panggilan Gemini API gagal/timeout. Mengalihkan ke Dynamic Smart Matrix...")
     return None
 
 

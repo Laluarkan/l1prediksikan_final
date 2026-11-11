@@ -29,6 +29,7 @@ const AnimatedCounter = ({ end, suffix = "", prefix = "" }: { end: number; suffi
 export default function StatsCounter() {
   return (
     <section className="relative">
+      <h2 className="sr-only">Statistik Performa & Akurasi Model AI</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-6">
         
         {/* Bento Card 1: Hero Metric (Win Rate & Edge) - Span 4 cols */}
@@ -43,9 +44,9 @@ export default function StatsCounter() {
             <div className="space-y-1 mb-3">
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Tingkat Akurasi Model</span>
               <div className="flex items-baseline gap-2.5">
-                <h3 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
                   <AnimatedCounter end={68} suffix="%" />
-                </h3>
+                </div>
                 <span className="text-[10px] font-semibold text-emerald-400 font-mono bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">
                   Kelly Formula
                 </span>
@@ -75,9 +76,9 @@ export default function StatsCounter() {
             <div className="space-y-1 mb-3">
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Total Unduhan Aplikasi</span>
               <div className="flex items-baseline gap-2.5">
-                <h3 className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300 tracking-tight">
+                <div className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300 tracking-tight">
                   <AnimatedCounter end={500} suffix="+" />
-                </h3>
+                </div>
                 <span className="text-[10px] font-semibold text-emerald-300 font-mono bg-emerald-900/40 px-2 py-0.5 rounded border border-emerald-700/40">
                   Android APK
                 </span>
@@ -108,9 +109,9 @@ export default function StatsCounter() {
             <div className="space-y-1 mb-3">
               <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Cakupan Kompetisi</span>
               <div className="flex items-baseline gap-2.5">
-                <h3 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
                   <AnimatedCounter end={11} suffix=" Liga" />
-                </h3>
+                </div>
               </div>
             </div>
 

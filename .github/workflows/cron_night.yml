@@ -14,6 +14,7 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       PYTHONPATH: ${{ github.workspace }}/website/backend
       PYTHONUNBUFFERED: "1"
 
@@ -39,6 +40,10 @@ jobs:
     - name: Eksekusi Fetch History (Sinkronisasi Masa Lalu)
       working-directory: ./website/backend
       run: python manage.py fetch_history
+
+    - name: Pembuatan Otomatis Berita & Preview Pertandingan (SEO Engine)
+      working-directory: ./website/backend
+      run: python manage.py generate_articles
 
     - name: Bersihkan Cache Redis di Server Render
       if: always()

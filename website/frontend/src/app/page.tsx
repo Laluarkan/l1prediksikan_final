@@ -124,10 +124,13 @@ export default function Home() {
                 {/* Inner Screen */}
                 <div className="relative rounded-[34px] overflow-hidden bg-slate-950 aspect-[9/19] border border-slate-800 shadow-inner">
                   <img
-                    src="/mobile-showcase/screenshot_1_beranda.png"
+                    src="/mobile-showcase/screenshot_1_beranda.webp"
                     alt="Pratinjau Aplikasi L1 Prediksi-Kan"
                     className="w-full h-full object-cover object-top"
                     loading="eager"
+                    fetchPriority="high"
+                    width={290}
+                    height={615}
                   />
                   <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/40 rounded-full pointer-events-none" />
