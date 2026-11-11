@@ -58,12 +58,12 @@ export default function NewsLayout({
                   </div>
                 </div>
               </Link>
-              <p className="mt-1.5 sm:mt-2 text-xs md:text-sm text-slate-500 font-medium max-w-xl leading-relaxed">
+              <p className="mt-1.5 sm:mt-2 text-xs md:text-sm text-slate-600 font-medium max-w-xl leading-relaxed">
                 Jurnalisme Sepak Bola Berbasis Data, Analisis Taktik, Bedah Parlay & Probabilitas Matematika
               </p>
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-700">
               <span className="px-2.5 py-1 bg-slate-100 rounded-md border border-slate-200">11 Liga Top Eropa</span>
             </div>
           </div>
@@ -97,10 +97,10 @@ export default function NewsLayout({
                 />
                 <span className="font-serif font-black text-slate-900 text-lg">PREDIKSI-KAN NEWS</span>
               </div>
-              <p className="text-slate-500 text-xs leading-relaxed max-w-md">
+              <p className="text-slate-600 text-xs leading-relaxed max-w-md">
                 Media informasi olahraga independen. Seluruh ulasan taktik, tren statistik, dan kalkulasi probabilitas diproses secara matematis untuk memberikan wawasan objektif bagi para pecinta sepak bola.
               </p>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-slate-500">
                 © {new Date().getFullYear()} Prediksi-Kan News. All rights reserved.
               </div>
             </div>
@@ -126,7 +126,7 @@ export default function NewsLayout({
             </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
+          <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
             <p>Informasi berbasis data statistik. Bertaruhlah secara bijak dan bertanggung jawab (18+).</p>
             <div className="flex gap-4">
               <Link href="/legal" className="hover:underline">Kebijakan Privasi</Link>

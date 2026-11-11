@@ -199,4 +199,28 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        try:
+            from django.core.cache import cache
+            cache.delete(f"article_detail_{self.slug}")
+            cache.delete("articles_rounds_list")
+            cache.delete("articles_featured_list")
+            cache.delete("articles_categories_list")
+        except Exception:
+            pass
+
+    def delete(self, *args, **kwargs):
+        slug = self.slug
+        super().delete(*args, **kwargs)
+        try:
+            from django.core.cache import cache
+            cache.delete(f"article_detail_{slug}")
+            cache.delete("articles_rounds_list")
+            cache.delete("articles_featured_list")
+            cache.delete("articles_categories_list")
+        except Exception:
+            pass
+
 

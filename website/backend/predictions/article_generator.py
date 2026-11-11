@@ -502,5 +502,13 @@ Tulis dalam bahasa Indonesia profesional, format Markdown. Panjang 350-400 kata.
         )
         created_count += 1
 
+    if created_count > 0:
+        try:
+            from django.core.cache import cache
+            cache.clear()
+            logger.info("Cache Redis berhasil dibersihkan setelah menerbitkan artikel berita baru.")
+        except Exception as e:
+            logger.warning(f"Gagal membersihkan cache Redis: {e}")
+
     logger.info(f"=== SELESAI: Berhasil menerbitkan {created_count} artikel berita & preview baru ===")
     return created_count

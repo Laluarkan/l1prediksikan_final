@@ -48,6 +48,7 @@ function NewsListContent() {
   const [currentSeason, setCurrentSeason] = useState<string>('2026/2027');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState<number>(12);
 
   // 1. Ambil daftar pekan pertandingan musim saat ini
   useEffect(() => {
@@ -64,6 +65,7 @@ function NewsListContent() {
   // 2. Saat kategori atau pekan berganti, ambil artikel sesuai filter
   useEffect(() => {
     setSearchQuery('');
+    setVisibleCount(12);
     fetchArticles();
   }, [categoryParam, selectedRound]);
 
@@ -97,6 +99,7 @@ function NewsListContent() {
   // Artikel Utama (Featured)
   const featuredArticle = filteredArticles[0];
   const remainingArticles = filteredArticles.slice(1);
+  const visibleRemainingArticles = remainingArticles.slice(0, visibleCount);
 
   const getCategoryBadgeClass = (cat: string) => {
     switch (cat) {
@@ -134,11 +137,11 @@ function NewsListContent() {
               <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Pekan Pertandingan
               </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                 Musim {currentSeason}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-600 mt-0.5 font-normal">
               {selectedRound === 'latest' 
                 ? 'Secara default menampilkan artikel untuk pekan terakhir. Pekan lain tersimpan dalam arsip.' 
                 : selectedRound === 'all'
@@ -148,16 +151,20 @@ function NewsListContent() {
           </div>
         </div>
 
-        {/* Pilihan Dropdown / Selector Pekan */}
+        {/* Pilihan Dropdown / Selector Pekan (Label Aksesibel untuk Screen Reader & Lighthouse) */}
         <div className="flex items-center gap-2">
-          <label htmlFor="round-select" className="text-xs font-semibold text-slate-600 shrink-0 hidden sm:inline">
+          <label htmlFor="round-select" className="text-xs font-semibold text-slate-700 shrink-0">
             Pilih Pekan:
           </label>
           <div className="relative w-full sm:w-auto min-w-[240px]">
             <select
               id="round-select"
+              aria-label="Pilih Pekan Pertandingan"
               value={selectedRound}
-              onChange={(e) => setSelectedRound(e.target.value)}
+              onChange={(e) => {
+                setSelectedRound(e.target.value);
+                setVisibleCount(12);
+              }}
               className="w-full appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-800 text-xs font-semibold rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition cursor-pointer"
             >
               {rounds.map((r) => (
@@ -166,7 +173,7 @@ function NewsListContent() {
                 </option>
               ))}
             </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       </div>
@@ -177,12 +184,12 @@ function NewsListContent() {
           <h2 className="text-lg sm:text-xl font-serif font-black text-slate-900">
             {getCategoryTitle()}
           </h2>
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-600">
             <span>{loading ? 'Memperbarui data...' : `Menampilkan ${filteredArticles.length} artikel`}</span>
             {selectedRound === 'latest' && (
               <>
                 <span>•</span>
-                <span className="text-blue-600 font-medium">Pekan Terakhir</span>
+                <span className="text-blue-700 font-semibold">Pekan Terakhir</span>
               </>
             )}
           </div>
@@ -190,20 +197,29 @@ function NewsListContent() {
 
         {/* Input Search dengan Tombol Hapus Cepat */}
         <div className="relative w-full sm:w-72 md:w-80">
-          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
+            id="news-search-input"
+            aria-label="Cari artikel berita berdasarkan tim, liga, atau kata kunci"
             type="text"
             placeholder="Cari tim, liga, atau laga..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 sm:pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 font-medium placeholder:text-slate-400 transition"
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setVisibleCount(12);
+            }}
+            className="w-full pl-8 sm:pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 font-medium placeholder:text-slate-500 transition"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded"
+              onClick={() => {
+                setSearchQuery('');
+                setVisibleCount(12);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 p-0.5 rounded cursor-pointer"
               title="Hapus pencarian"
+              aria-label="Hapus pencarian"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -211,23 +227,26 @@ function NewsListContent() {
         </div>
       </div>
 
-      {/* 2. KONTEN BERITA (RUANG IKLAN SUDAH DIHILANGKAN SESUAI INSTRUKSI) */}
+      {/* 3. KONTEN BERITA */}
       {loading ? (
         <div className="py-20 text-center">
           <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-slate-500 text-xs font-medium">Memuat artikel berita terbaru...</p>
+          <p className="text-slate-600 text-xs font-medium">Memuat artikel berita terbaru...</p>
         </div>
       ) : filteredArticles.length === 0 ? (
         <div className="py-16 sm:py-20 text-center bg-white rounded-xl border border-slate-200 px-4">
-          <p className="text-slate-600 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-medium">
             {searchQuery 
               ? `Tidak ditemukan artikel dengan kata kunci "${searchQuery}".` 
               : 'Belum ada artikel yang diterbitkan untuk rubrik ini.'}
           </p>
           {searchQuery && (
             <button 
-              onClick={() => setSearchQuery('')}
-              className="mt-3 text-xs text-blue-600 font-bold hover:underline"
+              onClick={() => {
+                setSearchQuery('');
+                setVisibleCount(12);
+              }}
+              className="mt-3 text-xs text-blue-700 font-bold hover:underline cursor-pointer"
             >
               Reset Pencarian
             </button>
@@ -245,12 +264,12 @@ function NewsListContent() {
                       {featuredArticle.category_display}
                     </span>
                     {featuredArticle.league_name && (
-                      <span className="font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[10px] sm:text-[11px] border border-slate-200">
+                      <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[10px] sm:text-[11px] border border-slate-200">
                         {featuredArticle.league_name}
                       </span>
                     )}
-                    <span className="text-slate-300">•</span>
-                    <span className="text-slate-500 text-[11px] font-medium">
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-600 text-[11px] font-medium">
                       {featuredArticle.reading_time}
                     </span>
                   </div>
@@ -266,7 +285,7 @@ function NewsListContent() {
                   </p>
 
                   <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-                    <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-500 font-medium">
+                    <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-600 font-medium">
                       <span>Tim Analis Prediksi-Kan</span>
                       <span>•</span>
                       <span>{new Date(featuredArticle.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -274,7 +293,7 @@ function NewsListContent() {
 
                     <Link 
                       href={`/news/${featuredArticle.slug}`}
-                      className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                      className="text-xs font-bold text-blue-700 hover:text-blue-900"
                     >
                       Baca Selengkapnya →
                     </Link>
@@ -288,14 +307,22 @@ function NewsListContent() {
                       <div className="flex items-center justify-center gap-3 sm:gap-4">
                         <img 
                           src={getOptimizedLogoUrl(featuredArticle.home_team_logo)} 
-                          alt={featuredArticle.home_team_name || ''} 
+                          alt={featuredArticle.home_team_name || 'Home Team'} 
+                          width={56}
+                          height={56}
+                          loading="eager"
+                          decoding="async"
                           className="w-11 h-11 sm:w-14 sm:h-14 object-contain"
                           onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                         />
-                        <span className="text-slate-300 font-black text-xs sm:text-sm">VS</span>
+                        <span className="text-slate-500 font-black text-xs sm:text-sm">VS</span>
                         <img 
                           src={getOptimizedLogoUrl(featuredArticle.away_team_logo)} 
-                          alt={featuredArticle.away_team_name || ''} 
+                          alt={featuredArticle.away_team_name || 'Away Team'} 
+                          width={56}
+                          height={56}
+                          loading="eager"
+                          decoding="async"
                           className="w-11 h-11 sm:w-14 sm:h-14 object-contain"
                           onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                         />
@@ -303,7 +330,7 @@ function NewsListContent() {
                       <div className="text-xs font-bold text-slate-800">
                         {featuredArticle.home_team_name} vs {featuredArticle.away_team_name}
                       </div>
-                      <div className="inline-block px-2.5 py-0.5 sm:py-1 bg-white text-slate-600 rounded text-[10px] sm:text-[11px] font-semibold border border-slate-200">
+                      <div className="inline-block px-2.5 py-0.5 sm:py-1 bg-white text-slate-700 rounded text-[10px] sm:text-[11px] font-semibold border border-slate-200">
                         Analisis Data & Prediksi AI
                       </div>
                     </div>
@@ -312,7 +339,7 @@ function NewsListContent() {
                       <div className="text-xs font-bold text-slate-800 uppercase tracking-wide">
                         Rangkuman Tiket Akumulator
                       </div>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-600 font-medium">
                         Seluruh Tiket Parlay Aktif Pekan Ini
                       </p>
                     </div>
@@ -322,11 +349,11 @@ function NewsListContent() {
             </article>
           )}
 
-          {/* GRID BERITA LAINNYA */}
+          {/* GRID BERITA LAINNYA (DENGAN PAGINASI DAN LAZY LOADING UNTUK KINERJA TINGGI) */}
           {remainingArticles.length > 0 && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {remainingArticles.map((art) => (
+                {visibleRemainingArticles.map((art) => (
                   <article 
                     key={art.id} 
                     className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-xs transition flex flex-col justify-between group"
@@ -337,28 +364,36 @@ function NewsListContent() {
                         <span className={`px-2 py-0.5 rounded font-bold border text-[10px] ${getCategoryBadgeClass(art.category)}`}>
                           {art.category_display}
                         </span>
-                        <span className="text-slate-400 text-[10px] sm:text-[11px] font-medium">
+                        <span className="text-slate-600 text-[10px] sm:text-[11px] font-semibold">
                           {art.views_count} views
                         </span>
                       </div>
 
-                      {/* Logo jika ada */}
+                      {/* Logo jika ada (Lazy Load & Fixed Aspect Ratio) */}
                       {art.home_team_logo && art.away_team_logo && (
                         <div className="flex items-center gap-2 py-0.5">
                           <img 
                             src={getOptimizedLogoUrl(art.home_team_logo)} 
-                            alt="" 
+                            alt={art.home_team_name || 'Home'} 
+                            width={24}
+                            height={24}
+                            loading="lazy"
+                            decoding="async"
                             className="w-5 h-5 sm:w-6 sm:h-6 object-contain" 
                             onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                           />
-                          <span className="text-slate-300 text-xs font-bold">vs</span>
+                          <span className="text-slate-500 text-xs font-bold">vs</span>
                           <img 
                             src={getOptimizedLogoUrl(art.away_team_logo)} 
-                            alt="" 
+                            alt={art.away_team_name || 'Away'} 
+                            width={24}
+                            height={24}
+                            loading="lazy"
+                            decoding="async"
                             className="w-5 h-5 sm:w-6 sm:h-6 object-contain" 
                             onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                           />
-                          <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 ml-auto truncate max-w-[130px]">
+                          <span className="text-[10px] sm:text-[11px] font-medium text-slate-600 ml-auto truncate max-w-[130px]">
                             {art.league_name}
                           </span>
                         </div>
@@ -378,11 +413,11 @@ function NewsListContent() {
                     </div>
 
                     {/* Footer Card */}
-                    <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                    <div className="px-4 sm:px-5 py-2.5 sm:py-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600 font-medium">
                       <span>{art.reading_time}</span>
                       <Link 
                         href={`/news/${art.slug}`}
-                        className="font-bold text-blue-600 hover:text-blue-800"
+                        className="font-bold text-blue-700 hover:text-blue-900"
                       >
                         Baca →
                       </Link>
@@ -390,6 +425,22 @@ function NewsListContent() {
                   </article>
                 ))}
               </div>
+
+              {/* Tombol Muat Lebih Banyak (Load More Pagination) */}
+              {remainingArticles.length > visibleCount && (
+                <div className="pt-8 pb-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount((prev) => prev + 12)}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-700 text-slate-700 text-xs font-bold shadow-2xs hover:shadow-xs transition active:scale-98 cursor-pointer"
+                  >
+                    <span>Muat Lebih Banyak Artikel</span>
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                      +{remainingArticles.length - visibleCount} lagi
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

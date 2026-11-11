@@ -959,21 +959,72 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         return ArticleListSerializer
 
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        search = request.query_params.get('search', '').strip()
+        # Jika ada keyword pencarian, lewati cache agar hasil instan & dinamis
+        if search:
+            return super().list(request, *args, **kwargs)
+
+        round_param = request.query_params.get('round', 'latest')
+        category = request.query_params.get('category', 'all')
+        page = request.query_params.get('page', '1')
+        page_size = request.query_params.get('page_size', '20')
+        ordering = request.query_params.get('ordering', '-created_at')
+
+        cache_key = f"articles_list_{round_param}_{category}_{page}_{page_size}_{ordering}"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            resp = Response(cached_data)
+            resp['X-Cache'] = 'HIT'
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
+
+        response = super().list(request, *args, **kwargs)
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, timeout=60 * 60 * 12)  # Cache 12 jam di Redis
+            response['X-Cache'] = 'MISS'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
 
     def retrieve(self, request, *args, **kwargs):
+        slug = kwargs.get('slug') or self.kwargs.get('slug')
+        cache_key = f"article_detail_{slug}"
+        cached_data = cache.get(cache_key)
+
+        # Selalu update counter views secara efisien di background
+        if slug:
+            Article.objects.filter(slug=slug).update(views_count=F('views_count') + 1)
+
+        if cached_data is not None:
+            resp = Response(cached_data)
+            resp['X-Cache'] = 'HIT'
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
+
         article = self.get_object()
-        Article.objects.filter(id=article.id).update(views_count=F('views_count') + 1)
-        article.views_count += 1
         serializer = self.get_serializer(article)
-        return Response(serializer.data)
+        data = serializer.data
+        cache.set(cache_key, data, timeout=60 * 60 * 24)  # Cache 24 jam di Redis
+
+        resp = Response(data)
+        resp['X-Cache'] = 'MISS'
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
 
     @action(detail=False, methods=['get'])
     def rounds(self, request):
         """
         Mengembalikan daftar pekan pertandingan yang tersedia di musim ini,
         lengkap dengan label tanggal Indonesia, jumlah artikel, dan status pekan terbaru.
+        Data dicache di Redis selama 24 jam untuk meringankan beban database Supabase.
         """
+        cache_key = "articles_rounds_list"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            resp = Response(cached_data)
+            resp['X-Cache'] = 'HIT'
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
+
         season_start, season_end, season_label = get_current_season_bounds()
         latest_fix = UpcomingFixture.objects.order_by('-date').first()
         base_qs = Article.objects.filter(is_published=True).filter(
@@ -1040,23 +1091,51 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
             'article_count': base_qs.count()
         })
 
-        return Response({
+        result = {
             'season': season_label,
             'current_round': 'latest',
             'rounds': rounds_list,
             'total_articles': base_qs.count()
-        })
+        }
+        cache.set(cache_key, result, timeout=60 * 60 * 24)  # Cache 24 jam di Redis
+
+        resp = Response(result)
+        resp['X-Cache'] = 'MISS'
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
 
     @action(detail=False, methods=['get'])
     def featured(self, request):
         """Mengambil 5 artikel unggulan terbaru untuk Carousel/Hero Banner di halaman news"""
+        cache_key = "articles_featured_list"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            resp = Response(cached_data)
+            resp['X-Cache'] = 'HIT'
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
+
         qs = self.get_queryset()[:5]
         serializer = ArticleListSerializer(qs, many=True, context={'request': request})
-        return Response(serializer.data)
+        data = serializer.data
+        cache.set(cache_key, data, timeout=60 * 60 * 12)
+
+        resp = Response(data)
+        resp['X-Cache'] = 'MISS'
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
 
     @action(detail=False, methods=['get'])
     def categories(self, request):
         """Mengembalikan daftar kategori artikel yang tersedia beserta jumlahnya"""
+        cache_key = "articles_categories_list"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            resp = Response(cached_data)
+            resp['X-Cache'] = 'HIT'
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
+
         qs = self.get_queryset()
         counts = qs.values('category').annotate(count=Count('id'))
         category_map = dict(Article.CATEGORY_CHOICES)
@@ -1064,7 +1143,12 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
             {'key': item['category'], 'name': category_map.get(item['category'], item['category']), 'count': item['count']}
             for item in counts
         ]
-        return Response(result)
+        cache.set(cache_key, result, timeout=60 * 60 * 24)
+
+        resp = Response(result)
+        resp['X-Cache'] = 'MISS'
+        resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
 
 
 
