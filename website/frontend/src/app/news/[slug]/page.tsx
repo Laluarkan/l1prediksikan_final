@@ -19,6 +19,9 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 async function getArticle(slug: string) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
   // Normalisasi slug: decode URI, trim, dan ubah spasi/karakter tidak baku menjadi tanda hubung (-)
@@ -34,14 +37,14 @@ async function getArticle(slug: string) {
   try {
     let res = await fetch(`${apiUrl}/articles/${normalizedSlug}/`, {
       headers,
-      next: { revalidate: 1800 }, // ISR Cache 30 menit
+      cache: 'no-store',
     });
 
     // Fallback: Jika tidak ditemukan dengan normalizedSlug, coba slug aslinya
     if (!res.ok && normalizedSlug !== slug) {
       res = await fetch(`${apiUrl}/articles/${slug}/`, {
         headers,
-        next: { revalidate: 1800 },
+        cache: 'no-store',
       });
     }
 
