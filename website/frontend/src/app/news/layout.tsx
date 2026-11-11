@@ -21,7 +21,7 @@ export default function NewsLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-11 text-xs text-slate-600 font-medium">
             <div className="flex items-center gap-2 sm:gap-3 truncate pr-2">
-              <span className="hidden sm:inline font-semibold text-slate-700">{currentDate}</span>
+              <span suppressHydrationWarning className="hidden sm:inline font-semibold text-slate-700">{currentDate}</span>
               <span className="hidden sm:inline text-slate-300">•</span>
               <span className="text-slate-600 font-medium truncate text-[11px] sm:text-xs">
                 Portal Jurnalisme & Data Sepak Bola
@@ -100,7 +100,7 @@ export default function NewsLayout({
               <p className="text-slate-600 text-xs leading-relaxed max-w-md">
                 Media informasi olahraga independen. Seluruh ulasan taktik, tren statistik, dan kalkulasi probabilitas diproses secara matematis untuk memberikan wawasan objektif bagi para pecinta sepak bola.
               </p>
-              <div className="text-xs text-slate-500">
+              <div suppressHydrationWarning className="text-xs text-slate-500">
                 © {new Date().getFullYear()} Prediksi-Kan News. All rights reserved.
               </div>
             </div>

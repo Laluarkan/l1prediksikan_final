@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import type { Metadata } from 'next';
 import NewsListClient, { ArticleItem, RoundItem } from './NewsListClient';
 
@@ -19,7 +19,7 @@ interface PrefetchedNewsData {
   articles: ArticleItem[];
 }
 
-async function getInitialNewsData(): Promise<PrefetchedNewsData> {
+async function getInitialNewsData(category: string, round: string): Promise<PrefetchedNewsData> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
   const syncSecret = process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@';
 
@@ -30,12 +30,17 @@ async function getInitialNewsData(): Promise<PrefetchedNewsData> {
   };
 
   try {
+    let articlesUrl = `${apiUrl}/articles/?page_size=100&round=${encodeURIComponent(round)}`;
+    if (category && category !== 'all') {
+      articlesUrl += `&category=${encodeURIComponent(category)}`;
+    }
+
     const [roundsRes, articlesRes] = await Promise.all([
       fetch(`${apiUrl}/articles/rounds/`, {
         headers,
         cache: 'no-store',
       }),
-      fetch(`${apiUrl}/articles/?page_size=100&round=latest`, {
+      fetch(articlesUrl, {
         headers,
         cache: 'no-store',
       }),
@@ -59,17 +64,22 @@ async function getInitialNewsData(): Promise<PrefetchedNewsData> {
   }
 }
 
-export default async function NewsPage() {
-  const initialData = await getInitialNewsData();
+interface NewsPageProps {
+  searchParams: Promise<{ category?: string; round?: string }>;
+}
+
+export default async function NewsPage(props: NewsPageProps) {
+  const searchParams = await props.searchParams;
+  const category = searchParams?.category || 'all';
+  const round = searchParams?.round || 'latest';
+
+  const initialData = await getInitialNewsData(category, round);
 
   return (
-    <Suspense fallback={
-      <div className="py-24 text-center">
-        <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p className="text-slate-600 text-xs font-medium">Memuat portal berita Prediksi-Kan...</p>
-      </div>
-    }>
-      <NewsListClient initialData={initialData} />
-    </Suspense>
+    <NewsListClient 
+      initialData={initialData} 
+      initialCategory={category} 
+      initialRound={round} 
+    />
   );
 }

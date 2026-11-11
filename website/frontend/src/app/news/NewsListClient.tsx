@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import api from '@/lib/axios';
 import { getOptimizedLogoUrl } from '@/lib/logo';
 import { Search, X, Calendar, ChevronDown } from 'lucide-react';
@@ -44,56 +43,54 @@ interface NewsListClientProps {
     season: string;
     articles: ArticleItem[];
   };
+  initialCategory?: string;
+  initialRound?: string;
 }
 
-export default function NewsListClient({ initialData }: NewsListClientProps) {
-  const searchParams = useSearchParams();
-  const categoryParam = searchParams.get('category') || 'all';
-
+export default function NewsListClient({
+  initialData,
+  initialCategory = 'all',
+  initialRound = 'latest',
+}: NewsListClientProps) {
   const [articles, setArticles] = useState<ArticleItem[]>(initialData?.articles || []);
   const [rounds, setRounds] = useState<RoundItem[]>(initialData?.rounds || []);
-  const [selectedRound, setSelectedRound] = useState<string>('latest');
+  const [selectedRound, setSelectedRound] = useState<string>(initialRound);
   const [currentSeason, setCurrentSeason] = useState<string>(initialData?.season || '2026/2027');
   const [loading, setLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [visibleCount, setVisibleCount] = useState<number>(10);
+  const [visibleCount, setVisibleCount] = useState<number>(8);
   const isFirstMount = useRef(true);
 
-  // Jika initialData rounds belum ada, ambil sekali di client
-  useEffect(() => {
-    if (!initialData?.rounds || initialData.rounds.length === 0) {
-      api.get('/articles/rounds/')
-        .then(res => {
-          if (res.data) {
-            if (res.data.season) setCurrentSeason(res.data.season);
-            if (Array.isArray(res.data.rounds)) setRounds(res.data.rounds);
-          }
-        })
-        .catch(err => console.error('Gagal mengambil daftar pekan berita:', err));
-    }
-  }, [initialData]);
-
-  // Saat kategori atau pekan berganti setelah mount awal, ambil artikel sesuai filter
+  // Sinkronisasi data saat props dari Server Component (SSR) berubah (misal saat klik tab kategori)
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
-      // Jika data awal kosong (misal server timeout saat SSR), baru fetch via client
-      if (!initialData?.articles || initialData.articles.length === 0) {
-        fetchArticles();
-      }
       return;
     }
+    if (initialData?.articles) {
+      setArticles(initialData.articles);
+    }
+    if (initialData?.rounds && initialData.rounds.length > 0) {
+      setRounds(initialData.rounds);
+    }
+    if (initialData?.season) {
+      setCurrentSeason(initialData.season);
+    }
+    setSelectedRound(initialRound);
+    setVisibleCount(8);
     setSearchQuery('');
-    setVisibleCount(10);
-    fetchArticles();
-  }, [categoryParam, selectedRound]);
+  }, [initialCategory, initialRound, initialData]);
 
-  const fetchArticles = async () => {
+  // Handler saat user mengganti pekan melalui dropdown selector
+  const handleRoundChange = async (newRound: string) => {
+    setSelectedRound(newRound);
+    setSearchQuery('');
+    setVisibleCount(8);
     setLoading(true);
     try {
-      let url = `/articles/?page_size=100&round=${selectedRound}`;
-      if (categoryParam && categoryParam !== 'all') {
-        url += `&category=${categoryParam}`;
+      let url = `/articles/?page_size=100&round=${encodeURIComponent(newRound)}`;
+      if (initialCategory && initialCategory !== 'all') {
+        url += `&category=${encodeURIComponent(initialCategory)}`;
       }
       const res = await api.get(url);
       const data = res.data.results || res.data || [];
@@ -134,7 +131,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
   };
 
   const getCategoryTitle = () => {
-    switch (categoryParam) {
+    switch (initialCategory) {
       case 'big_match': return 'Big Match & Derby';
       case 'value_bet': return 'Sinyal Best Value Bet';
       case 'parlay': return 'Ulasan Seluruh Tiket Parlay';
@@ -170,7 +167,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
           </div>
         </div>
 
-        {/* Pilihan Dropdown / Selector Pekan (Label Aksesibel untuk Screen Reader & Lighthouse) */}
+        {/* Pilihan Dropdown / Selector Pekan (Label Aksesibel Permanen untuk Screen Reader & Lighthouse) */}
         <div className="flex items-center gap-2">
           <label htmlFor="round-select" className="text-xs font-semibold text-slate-700 shrink-0">
             Pilih Pekan:
@@ -180,10 +177,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
               id="round-select"
               aria-label="Pilih Pekan Pertandingan"
               value={selectedRound}
-              onChange={(e) => {
-                setSelectedRound(e.target.value);
-                setVisibleCount(10);
-              }}
+              onChange={(e) => handleRoundChange(e.target.value)}
               className="w-full appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-800 text-xs font-semibold rounded-lg pl-3 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition cursor-pointer"
             >
               {rounds.map((r) => (
@@ -204,7 +198,9 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
             {getCategoryTitle()}
           </h2>
           <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-600">
-            <span>{loading ? 'Memperbarui data...' : `Menampilkan ${filteredArticles.length} artikel`}</span>
+            <span suppressHydrationWarning>
+              {loading ? 'Memperbarui data...' : `Menampilkan ${filteredArticles.length} artikel`}
+            </span>
             {selectedRound === 'latest' && (
               <>
                 <span>•</span>
@@ -225,7 +221,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setVisibleCount(10);
+              setVisibleCount(8);
             }}
             className="w-full pl-8 sm:pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800 font-medium placeholder:text-slate-500 transition"
           />
@@ -234,7 +230,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
               type="button"
               onClick={() => {
                 setSearchQuery('');
-                setVisibleCount(10);
+                setVisibleCount(8);
               }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 p-0.5 rounded cursor-pointer"
               title="Hapus pencarian"
@@ -263,7 +259,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
             <button 
               onClick={() => {
                 setSearchQuery('');
-                setVisibleCount(10);
+                setVisibleCount(8);
               }}
               className="mt-3 text-xs text-blue-700 font-bold hover:underline cursor-pointer"
             >
@@ -307,7 +303,9 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
                     <div className="flex items-center gap-2 text-[11px] sm:text-xs text-slate-600 font-medium">
                       <span>Tim Analis Prediksi-Kan</span>
                       <span>•</span>
-                      <span>{new Date(featuredArticle.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <span suppressHydrationWarning>
+                        {new Date(featuredArticle.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
                     </div>
 
                     <Link 
@@ -319,29 +317,27 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
                   </div>
                 </div>
 
-                {/* Visual Match Badge untuk Featured Article */}
+                {/* Visual Match Badge untuk Featured Article (Menggunakan Next Image untuk Optimasi Format WebP & Ukuran Ringan) */}
                 <div className="lg:col-span-4 bg-white rounded-xl p-4 sm:p-6 flex flex-col items-center justify-center text-center">
                   {featuredArticle.home_team_logo && featuredArticle.away_team_logo ? (
                     <div className="w-full space-y-2.5 sm:space-y-3">
                       <div className="flex items-center justify-center gap-3 sm:gap-4">
-                        <img 
+                        <Image 
                           src={getOptimizedLogoUrl(featuredArticle.home_team_logo)} 
                           alt={featuredArticle.home_team_name || 'Home Team'} 
                           width={56}
                           height={56}
-                          loading="eager"
-                          decoding="async"
+                          priority
                           className="w-11 h-11 sm:w-14 sm:h-14 object-contain"
                           onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                         />
                         <span className="text-slate-500 font-black text-xs sm:text-sm">VS</span>
-                        <img 
+                        <Image 
                           src={getOptimizedLogoUrl(featuredArticle.away_team_logo)} 
                           alt={featuredArticle.away_team_name || 'Away Team'} 
                           width={56}
                           height={56}
-                          loading="eager"
-                          decoding="async"
+                          priority
                           className="w-11 h-11 sm:w-14 sm:h-14 object-contain"
                           onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                         />
@@ -368,7 +364,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
             </article>
           )}
 
-          {/* GRID BERITA LAINNYA (DENGAN PAGINASI DAN LAZY LOADING UNTUK KINERJA TINGGI) */}
+          {/* GRID BERITA LAINNYA (DENGAN NEXT IMAGE RESPONSIVE & WEBP OTOMATIS) */}
           {remainingArticles.length > 0 && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -388,27 +384,25 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
                         </span>
                       </div>
 
-                      {/* Logo jika ada (Lazy Load & Fixed Aspect Ratio) */}
+                      {/* Logo Klub (Next Image Otomatis WebP, Dimensi Akurat 24x24) */}
                       {art.home_team_logo && art.away_team_logo && (
                         <div className="flex items-center gap-2 py-0.5">
-                          <img 
+                          <Image 
                             src={getOptimizedLogoUrl(art.home_team_logo)} 
                             alt={art.home_team_name || 'Home'} 
                             width={24}
                             height={24}
                             loading="lazy"
-                            decoding="async"
                             className="w-5 h-5 sm:w-6 sm:h-6 object-contain" 
                             onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                           />
                           <span className="text-slate-500 text-xs font-bold">vs</span>
-                          <img 
+                          <Image 
                             src={getOptimizedLogoUrl(art.away_team_logo)} 
                             alt={art.away_team_name || 'Away'} 
                             width={24}
                             height={24}
                             loading="lazy"
-                            decoding="async"
                             className="w-5 h-5 sm:w-6 sm:h-6 object-contain" 
                             onError={(e) => { (e.target as any).src = '/default-logo.svg'; }}
                           />
@@ -450,7 +444,7 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
                 <div className="pt-8 pb-2 text-center">
                   <button
                     type="button"
-                    onClick={() => setVisibleCount((prev) => prev + 10)}
+                    onClick={() => setVisibleCount((prev) => prev + 8)}
                     className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-white border border-slate-300 hover:border-blue-600 hover:text-blue-700 text-slate-700 text-xs font-bold shadow-2xs hover:shadow-xs transition active:scale-98 cursor-pointer"
                   >
                     <span>Muat Lebih Banyak Artikel</span>
@@ -467,4 +461,3 @@ export default function NewsListClient({ initialData }: NewsListClientProps) {
     </div>
   );
 }
-
