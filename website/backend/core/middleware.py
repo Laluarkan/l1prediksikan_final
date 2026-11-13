@@ -1,5 +1,6 @@
 import os
 import re
+import hmac
 import logging
 from django.http import JsonResponse
 from django.conf import settings
@@ -21,11 +22,11 @@ DEV_ALLOWED_ORIGINS = {
 }
 
 PROD_REFERER_REGEX = re.compile(
-    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|[a-zA-Z0-9-]+\.vercel\.app)(/.*)?$'
+    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|(l1prediksikan|project-prediksikan)[a-zA-Z0-9-]*\.vercel\.app)(/.*)?$'
 )
 
 DEV_REFERER_REGEX = re.compile(
-    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|[a-zA-Z0-9-]+\.vercel\.app|localhost:3000|127\.0\.0\.1:3000|localhost:8000|127\.0\.0\.1:8000)(/.*)?$'
+    r'^https?://(www\.l1prediksikan\.my\.id|l1prediksikan\.my\.id|(l1prediksikan|project-prediksikan)[a-zA-Z0-9-]*\.vercel\.app|localhost:3000|127\.0\.0\.1:3000|localhost:8000|127\.0\.0\.1:8000)(/.*)?$'
 )
 
 EXEMPT_PREFIXES = (
@@ -64,11 +65,12 @@ class RestrictBackendAccessMiddleware:
         allowed_origins = PROD_ALLOWED_ORIGINS | DEV_ALLOWED_ORIGINS if settings.DEBUG else PROD_ALLOWED_ORIGINS
         allowed_referer_regex = DEV_REFERER_REGEX if settings.DEBUG else PROD_REFERER_REGEX
 
-        # 3. Validasi Origin browser (Domain resmi atau preview Vercel di produksi)
+        # 3. Validasi Origin browser (Domain resmi atau preview Vercel resmi proyek di produksi)
         origin = request.headers.get('Origin') or request.META.get('HTTP_ORIGIN')
         if origin:
             cleaned_origin = origin.rstrip('/')
-            if cleaned_origin in allowed_origins or cleaned_origin.endswith('.vercel.app'):
+            is_valid_vercel = bool(re.match(r'^https://(l1prediksikan|project-prediksikan)[a-zA-Z0-9-]*\.vercel\.app$', cleaned_origin))
+            if cleaned_origin in allowed_origins or is_valid_vercel:
                 return self.get_response(request)
 
         # 4. Validasi Referer jika browser tidak menyertakan Origin
@@ -76,7 +78,7 @@ class RestrictBackendAccessMiddleware:
         if referer and allowed_referer_regex.match(referer):
             return self.get_response(request)
 
-        # 5. Validasi Aplikasi Mobile Resmi (Header Kunci Klien Rahasia)
+        # 5. Validasi Aplikasi Mobile Resmi (Header Kunci Klien Rahasia - Timing Attack Protected)
         client_key = (
             request.headers.get('X-App-Client-Key')
             or request.headers.get('X-Sync-Secret')
@@ -84,7 +86,7 @@ class RestrictBackendAccessMiddleware:
             or request.META.get('HTTP_X_SYNC_SECRET')
         )
         sync_secret = os.environ.get('SYNC_SECRET_KEY', '').strip('\'"') or CLIENT_APP_SECRET.strip('\'"')
-        if client_key and sync_secret and client_key.strip('\'"') == sync_secret:
+        if client_key and sync_secret and hmac.compare_digest(client_key.strip('\'"'), sync_secret):
             return self.get_response(request)
 
         # 6. Validasi Request Lokal Internal (Hanya jika DEBUG aktif)

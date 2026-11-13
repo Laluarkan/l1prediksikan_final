@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'django_filters',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'predictions',
 ]
@@ -153,17 +154,20 @@ REST_FRAMEWORK = {
 
 from datetime import timedelta
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
@@ -225,5 +229,5 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration()],
         traces_sample_rate=0.2,
-        send_default_pii=True,
+        send_default_pii=False,
     )

@@ -189,10 +189,10 @@ export default async function ArticleDetailPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Inject JSON-LD untuk Googlebot */}
+      {/* Inject JSON-LD untuk Googlebot (Sanitasi tag kurung siku buka untuk cegah XSS) */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
 
       <div className="max-w-4xl mx-auto space-y-8">

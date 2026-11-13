@@ -52,6 +52,13 @@ function AuthContent() {
     }
   }, [status, router, searchParams]);
 
+  // Tampilkan notifikasi jika pengguna diarahkan akibat sesi token habis
+  useEffect(() => {
+    if (searchParams.get('expired') === '1') {
+      setErrorMessage('Sesi akun Anda telah berakhir demi keamanan. Silakan masuk kembali.');
+    }
+  }, [searchParams]);
+
   // Debounced live email check
   useEffect(() => {
     const cleanEmail = email.trim().toLowerCase();

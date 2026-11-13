@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
 const SYNC_SECRET = process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "";
 
 export async function GET(request: Request) {
+  const ip = getClientIp(request);
+  const { success } = rateLimit({
+    key: `check_email_${ip}`,
+    limit: 15,
+    windowMs: 60 * 1000, // Maksimal 15 pengecekan per menit per IP
+  });
+
+  if (!success) {
+    return NextResponse.json(
+      { error: "Terlalu banyak permintaan. Silakan tunggu sebentar." },
+      { status: 429 }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const email = searchParams.get("email")?.trim().toLowerCase();
 

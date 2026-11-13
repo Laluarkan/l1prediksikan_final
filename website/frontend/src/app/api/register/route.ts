@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
 const SYNC_SECRET = process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const { success } = rateLimit({
+      key: `register_${ip}`,
+      limit: 5,
+      windowMs: 60 * 1000, // Maksimal 5 percobaan pendaftaran per menit per IP
+    });
+
+    if (!success) {
+      return NextResponse.json(
+        { error: "Terlalu banyak permintaan pendaftaran dari perangkat Anda. Silakan tunggu 1 menit." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { username, email, password } = body;
 

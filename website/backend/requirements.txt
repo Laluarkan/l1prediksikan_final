@@ -38,4 +38,4 @@ redis==5.2.1
 drf-spectacular==0.28.0
 sentry-sdk==2.20.0
 python-dotenv==1.0.1
-requests==2.31.0
+requests>=2.32.3

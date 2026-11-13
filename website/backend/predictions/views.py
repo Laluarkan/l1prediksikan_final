@@ -360,26 +360,28 @@ class DatasetPreviewView(APIView):
             logger.warning("Upload ditolak: Header kolom CSV tidak dikenali.")
             return Response({"error": "File CSV tidak valid, kolom Date/Div tidak ditemukan."}, status=status.HTTP_400_BAD_REQUEST)
 
-        temp_path = os.path.join(settings.BASE_DIR, 'temp_upload.csv')
-        
+        temp_path = None
         try:
-            with open(temp_path, 'wb+') as destination:
+            import tempfile
+            import uuid
+            with tempfile.NamedTemporaryFile(prefix=f"upload_{uuid.uuid4().hex[:8]}_", suffix=".csv", delete=False) as temp_file:
+                temp_path = temp_file.name
                 for chunk in file_obj.chunks():
-                    destination.write(chunk)
+                    temp_file.write(chunk)
 
             logger.info(f"Admin memproses preview CSV: {file_obj.name} (Tipe: {upload_type})")
             result = preview_uploaded_data(temp_path, upload_type, league_code)
-            
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-                
             return Response(result, status=status.HTTP_200_OK)
             
         except Exception as e:
             logger.error(f"Error proses preview ML: {str(e)}", exc_info=True)
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
             return Response({"error": f"Terjadi kesalahan saat memproses data ML: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
 
 class DatasetConfirmSaveView(APIView):
     permission_classes = [IsAdminUser]
@@ -990,9 +992,18 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         cache_key = f"article_detail_{slug}"
         cached_data = cache.get(cache_key)
 
-        # Selalu update counter views secara efisien di background
+        # Selalu update counter views secara efisien di background dengan cooldown per IP (5 menit)
+        # untuk mencegah database connection spike / spam refresh abuse
         if slug:
-            Article.objects.filter(slug=slug).update(views_count=F('views_count') + 1)
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                client_ip = x_forwarded_for.split(',')[0].strip()
+            else:
+                client_ip = request.META.get('REMOTE_ADDR', '')
+            view_throttle_key = f"art_viewed_{slug}_{client_ip}"
+            if not cache.get(view_throttle_key):
+                Article.objects.filter(slug=slug).update(views_count=F('views_count') + 1)
+                cache.set(view_throttle_key, True, timeout=300)
 
         if cached_data is not None:
             resp = Response(cached_data)
