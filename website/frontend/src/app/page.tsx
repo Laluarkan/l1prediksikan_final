@@ -1,6 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link';
-import { Oswald } from 'next/font/google';
 import { 
   ArrowRight, 
   Download, 
@@ -22,9 +21,6 @@ import DownloadCtaBanner from '@/components/home/DownloadCtaBanner';
 import PerformanceSection from '@/components/home/PerformanceSection';
 import HeroBackground from '@/components/home/HeroBackground';
 
-// Font kondensat ala papan skor stadion & jersey klub, dipakai khusus untuk judul
-const oswald = Oswald({ subsets: ['latin'], weight: ['500', '600', '700'] });
-
 export default function Home() {
   return (
     <div className="bg-slate-900 min-h-screen pb-12 md:pb-24 overflow-hidden text-slate-100">
@@ -44,7 +40,7 @@ export default function Home() {
             <div className="lg:col-span-7 relative z-10 space-y-6 text-center lg:text-left">
               
               {/* Main Headline */}
-              <h1 className={`${oswald.className} text-3xl sm:text-5xl md:text-6xl text-white leading-[1.08] tracking-tight`}>
+              <h1 className="font-oswald text-3xl sm:text-5xl md:text-6xl text-white leading-[1.08] tracking-tight">
                 Baca pertandingan sebelum <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">peluit dibunyikan.</span>
               </h1>
 
@@ -164,7 +160,7 @@ export default function Home() {
         <section className="relative">
           <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
-              <h2 className={`${oswald.className} text-2xl md:text-3xl lg:text-4xl text-white uppercase tracking-wide`}>
+              <h2 className="font-oswald text-2xl md:text-3xl lg:text-4xl text-white uppercase tracking-wide">
                 Cara Kerja Tiga Lapisan Analitik
               </h2>
               <p className="text-xs md:text-base text-slate-400 mt-1">
