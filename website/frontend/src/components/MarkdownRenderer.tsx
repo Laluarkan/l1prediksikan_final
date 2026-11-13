@@ -69,11 +69,29 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           </code>
         );
       } else if (fullMatch.startsWith('[')) {
-        parts.push(
-          <a key={keyIdx++} href={match[7]} className="text-blue-600 hover:text-blue-800 underline font-medium">
-            {match[6]}
-          </a>
-        );
+        const linkUrl = (match[7] || '').trim();
+        const linkText = match[6];
+        // Validasi protokol URL: hanya izinkan https://, http://, atau internal route (/)
+        // Cegah XSS via javascript:, data:, atau vbscript:
+        const isSafeUrl = /^(https?:\/\/|\/|#)/i.test(linkUrl) && !linkUrl.toLowerCase().startsWith('javascript:');
+        const isExternal = /^https?:\/\//i.test(linkUrl);
+
+        if (isSafeUrl) {
+          parts.push(
+            <a
+              key={keyIdx++}
+              href={linkUrl}
+              target={isExternal ? '_blank' : undefined}
+              rel={isExternal ? 'noopener noreferrer' : undefined}
+              className="text-blue-600 hover:text-blue-800 underline font-medium"
+            >
+              {linkText}
+            </a>
+          );
+        } else {
+          // Render teks murni tanpa hyperlink berbahaya jika URL tidak valid
+          parts.push(<span key={keyIdx++} className="font-medium text-slate-800">{linkText}</span>);
+        }
       }
 
       remaining = remaining.substring(match.index + fullMatch.length);

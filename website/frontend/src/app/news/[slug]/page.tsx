@@ -31,7 +31,7 @@ async function getArticle(slug: string) {
   const headers: HeadersInit = {
     'Origin': 'https://www.l1prediksikan.my.id',
     'Referer': 'https://www.l1prediksikan.my.id/news',
-    'X-Sync-Secret': process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@',
+    'X-Sync-Secret': process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "",
   };
 
   try {
@@ -66,7 +66,7 @@ async function getRelatedArticles(category: string, currentSlug: string) {
       headers: {
         'Origin': 'https://www.l1prediksikan.my.id',
         'Referer': 'https://www.l1prediksikan.my.id/news',
-        'X-Sync-Secret': process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@',
+        'X-Sync-Secret': process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "",
       },
       next: { revalidate: 3600 },
     });

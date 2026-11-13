@@ -139,9 +139,13 @@ def generate_with_gemini(prompt: str) -> str:
     }
 
     for model in candidate_models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        }
         try:
-            res = requests.post(url, json=payload, timeout=45)
+            res = requests.post(url, json=payload, headers=headers, timeout=45)
             if res.status_code == 200:
                 data = res.json()
                 candidates = data.get("candidates", [])

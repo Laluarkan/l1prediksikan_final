@@ -3,6 +3,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { rateLimit } from "@/lib/rateLimit";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL;
 // Kunci sinkronisasi server-to-server yang sama dengan Django
@@ -21,9 +22,32 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email dan password wajib diisi.");
+        }
+
+        let forwarded: any = null;
+        let realIp: any = null;
+        if (req?.headers) {
+          if (typeof (req.headers as any).get === 'function') {
+            forwarded = (req.headers as any).get('x-forwarded-for');
+            realIp = (req.headers as any).get('x-real-ip');
+          } else {
+            forwarded = (req.headers as any)['x-forwarded-for'];
+            realIp = (req.headers as any)['x-real-ip'];
+          }
+        }
+        const clientIp = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : (typeof realIp === 'string' ? realIp.trim() : '')) || '127.0.0.1';
+        
+        const { success } = rateLimit({
+          key: `login_attempt_${clientIp}`,
+          limit: 10,
+          windowMs: 60 * 1000, // Maksimal 10 percobaan masuk per menit per IP
+        });
+
+        if (!success) {
+          throw new Error("Terlalu banyak percobaan masuk dari perangkat Anda. Silakan tunggu 1 menit.");
         }
 
         const cleanEmail = credentials.email.trim().toLowerCase();

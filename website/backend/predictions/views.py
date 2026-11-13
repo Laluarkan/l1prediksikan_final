@@ -88,13 +88,11 @@ class SyncUserView(APIView):
                         return Response({
                             'error': 'Password yang Anda masukkan salah. Silakan periksa kembali.'
                         }, status=status.HTTP_400_BAD_REQUEST)
-                elif not user.has_usable_password() and password:
-                    # Akun dibuat dari Google, sekarang mengatur password
-                    user.set_password(password)
-                    user.save()
-                elif not user.has_usable_password() and not password:
+                else:
+                    # Akun terdaftar melalui Google OAuth (tanpa password lokal).
+                    # Wajib tolak login password biasa untuk mencegah pengambilalihan akun (Account Takeover).
                     return Response({
-                        'error': 'Akun ini terdaftar melalui Akun Google. Silakan klik Masuk dengan Google.'
+                        'error': 'Akun ini terdaftar melalui Akun Google. Silakan klik tombol "Masuk dengan Google".'
                     }, status=status.HTTP_400_BAD_REQUEST)
         else:
             if not is_register and not is_google:
@@ -1004,6 +1002,9 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
             if not cache.get(view_throttle_key):
                 Article.objects.filter(slug=slug).update(views_count=F('views_count') + 1)
                 cache.set(view_throttle_key, True, timeout=300)
+                if cached_data is not None and isinstance(cached_data, dict):
+                    cached_data['views_count'] = (cached_data.get('views_count') or 0) + 1
+                    cache.set(cache_key, cached_data, timeout=60 * 60 * 24)
 
         if cached_data is not None:
             resp = Response(cached_data)

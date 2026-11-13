@@ -154,7 +154,10 @@ class FeatureSuggestionSerializer(serializers.ModelSerializer):
             'created_by', 'created_by_username', 'votes_count', 
             'has_voted', 'is_approved', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_by', 'created_by_username', 'votes_count', 'has_voted', 'created_at', 'updated_at']
+        read_only_fields = [
+            'created_by', 'created_by_username', 'votes_count', 
+            'has_voted', 'is_approved', 'created_at', 'updated_at'
+        ]
 
     def get_created_by_username(self, obj):
         if obj.created_by:

@@ -695,6 +695,14 @@ def commit_uploaded_data(upload_type):
     except Exception:
         pass
 
+    # Bersihkan file pickle sementara setelah commit selesai untuk mencegah residu di server
+    for p in (hist_path, fix_path):
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
     return len(history_inserts), len(fixture_inserts)
 
 @transaction.atomic

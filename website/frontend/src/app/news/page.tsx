@@ -21,7 +21,7 @@ interface PrefetchedNewsData {
 
 async function getInitialNewsData(category: string, round: string): Promise<PrefetchedNewsData> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://l1prediksi-api.onrender.com/api';
-  const syncSecret = process.env.NEXT_PUBLIC_SYNC_SECRET || 'Laluarkan123@';
+  const syncSecret = process.env.SYNC_SECRET_KEY || process.env.NEXTAUTH_SECRET || "";
 
   const headers: HeadersInit = {
     'Origin': 'https://www.l1prediksikan.my.id',
