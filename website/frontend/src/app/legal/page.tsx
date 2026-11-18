@@ -3,8 +3,8 @@ import { AlertTriangle, Scale, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Legal & Disclaimer | L1 Prediksi-Kan',
-  description: 'Informasi legal, syarat dan ketentuan, serta kebijakan privasi penggunaan platform L1 Prediksi-Kan.',
+  title: 'Pusat Legal, Disclaimer & Kebijakan Privasi | L1 Prediksi-Kan',
+  description: 'Informasi legal, syarat dan ketentuan, penafian anti-perjudian, serta kebijakan privasi dan penggunaan cookie Google AdSense di L1 Prediksi-Kan.',
 };
 
 export default function LegalPage() {
@@ -65,12 +65,23 @@ export default function LegalPage() {
             <div className="p-3 bg-emerald-500/20 rounded-lg">
               <ShieldCheck className="w-8 h-8 text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-bold text-emerald-400">Kebijakan Privasi</h2>
+            <h2 className="text-2xl font-bold text-emerald-400">Kebijakan Privasi &amp; Penggunaan Cookie</h2>
           </div>
           <div className="space-y-4 text-slate-300 leading-relaxed text-sm md:text-base">
-            <p><strong>Pengumpulan Data:</strong> Kami hanya mengumpulkan informasi dasar melalui layanan otentikasi Google (Google OAuth), yang mencakup alamat email dan nama profil publik Anda. Kami tidak mengumpulkan password Anda.</p>
-            <p><strong>Penggunaan Data:</strong> Data yang dikumpulkan semata-mata digunakan untuk keperluan manajemen sesi (Login/Logout), verifikasi hak akses (khususnya untuk halaman Admin), dan personalisasi metrik dasbor.</p>
-            <p><strong>Perlindungan Data:</strong> Komunikasi data antara server aplikasi dan database diamankan menggunakan protokol enkripsi standar industri. Kami tidak akan menjual, menyewakan, atau membagikan data pribadi Anda kepada pihak ketiga mana pun tanpa izin hukum yang sah.</p>
+            <p><strong>1. Pengumpulan Data Pengguna:</strong> Kami menghormati privasi pengunjung kami. Kami mengumpulkan data akun dasar semata-mata melalui otentikasi Google OAuth atau registrasi mandiri (nama profil dan alamat email) untuk kebutuhan manajemen sesi login, fitur simpan pertandingan, serta personalisasi dashboard pengguna. Kami tidak pernah meminta, menyimpan, atau memperjualbelikan informasi perbankan Anda.</p>
+            
+            <p><strong>2. File Log &amp; Data Analitik:</strong> Seperti kebanyakan situs web standar, L1 Prediksi-Kan menggunakan file log dan alat analitik (Google Analytics) untuk mengukur tren lalu lintas pengunjung, demografi agregat, serta efisiensi performa server. Informasi ini mencakup alamat protokol internet (IP), tipe browser, penyedia layanan internet (ISP), serta waktu kunjungan yang diolah secara anonim tanpa mengidentifikasi individu.</p>
+            
+            <p><strong>3. Kebijakan Cookie &amp; Iklan Pihak Ketiga (Google AdSense):</strong></p>
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Vendor pihak ketiga, termasuk Google, menggunakan <em>cookie</em> untuk menayangkan iklan yang relevan berdasarkan riwayat kunjungan pengguna sebelumnya ke situs web kami atau situs web lain di internet.</li>
+              <li>Penggunaan <em>cookie</em> periklanan oleh Google (seperti DoubleClick) memungkinkan Google dan jaringan mitranya menayangkan materi iklan berkualitas kepada pengguna kami berdasarkan kunjungan mereka ke situs ini dan/atau situs lainnya.</li>
+              <li>Pengguna dapat memilih untuk menonaktifkan atau menyisihkan personalisasi iklan Google kapan saja dengan membuka menu <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline font-semibold">Setelan Iklan Google</a> atau melalui portal konsorsium periklanan di <a href="https://www.aboutads.info/choices" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline font-semibold">www.aboutads.info</a>.</li>
+            </ul>
+
+            <p><strong>4. Perlindungan dan Keamanan Data:</strong> Komunikasi pertukaran data antara browser Anda dan server kami dienkripsi penuh menggunakan sertifikat SSL/TLS (HTTPS). Kami menerapkan praktik keamanan siber enterprise untuk mencegah akses tidak sah, kebocoran data, atau manipulasi informasi.</p>
+
+            <p><strong>5. Kontak Pengelola &amp; Pertanyaan:</strong> Jika Anda memiliki pertanyaan seputar Kebijakan Privasi, kepatuhan periklanan, atau perlindungan data di L1 Prediksi-Kan, Anda dapat menghubungi tim redaksi &amp; pengembang kami langsung melalui email resmi di: <a href="mailto:lalunaufalarkan21@gmail.com" className="text-emerald-400 underline font-semibold">lalunaufalarkan21@gmail.com</a>.</p>
           </div>
         </section>
 

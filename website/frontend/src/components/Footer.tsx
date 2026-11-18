@@ -38,12 +38,13 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Informasi</h3>
-            <ul className="space-y-3 text-sm text-slate-400">
-              <li><Link href="/about-api" className="hover:text-emerald-400 transition-colors">Tentang Sistem API</Link></li>
-              <li><Link href="/methodology" className="hover:text-emerald-400 transition-colors">Metodologi Algoritma</Link></li>
-              <li><Link href="/risk-management" className="hover:text-emerald-400 transition-colors">Manajemen Risiko (Kelly)</Link></li>
-              <li><Link href="/legal" className="hover:text-emerald-400 transition-colors">Legal & Disclaimer</Link></li>
+            <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Kebijakan &amp; Legalitas</h3>
+            <ul className="space-y-2.5 text-sm text-slate-400">
+              <li><Link href="/legal" className="hover:text-emerald-400 transition-colors text-slate-300 font-medium">Kebijakan Privasi &amp; Cookie</Link></li>
+              <li><Link href="/legal" className="hover:text-emerald-400 transition-colors">Syarat &amp; Ketentuan</Link></li>
+              <li><Link href="/legal" className="hover:text-emerald-400 transition-colors">Disclaimer Non-Perjudian</Link></li>
+              <li><Link href="/methodology" className="hover:text-emerald-400 transition-colors">Metodologi Sains Data</Link></li>
+              <li><a href="mailto:lalunaufalarkan21@gmail.com" className="hover:text-emerald-400 transition-colors text-xs text-slate-400">Kontak: lalunaufalarkan21@gmail.com</a></li>
             </ul>
           </div>
 

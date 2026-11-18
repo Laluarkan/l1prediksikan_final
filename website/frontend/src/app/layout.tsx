@@ -55,12 +55,19 @@ export default function RootLayout({
   return (
     <html lang="id">
       <head>
+        <meta name="google-adsense-account" content="ca-pub-1632073531333877" />
         <link
           rel="preconnect"
           href="https://l1prediksi-api.onrender.com"
           crossOrigin="anonymous"
         />
         <link rel="dns-prefetch" href="https://l1prediksi-api.onrender.com" />
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1632073531333877"
+          crossOrigin="anonymous"
+          strategy="lazyOnload"
+        />
         <Script
           strategy="lazyOnload"
           src="https://www.googletagmanager.com/gtag/js?id=G-SJ5L2P8WQN"
