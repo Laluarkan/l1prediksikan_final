@@ -3,6 +3,7 @@ import re
 import random
 import logging
 import json
+import time
 import requests
 from django.utils import timezone
 from django.utils.text import slugify
@@ -121,13 +122,64 @@ def check_derby(home: str, away: str):
     return None
 
 
+def get_fixture_priority(f: UpcomingFixture):
+    """
+    Menentukan prioritas pembuatan artikel agar laga penting (Big Match, Derby, Clash, Value Bet)
+    diproses paling awal dan mendapat jatah kuota AI Gemini terbaik sebelum kuota harian/menitan terpakai.
+    Tingkat Prioritas:
+    1. Derby / Rivalitas Terkenal
+    2. Bentrok Papan Atas (Top 5 Clash)
+    3. Duel ELO Tinggi (High ELO Clash >= 3200)
+    4. Sinyal Value Bet (1X2 atau Over/Under)
+    5. Pertandingan Reguler (Preview Statistik Ringkas)
+    """
+    home = f.home_team.name
+    away = f.away_team.name
+    ext = f.extended_features or {}
+    derby = check_derby(home, away)
+    home_pos = ext.get('home_league_pos')
+    away_pos = ext.get('away_league_pos')
+    elo_home = ext.get('elo_home', 1500)
+    elo_away = ext.get('elo_away', 1500)
+
+    is_derby = bool(derby)
+    is_top5 = bool(home_pos and away_pos and int(home_pos) <= 5 and int(away_pos) <= 5)
+    is_high_elo = (elo_home + elo_away >= 3200)
+    is_val = bool(f.has_value_bet or f.has_value_bet_ou)
+
+    if is_derby:
+        tier = 1
+    elif is_top5:
+        tier = 2
+    elif is_high_elo:
+        tier = 3
+    elif is_val:
+        tier = 4
+    else:
+        tier = 5
+
+    # Urutkan berdasarkan tier prioritas, lalu tanggal pertandingan (f.date)
+    return (tier, f.date)
+
+
 def generate_with_gemini(prompt: str) -> str:
-    """Memanggil Google Gemini API (model gemini-2.5-flash dengan fallback ke gemini-flash-latest)"""
+    """
+    Memanggil Google Gemini API dengan auto-pacing cerdas dan cascading model fallback.
+    Dilengkapi jeda otomatis untuk menghormati batas Free Tier (15 RPM) serta retry backoff
+    jika menerima respons 429 (rate-limit) atau 503 (server overloaded).
+    """
     api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
     if not api_key:
         return None
 
-    candidate_models = ["gemini-2.5-flash", "gemini-flash-latest"]
+    # Model kandidat yang terbukti aktif dan terdaftar pada API key
+    candidate_models = [
+        "gemini-2.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3-flash-preview",
+        "gemini-flash-latest",
+    ]
     payload = {
         "contents": [{
             "parts": [{"text": prompt}]
@@ -156,11 +208,20 @@ def generate_with_gemini(prompt: str) -> str:
                         clean_text = re.sub(r'^(Tentu|Berikut|Baiklah)[^\n]*\n+(---\n+)?', '', text.strip(), flags=re.IGNORECASE)
                         clean_text = re.sub(r'^\*\*Oleh:[^\n]*\n+', '', clean_text)
                         logger.info(f"Berhasil menghasilkan konten dengan model {model} ({len(clean_text)} karakter)")
+                        # Jeda pacing 4 detik agar tidak melampaui batas 15 RPM (Requests Per Minute) pada Free Tier
+                        time.sleep(4.0)
                         return clean_text.strip()
+            elif res.status_code == 429:
+                logger.warning(f"Gemini API model {model} terkena batas kuota/rate-limit (429). Menunggu jeda 5 detik sebelum mencoba model fallback...")
+                time.sleep(5.0)
+            elif res.status_code == 503:
+                logger.warning(f"Gemini API model {model} sedang mengalami lonjakan beban (503). Menunggu 2 detik...")
+                time.sleep(2.0)
             else:
                 logger.warning(f"Gemini API model {model} mengembalikan status {res.status_code}: {res.text[:150]}")
         except Exception as e:
             logger.warning(f"Panggilan ke Gemini API ({model}) gagal: {e}")
+            time.sleep(2.0)
 
     logger.warning("Seluruh panggilan Gemini API gagal/timeout. Mengalihkan ke Dynamic Smart Matrix...")
     return None
@@ -391,6 +452,9 @@ def run_article_generation_pipeline():
     else:
         fixtures = list(upcoming.select_related('league', 'home_team', 'away_team'))
     
+    # Prioritaskan Big Match, Derby, Clash, dan Value Bet di urutan teratas agar mendapatkan jatah Gemini AI terbaik
+    fixtures.sort(key=get_fixture_priority)
+    
     created_count = 0
 
     # 1. GENERATE ARTIKEL PARLAY (Maksimal 10 paket tiket parlay unggulan)
@@ -442,7 +506,7 @@ Data pertandingan:
 - Probabilitas AI: Kemenangan {home} {round((f.prob_ftr_h or 0.33)*100, 1)}%, Seri {round((f.prob_ftr_d or 0.33)*100, 1)}%, Kemenangan {away} {round((f.prob_ftr_a or 0.33)*100, 1)}%.
 - Over 2.5 Gol: {round((f.prob_ou25_over or 0.5)*100, 1)}%.
 - Odds Pasar: Home {f.avg_h}, Draw {f.avg_d}, Away {f.avg_a}, Over 2.5 {f.avg_over_25}.
-Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidup, tajam, dan gunakan format Markdown. Panjang sekitar 400 kata. Akhiri dengan rekomendasi taruhan bijak. Jangan menyertakan salam pembuka atau penutup email."""
+Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidup, tajam, dan gunakan format Markdown. Panjang sekitar 400 kata. Akhiri dengan rekomendasi taruhan bijak. Jangan menyertakan salam pembuka atau penutup percakapan."""
             content = generate_with_gemini(prompt_gemini) or generate_dynamic_big_match_text(f, derby_name=derby)
             reading_time = "4 menit"
 
@@ -451,7 +515,13 @@ Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidu
             title = f"Prediksi {home} vs {away}: Bentrok Papan Atas Top 5 Klasemen {f.league.name}"
             tags.extend(['Top 5 Clash', 'Big Match'])
             slug = f"prediksi-{slug_base}"
-            prompt_gemini = f"""Anda adalah jurnalis olahraga senior. Tulis artikel bentrok papan atas {home} vs {away} di {f.league.name} antara {home} vs {away}. Format Markdown, tajam dan berbobot."""
+            prompt_gemini = f"""Anda adalah jurnalis olahraga senior terkemuka. Tuliskan artikel preview berita sepak bola komprehensif antara {home} vs {away} di kompetisi {f.league.name} pada {f.date.strftime('%d %B %Y')}.
+Data pertandingan:
+- Status: Bentrok Papan Atas Top 5 Klasemen (Posisi #{home_pos} vs #{away_pos})
+- Probabilitas AI: Kemenangan {home} {round((f.prob_ftr_h or 0.33)*100, 1)}%, Seri {round((f.prob_ftr_d or 0.33)*100, 1)}%, Kemenangan {away} {round((f.prob_ftr_a or 0.33)*100, 1)}%.
+- Over 2.5 Gol: {round((f.prob_ou25_over or 0.5)*100, 1)}%.
+- Odds Pasar: Home {f.avg_h}, Draw {f.avg_d}, Away {f.avg_a}, Over 2.5 {f.avg_over_25}.
+Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidup, mendalam, dan gunakan format Markdown. Panjang sekitar 400 kata. Berikan analisis taktik, perebutan poin krusial, dan proyeksi pertandingan. Jangan menyertakan salam pembuka atau penutup percakapan."""
             content = generate_with_gemini(prompt_gemini) or generate_dynamic_big_match_text(f, derby_name=None)
             reading_time = "4 menit"
 
@@ -460,7 +530,14 @@ Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidu
             title = f"Prediksi {home} vs {away}: Pertarungan Sengit Dua Kekuatan Besar {f.league.name}"
             tags.append('Big Match')
             slug = f"prediksi-{slug_base}"
-            content = generate_dynamic_big_match_text(f, derby_name=None)
+            prompt_gemini = f"""Anda adalah jurnalis olahraga senior terkemuka. Tuliskan artikel preview berita sepak bola komprehensif antara {home} vs {away} di kompetisi {f.league.name} pada {f.date.strftime('%d %B %Y')}.
+Data pertandingan:
+- Status: Duel Dua Raksasa ELO Tinggi (High ELO Clash: {elo_home} vs {elo_away})
+- Probabilitas AI: Kemenangan {home} {round((f.prob_ftr_h or 0.33)*100, 1)}%, Seri {round((f.prob_ftr_d or 0.33)*100, 1)}%, Kemenangan {away} {round((f.prob_ftr_a or 0.33)*100, 1)}%.
+- Over 2.5 Gol: {round((f.prob_ou25_over or 0.5)*100, 1)}%.
+- Odds Pasar: Home {f.avg_h}, Draw {f.avg_d}, Away {f.avg_a}, Over 2.5 {f.avg_over_25}.
+Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidup, mendalam, dan gunakan format Markdown. Panjang sekitar 400 kata. Berikan analisis taktik, tren performa, dan proyeksi skor. Jangan menyertakan salam pembuka atau penutup percakapan."""
+            content = generate_with_gemini(prompt_gemini) or generate_dynamic_big_match_text(f, derby_name=None)
             reading_time = "4 menit"
 
         elif is_value_bet:
@@ -469,8 +546,11 @@ Tulis dalam Bahasa Indonesia dengan gaya jurnalisme olahraga yang mengalir, hidu
             tags.extend(['Value Bet', 'Tips Taruhan'])
             slug = f"prediksi-{slug_base}"
             prompt_gemini = f"""Anda adalah analis taruhan olahraga profesional. Tulis ulasan artikel Value Bet mendalam antara {home} vs {away} di {f.league.name} ({f.date.strftime('%d %B %Y')}).
-Odds pasar: Home {f.avg_h}, Draw {f.avg_d}, Away {f.avg_a}.
-Tulis dalam bahasa Indonesia profesional, format Markdown. Panjang 350-400 kata."""
+Data pertandingan:
+- Probabilitas AI: Kemenangan {home} {round((f.prob_ftr_h or 0.33)*100, 1)}%, Seri {round((f.prob_ftr_d or 0.33)*100, 1)}%, Kemenangan {away} {round((f.prob_ftr_a or 0.33)*100, 1)}%.
+- Odds Pasar: Home {f.avg_h}, Draw {f.avg_d}, Away {f.avg_a}, Over 2.5 {f.avg_over_25}.
+- Sinyal Value Bet: {'Value Bet 1X2 terdeteksi' if f.has_value_bet else ''} {'Value Bet Over/Under terdeteksi' if f.has_value_bet_ou else ''}
+Tulis dalam bahasa Indonesia profesional, format Markdown. Panjang 350-400 kata. Jelaskan mengapa pasar memberikan mispricing dan mengapa sinyal AI ini bernilai tinggi. Jangan menyertakan salam pembuka atau penutup percakapan."""
             content = generate_with_gemini(prompt_gemini) or generate_dynamic_big_match_text(f, derby_name=None)
             reading_time = "3 menit"
 
