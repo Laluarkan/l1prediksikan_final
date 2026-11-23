@@ -498,12 +498,18 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
     db_records = []
     teams_in_csv = set(df_csv['HomeTeam'].unique()) | set(df_csv['AwayTeam'].unique())
     
-    hist_qs = MatchHistory.objects.filter(home_team__name__in=teams_in_csv).order_by('date') | MatchHistory.objects.filter(away_team__name__in=teams_in_csv).order_by('date')
-    for m in hist_qs.distinct():
+    hist_qs = MatchHistory.objects.filter(
+        models.Q(home_team__name__in=teams_in_csv) | models.Q(away_team__name__in=teams_in_csv)
+    ).values(
+        'league__code', 'date', 'home_team__name', 'away_team__name',
+        'fthg', 'ftag', 'ftr',
+        'avg_h', 'avg_d', 'avg_a', 'avg_over_25', 'avg_under_25'
+    ).distinct()
+    for r in hist_qs:
         db_records.append({
-            'Div': m.league.code, 'Date': m.date, 'HomeTeam': m.home_team.name, 'AwayTeam': m.away_team.name,
-            'FTHG': m.fthg, 'FTAG': m.ftag, 'FTR': m.ftr,
-            'AvgH': m.avg_h, 'AvgD': m.avg_d, 'AvgA': m.avg_a, 'Avg>2.5': m.avg_over_25, 'Avg<2.5': m.avg_under_25,
+            'Div': r['league__code'], 'Date': r['date'], 'HomeTeam': r['home_team__name'], 'AwayTeam': r['away_team__name'],
+            'FTHG': r['fthg'], 'FTAG': r['ftag'], 'FTR': r['ftr'],
+            'AvgH': r['avg_h'], 'AvgD': r['avg_d'], 'AvgA': r['avg_a'], 'Avg>2.5': r['avg_over_25'], 'Avg<2.5': r['avg_under_25'],
             '_source': 'db'
         })
         
@@ -722,13 +728,17 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
     try:
         hist_qs = MatchHistory.objects.filter(
             models.Q(home_team__name__in=teams_in_csv) | models.Q(away_team__name__in=teams_in_csv)
-        ).select_related('league', 'home_team', 'away_team')
+        ).values(
+            'league__code', 'date', 'home_team__name', 'away_team__name',
+            'fthg', 'ftag', 'ftr',
+            'avg_h', 'avg_d', 'avg_a', 'avg_over_25', 'avg_under_25'
+        )
         
-        for m in hist_qs.iterator(chunk_size=1000):
+        for r in hist_qs.iterator(chunk_size=2000):
             db_records.append({
-                'Div': m.league.code, 'Date': m.date, 'HomeTeam': m.home_team.name, 'AwayTeam': m.away_team.name,
-                'FTHG': m.fthg, 'FTAG': m.ftag, 'FTR': m.ftr,
-                'AvgH': m.avg_h, 'AvgD': m.avg_d, 'AvgA': m.avg_a, 'Avg>2.5': m.avg_over_25, 'Avg<2.5': m.avg_under_25,
+                'Div': r['league__code'], 'Date': r['date'], 'HomeTeam': r['home_team__name'], 'AwayTeam': r['away_team__name'],
+                'FTHG': r['fthg'], 'FTAG': r['ftag'], 'FTR': r['ftr'],
+                'AvgH': r['avg_h'], 'AvgD': r['avg_d'], 'AvgA': r['avg_a'], 'Avg>2.5': r['avg_over_25'], 'Avg<2.5': r['avg_under_25'],
                 '_source': 'db'
             })
     except Exception as e:

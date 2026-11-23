@@ -230,7 +230,19 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
         if obj.category != 'parlay':
             return None
         from .models import ParlayTicket
-        tickets = ParlayTicket.objects.filter(is_historical=False).order_by('-total_prob', '-date')[:10]
+        import datetime
+        ref_date = obj.parlay_ticket.date if (obj.parlay_ticket and obj.parlay_ticket.date) else obj.created_at.date()
+        start_d = ref_date - datetime.timedelta(days=4)
+        end_d = ref_date + datetime.timedelta(days=2)
+        tickets = ParlayTicket.objects.filter(
+            date__gte=start_d,
+            date__lte=end_d
+        ).order_by('-total_prob', '-date')[:10]
+        if not tickets.exists():
+            latest = ParlayTicket.objects.order_by('-date').first()
+            if latest and latest.date:
+                start_d = latest.date - datetime.timedelta(days=3)
+                tickets = ParlayTicket.objects.filter(date__gte=start_d).order_by('-total_prob', '-date')[:10]
         return ParlayTicketSerializer(tickets, many=True).data
 
     def get_fixture_details(self, obj):

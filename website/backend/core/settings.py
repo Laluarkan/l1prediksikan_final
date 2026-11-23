@@ -64,6 +64,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+# Normalisasi DATABASE_URL jika tidak sengaja tersalin dengan awalan 'psql ' atau tanda kutip
+raw_db_url = os.environ.get('DATABASE_URL', '').strip()
+if raw_db_url.startswith('psql '):
+    os.environ['DATABASE_URL'] = raw_db_url[5:].strip().strip('\'"')
+
 DATABASES = {
     'default': dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",

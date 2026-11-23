@@ -4,7 +4,9 @@ import random
 import logging
 import json
 import time
+import datetime
 import requests
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import slugify
 from predictions.models import UpcomingFixture, ParlayTicket, Article
@@ -324,21 +326,70 @@ Pantau terus pergerakan odds dan statistik mendalam melalui platform analitik Pr
 
 
 def generate_parlay_review_article() -> Article:
-    """Membahas paket tiket parlay aktif unggulan (maksimal 10 paket tiket terbaik per pekan)"""
-    # Batasi ulasan pada maksimal 10 tiket parlay unggulan terbaik agar artikel tetap padat dan relevan
-    active_parlays = list(ParlayTicket.objects.filter(is_historical=False).order_by('-total_prob', '-date')[:10])
-    if not active_parlays:
+    """
+    Menghasilkan 1 artikel komprehensif ulasan paket tiket parlay aktif untuk pekan pertandingan berjalan.
+    Aturan Ketat:
+    1. Hanya mengambil tiket parlay aktif pada pekan/ronde pertandingan terbaru (bukan tiket usang).
+    2. Hanya dibuat SEKALI per pekan (ISO calendar week). Jika artikel parlay untuk pekan tersebut sudah ada,
+       proses dilewati (skip) agar tidak digenerate ulang oleh GitHub Action yang berjalan 2x sehari.
+    """
+    # 1. Cari tiket parlay aktif terbaru di database
+    latest_ticket = ParlayTicket.objects.filter(is_historical=False).order_by('-date').first()
+    if not latest_ticket or not latest_ticket.date:
         logger.info("Tidak ada tiket parlay aktif untuk dibuatkan ulasan.")
         return None
 
-    date_label = timezone.now().strftime("%d %B %Y")
+    target_date = latest_ticket.date
+
+    # 2. Otomatis tandai tiket lama yang tanggalnya sudah lewat jauh sebagai is_historical=True
+    ParlayTicket.objects.filter(
+        is_historical=False,
+        date__lt=target_date - datetime.timedelta(days=4)
+    ).update(is_historical=True)
+
+    # 3. Ambil tiket parlay aktif dalam jendela pekan yang sama (3 hari sebelum s/d 1 hari setelah target_date)
+    start_week_date = target_date - datetime.timedelta(days=3)
+    end_week_date = target_date + datetime.timedelta(days=1)
+
+    active_parlays = list(
+        ParlayTicket.objects.filter(
+            is_historical=False,
+            date__gte=start_week_date,
+            date__lte=end_week_date
+        ).order_by('-total_prob', '-date')[:10]
+    )
+
+    if not active_parlays:
+        logger.info(f"Tidak ada tiket parlay aktif dalam rentang pekan {start_week_date} s/d {end_week_date}.")
+        return None
+
+    # 4. Tentukan identifier pekan berdasarkan ISO Calendar (Tahun & Pekan ke-W)
+    iso_year, iso_week, _ = target_date.isocalendar()
+    slug = f"analisis-semua-tiket-parlay-ai-{iso_year}-w{iso_week:02d}"
+
+    # 5. Cek apakah artikel parlay untuk pekan ini SUDAH PERNAH DIBUAT
+    # Jika sudah pernah dibuat, LEWATI (skip) sepenuhnya agar tidak digenerate ulang oleh cron yang berjalan 2x sehari!
+    monday_of_week = target_date - datetime.timedelta(days=target_date.weekday())
+    sunday_of_week = monday_of_week + datetime.timedelta(days=6)
+
+    existing = Article.objects.filter(category='parlay').filter(
+        Q(slug=slug) |
+        Q(created_at__date__gte=monday_of_week, created_at__date__lte=sunday_of_week + datetime.timedelta(days=1))
+    ).first()
+
+    if existing:
+        logger.info(f"[PARLAY SKIP] Artikel ulasan parlay untuk pekan {iso_year}-W{iso_week:02d} ({existing.slug}) sudah ada. Melewati pembuatan karena action berjalan 2x sehari.")
+        return None
+
+    # 6. Susun konten ulasan artikel parlay
+    MONTHS_ID = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    date_label = f"{target_date.day} {MONTHS_ID[target_date.month]} {target_date.year}"
     total_tickets = len(active_parlays)
     title = f"Bedah Paket Tiket Parlay AI Rekomendasi Pekan Ini ({date_label}): Kupas Tuntas Analisis & Peluang Tiap Leg"
-    slug = f"analisis-semua-tiket-parlay-ai-{timezone.now().strftime('%Y%m%d')}"
 
     sections = []
 
-    intro = f"""Sistem Reinforcement Learning (RL Agent) Prediksi-Kan telah merilis sebanyak **{total_tickets} Paket Tiket Parlay Unggulan** untuk jadwal pertandingan mendatang ({date_label}). 
+    intro = f"""Sistem Reinforcement Learning (RL Agent) Prediksi-Kan telah merilis sebanyak **{total_tickets} Paket Tiket Parlay Unggulan** untuk jadwal pertandingan pekan ini ({date_label}). 
 
 Setiap tiket parlay disusun melalui seleksi ketat berdasarkan keunggulan nilai matematis (*Value Edge*), di mana probabilitas kalkulasi kecerdasan buatan melampaui harga odds yang ditawarkan oleh bandar. Berikut adalah bedah analisis komprehensif untuk {total_tickets} paket tiket parlay aktif pilihan yang dapat dijadikan referensi taruhan akumulator Anda:
 """
@@ -392,23 +443,6 @@ Taruhan parlay menawarkan potensi pembayaran berlipat ganda, namun membutuhkan a
     full_content = "\n\n".join(sections)
     excerpt = f"Kupas tuntas {total_tickets} paket tiket parlay rekomendasi AI Prediksi-Kan pekan ini. Bedah analisis leg pilihan, total odds akumulator, dan probabilitas matematis tiap paket."
 
-    # Cek apakah artikel parlay aktif sudah dibuat dalam 4 hari terakhir (siklus satu pekan taruhan)
-    # Jika sudah ada, perbarui isinya agar selalu akurat tanpa membuat dobel artikel saat cron berjalan lagi
-    existing = Article.objects.filter(
-        category='parlay',
-        created_at__gte=timezone.now() - timezone.timedelta(days=4)
-    ).order_by('-created_at').first()
-
-    if existing:
-        existing.title = title
-        existing.excerpt = excerpt
-        existing.content = full_content
-        existing.meta_description = excerpt[:160]
-        existing.reading_time = f"{max(3, total_tickets * 2)} menit"
-        existing.save()
-        logger.info(f"Berhasil memperbarui artikel ulasan parlay: {existing.title}")
-        return existing
-
     article = Article.objects.create(
         title=title,
         slug=slug,
@@ -416,6 +450,7 @@ Taruhan parlay menawarkan potensi pembayaran berlipat ganda, namun membutuhkan a
         content=full_content,
         category='parlay',
         tags=['Parlay', 'Akumulator', 'Value Bet', 'Tips Taruhan', 'Prediksi AI'],
+        parlay_ticket=latest_ticket,
         meta_title=f"Rekomendasi Paket Tiket Parlay AI Pekan Ini ({date_label}) | Prediksi-Kan",
         meta_description=excerpt[:160],
         reading_time=f"{max(3, total_tickets * 2)} menit",

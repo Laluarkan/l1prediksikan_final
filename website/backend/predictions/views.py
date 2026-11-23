@@ -923,7 +923,7 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         round_param = self.request.query_params.get('round', 'latest')
         
         if round_param == 'latest':
-            latest_match = qs.filter(fixture__isnull=False).order_by('-fixture__date').first()
+            latest_match = Article.objects.filter(is_published=True, fixture__isnull=False).order_by('-fixture__date').first()
             if latest_match and latest_match.fixture:
                 latest_date = latest_match.fixture.date
                 # Jendela pekan (4 hari sebelum s/d 1 hari setelah laga terbaru)
@@ -931,7 +931,10 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
                 end_window = latest_date + datetime.timedelta(days=1)
                 qs = qs.filter(
                     Q(fixture__date__gte=start_window, fixture__date__lte=end_window) |
-                    Q(category='parlay')
+                    (Q(category='parlay') & (
+                        Q(parlay_ticket__date__gte=start_window.date(), parlay_ticket__date__lte=end_window.date()) |
+                        Q(created_at__gte=start_window, created_at__lte=end_window + datetime.timedelta(days=2))
+                    ))
                 )
         elif round_param != 'all':
             # Format ISO week: YYYY-Www (misal 2026-W45)
@@ -1048,9 +1051,7 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
         for a in base_qs:
             if a.fixture:
                 dt = a.fixture.date
-            elif a.category == 'parlay' and latest_fix:
-                dt = latest_fix.date
-            elif a.parlay_ticket:
+            elif a.parlay_ticket and a.parlay_ticket.date:
                 dt = datetime.datetime.combine(a.parlay_ticket.date, datetime.time.min, tzinfo=datetime.timezone.utc)
             else:
                 dt = a.created_at
