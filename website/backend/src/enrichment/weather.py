@@ -7,42 +7,51 @@ from config import STADIUM_COORDS
 
 
 def _fetch_open_meteo(lat: float, lon: float, date_str: str, hour: int = 15) -> dict:
-    url = (
-        f"https://archive-api.open-meteo.com/v1/archive"
-        f"?latitude={lat}&longitude={lon}"
-        f"&start_date={date_str}&end_date={date_str}"
-        f"&hourly=temperature_2m,precipitation,windspeed_10m,weathercode"
-        f"&timezone=auto"
-    )
+    endpoints = [
+        f"https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={date_str}&end_date={date_str}&hourly=temperature_2m,precipitation,windspeed_10m,weathercode&timezone=auto",
+        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&start_date={date_str}&end_date={date_str}&hourly=temperature_2m,precipitation,windspeed_10m,weathercode&timezone=auto",
+    ]
+    # Jika tanggal adalah hari ini atau masa depan, prioritaskan endpoint forecast terlebih dahulu
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-        hourly = data.get('hourly', {})
-        times  = hourly.get('time', [])
-        target_time = f"{date_str}T{hour:02d}:00"
-        if target_time in times:
-            i = times.index(target_time)
-            return {
-                'temperature':   hourly['temperature_2m'][i],
-                'precipitation': hourly['precipitation'][i],
-                'windspeed':     hourly['windspeed_10m'][i],
-                'weathercode':   hourly['weathercode'][i],
-            }
-        temps = hourly.get('temperature_2m', [])
-        prec  = hourly.get('precipitation', [])
-        wind  = hourly.get('windspeed_10m', [])
-        wcode = hourly.get('weathercode', [])
-        if temps:
-            mid = min(hour, len(temps) - 1)
-            return {
-                'temperature':   temps[mid],
-                'precipitation': prec[mid] if prec else np.nan,
-                'windspeed':     wind[mid] if wind else np.nan,
-                'weathercode':   wcode[mid] if wcode else np.nan,
-            }
+        import datetime
+        if date_str >= datetime.date.today().strftime('%Y-%m-%d'):
+            endpoints.reverse()
     except Exception:
         pass
-    return {'temperature': np.nan, 'precipitation': np.nan, 'windspeed': np.nan, 'weathercode': np.nan}
+
+    for url in endpoints:
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            hourly = data.get('hourly', {})
+            times  = hourly.get('time', [])
+            target_time = f"{date_str}T{hour:02d}:00"
+            if target_time in times:
+                i = times.index(target_time)
+                t_val = hourly['temperature_2m'][i]
+                if t_val is not None:
+                    return {
+                        'temperature':   t_val,
+                        'precipitation': hourly['precipitation'][i] if hourly['precipitation'][i] is not None else 0.0,
+                        'windspeed':     hourly['windspeed_10m'][i] if hourly['windspeed_10m'][i] is not None else 10.0,
+                        'weathercode':   hourly['weathercode'][i] if hourly['weathercode'][i] is not None else 1,
+                    }
+            temps = hourly.get('temperature_2m', [])
+            prec  = hourly.get('precipitation', [])
+            wind  = hourly.get('windspeed_10m', [])
+            wcode = hourly.get('weathercode', [])
+            if temps:
+                mid = min(hour, len(temps) - 1)
+                if temps[mid] is not None:
+                    return {
+                        'temperature':   temps[mid],
+                        'precipitation': prec[mid] if (prec and prec[mid] is not None) else 0.0,
+                        'windspeed':     wind[mid] if (wind and wind[mid] is not None) else 10.0,
+                        'weathercode':   wcode[mid] if (wcode and wcode[mid] is not None) else 1,
+                    }
+        except Exception:
+            continue
+    return {'temperature': 15.0, 'precipitation': 0.0, 'windspeed': 10.0, 'weathercode': 1}
 
 
 def build_weather_features(df: pd.DataFrame, delay: float = 0.3) -> pd.DataFrame:

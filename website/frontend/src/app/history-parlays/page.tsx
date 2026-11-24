@@ -57,6 +57,7 @@ export default function HistoryParlaysPage() {
   const [ticketStake, setTicketStake] = useState<number>(50000);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [selectedLegs, setSelectedLegs] = useState<number | 'ALL'>('ALL');
   
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -89,7 +90,7 @@ export default function HistoryParlaysPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterStatus]);
+  }, [searchTerm, filterStatus, selectedLegs]);
 
   const toggleTicket = (id: number) => {
     setExpandedId(expandedId === id ? null : id);
@@ -105,6 +106,11 @@ export default function HistoryParlaysPage() {
     const cleanSearch = searchTerm.trim().toLowerCase();
 
     return sorted.filter((ticket) => {
+      if (selectedLegs !== 'ALL') {
+        const legsCount = ticket.legs_count || ticket.legs_details?.length || 0;
+        if (legsCount !== Number(selectedLegs)) return false;
+      }
+
       if (filterStatus === 'WON' && ticket.is_won !== true) return false;
       if (filterStatus === 'LOST' && ticket.is_won !== false) return false;
 
@@ -118,7 +124,7 @@ export default function HistoryParlaysPage() {
 
       return true;
     });
-  }, [tickets, filterStatus, searchTerm]);
+  }, [tickets, filterStatus, searchTerm, selectedLegs]);
 
   const totalPages = Math.ceil(displayedTickets.length / itemsPerPage);
   const currentTickets = displayedTickets.slice(
@@ -182,6 +188,34 @@ export default function HistoryParlaysPage() {
             {displayedTickets.length} Tiket Selesai
           </span>
         </div>
+      </div>
+
+      {/* ================= TIER FILTER PILLS (2, 4, 6, 8, 10 LAGA) ================= */}
+      <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+        <span className="text-xs font-semibold text-slate-400 shrink-0 mr-1 flex items-center gap-1.5">
+          <Layers size={14} className="text-emerald-400" />
+          Kombinasi:
+        </span>
+        {[
+          { label: 'Semua Tiket', value: 'ALL' },
+          { label: '2 Laga (Double)', value: 2 },
+          { label: '4 Laga (Classic)', value: 4 },
+          { label: '6 Laga (Multiplier)', value: 6 },
+          { label: '8 Laga (Super)', value: 8 },
+          { label: '10 Laga (Monster)', value: 10 },
+        ].map((tab) => (
+          <button
+            key={tab.label}
+            onClick={() => setSelectedLegs(tab.value as any)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border cursor-pointer ${
+              selectedLegs === tab.value
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-sm shadow-emerald-950/40'
+                : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* ================= COMPACT MOBILE FILTER BAR (Requirement 4) ================= */}
@@ -282,6 +316,37 @@ export default function HistoryParlaysPage() {
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white text-xs font-semibold focus:outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Leg Count Filter Card */}
+          <div className="bg-slate-900/80 border border-slate-800/80 p-5 rounded-2xl shadow-sm space-y-3">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center justify-between">
+              <span>Jumlah Laga</span>
+              <Layers size={13} className="text-emerald-400" />
+            </h2>
+            <div className="flex flex-col gap-1.5">
+              {[
+                { label: 'Semua Kombinasi', value: 'ALL', desc: 'Tampilkan seluruh riwayat' },
+                { label: '2 Laga (Double)', value: 2, desc: 'Win rate tertinggi (Safe Anchor)' },
+                { label: '4 Laga (Classic)', value: 4, desc: 'Kombinasi nilai seimbang' },
+                { label: '6 Laga (Multiplier)', value: 6, desc: 'Return belasan kali lipat' },
+                { label: '8 Laga (Super)', value: 8, desc: 'Akumulator kupon panjang' },
+                { label: '10 Laga (Monster)', value: 10, desc: 'Sensasional jackpot parlay' },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => setSelectedLegs(item.value as any)}
+                  className={`text-left px-3 py-2 rounded-xl text-xs transition-all border cursor-pointer flex flex-col ${
+                    selectedLegs === item.value
+                      ? 'bg-emerald-500/15 border-emerald-500/50 text-white font-semibold shadow-sm'
+                      : 'bg-slate-900/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  <span className={selectedLegs === item.value ? 'text-emerald-400' : 'text-slate-300'}>{item.label}</span>
+                  <span className="text-[10px] text-slate-500 font-normal mt-0.5">{item.desc}</span>
+                </button>
+              ))}
             </div>
           </div>
 

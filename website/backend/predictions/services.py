@@ -667,7 +667,7 @@ def preview_uploaded_data(file_path, upload_type, league_code='ALL'):
                 
                 df_hist.at[idx, 'part_of_parlay'] = f_obj.part_of_parlay
                 if f_obj.parlay_ticket_info:
-                    df_hist.at[idx, 'parlay_ticket_info'] = f_obj.parlay_ticket_info.replace('PRLY-F-', 'PRLY-H-')
+                    df_hist.at[idx, 'parlay_ticket_info'] = f_obj.parlay_ticket_info.replace('-F-', '-H-').replace('PRLY-F-', 'PRLY-H-')
                 else:
                     df_hist.at[idx, 'parlay_ticket_info'] = None
                 
@@ -892,7 +892,7 @@ def process_and_append_fetched_data(df: pd.DataFrame, upload_type: str = 'histor
                     df_hist.at[idx, 'is_won_ou'] = None
                 df_hist.at[idx, 'part_of_parlay'] = f_obj.part_of_parlay
                 if f_obj.parlay_ticket_info:
-                    df_hist.at[idx, 'parlay_ticket_info'] = f_obj.parlay_ticket_info.replace('PRLY-F-', 'PRLY-H-')
+                    df_hist.at[idx, 'parlay_ticket_info'] = f_obj.parlay_ticket_info.replace('-F-', '-H-').replace('PRLY-F-', 'PRLY-H-')
                 else:
                     df_hist.at[idx, 'parlay_ticket_info'] = None
                 ext = f_obj.extended_features.copy() if f_obj.extended_features else {}

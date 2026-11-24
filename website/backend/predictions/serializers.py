@@ -237,18 +237,32 @@ class ArticleDetailSerializer(serializers.ModelSerializer):
             return None
         from .models import ParlayTicket
         import datetime
+        import re
         ref_date = obj.parlay_ticket.date if (obj.parlay_ticket and obj.parlay_ticket.date) else obj.created_at.date()
         start_d = ref_date - datetime.timedelta(days=4)
         end_d = ref_date + datetime.timedelta(days=2)
-        tickets = ParlayTicket.objects.filter(
+        qs = ParlayTicket.objects.filter(
             date__gte=start_d,
             date__lte=end_d
-        ).order_by('-total_prob', '-date')[:10]
+        )
+        m = re.search(r'analisis-parlay-(\d+)-laga', obj.slug or '')
+        if m:
+            tier_num = int(m.group(1))
+            tier_qs = qs.filter(ticket_id__icontains=f"PRLY-{tier_num}-")
+            if tier_qs.exists():
+                qs = tier_qs
+        tickets = qs.order_by('-date', '-total_prob')[:10]
         if not tickets.exists():
             latest = ParlayTicket.objects.order_by('-date').first()
             if latest and latest.date:
                 start_d = latest.date - datetime.timedelta(days=3)
-                tickets = ParlayTicket.objects.filter(date__gte=start_d).order_by('-total_prob', '-date')[:10]
+                qs_fb = ParlayTicket.objects.filter(date__gte=start_d)
+                if m:
+                    tier_num = int(m.group(1))
+                    tier_fb = qs_fb.filter(ticket_id__icontains=f"PRLY-{tier_num}-")
+                    if tier_fb.exists():
+                        qs_fb = tier_fb
+                tickets = qs_fb.order_by('-date', '-total_prob')[:10]
         return ParlayTicketSerializer(tickets, many=True).data
 
     def get_fixture_details(self, obj):

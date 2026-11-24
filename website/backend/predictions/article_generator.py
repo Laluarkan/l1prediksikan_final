@@ -416,9 +416,14 @@ def generate_parlay_review_articles() -> list:
         slug = f"analisis-parlay-{tier}-laga-ai-{iso_year}-w{iso_week:02d}"
 
         # Cek apakah artikel parlay kategori ini untuk pekan berjalan sudah ada
-        if Article.objects.filter(category='parlay', slug=slug).exists():
-            logger.info(f"[PARLAY SKIP] Artikel ulasan {spec['label']} pekan {iso_year}-W{iso_week:02d} sudah ada.")
-            continue
+        existing_art = Article.objects.filter(category='parlay', slug=slug).first()
+        if existing_art:
+            # Periksa apakah seluruh kode tiket aktif (termasuk tiket UCL baru) sudah tercantum di dalam konten artikel
+            all_tickets_present = all(t.ticket_id in (existing_art.content or '') for t in tier_tickets)
+            if all_tickets_present:
+                logger.info(f"[PARLAY SKIP] Artikel ulasan {spec['label']} pekan {iso_year}-W{iso_week:02d} sudah mutakhir.")
+                continue
+            logger.info(f"[PARLAY UPDATE] Mendeteksi tiket baru (UCL/Midweek) untuk {spec['label']} pekan {iso_year}-W{iso_week:02d}, memperbarui artikel...")
 
         total_t = len(tier_tickets)
         title = f"Bedah Paket Parlay {spec['label']} AI Pekan Ini ({date_label}): {spec['focus']}"
@@ -482,21 +487,35 @@ Berikut adalah bedah analisis lengkap dan peluang matematis untuk setiap tiket {
         full_content = "\n\n".join(sections)
         excerpt = f"Ulasan lengkap {total_t} paket tiket Parlay {spec['label']} rekomendasi AI Prediksi-Kan pekan ini ({date_label}). Analisis mendalam peluang odds akumulator dan value edge tiap leg."
 
-        art = Article.objects.create(
-            title=title,
-            slug=slug,
-            excerpt=excerpt,
-            content=full_content,
-            category='parlay',
-            tags=spec['tags'],
-            parlay_ticket=tier_tickets[0],
-            meta_title=f"{title} | Prediksi-Kan",
-            meta_description=excerpt[:160],
-            reading_time=f"{max(3, len(tier_tickets) * 2)} menit",
-            is_published=True
-        )
-        created_articles.append(art)
-        logger.info(f"Berhasil menerbitkan artikel ulasan parlay: {art.title}")
+        if existing_art:
+            existing_art.title = title
+            existing_art.excerpt = excerpt
+            existing_art.content = full_content
+            existing_art.tags = spec['tags']
+            existing_art.parlay_ticket = tier_tickets[0]
+            existing_art.meta_title = f"{title} | Prediksi-Kan"
+            existing_art.meta_description = excerpt[:160]
+            existing_art.reading_time = f"{max(3, len(tier_tickets) * 2)} menit"
+            existing_art.is_published = True
+            existing_art.save()
+            created_articles.append(existing_art)
+            logger.info(f"Berhasil memperbarui artikel ulasan parlay dengan tiket baru: {existing_art.title}")
+        else:
+            art = Article.objects.create(
+                title=title,
+                slug=slug,
+                excerpt=excerpt,
+                content=full_content,
+                category='parlay',
+                tags=spec['tags'],
+                parlay_ticket=tier_tickets[0],
+                meta_title=f"{title} | Prediksi-Kan",
+                meta_description=excerpt[:160],
+                reading_time=f"{max(3, len(tier_tickets) * 2)} menit",
+                is_published=True
+            )
+            created_articles.append(art)
+            logger.info(f"Berhasil menerbitkan artikel ulasan parlay: {art.title}")
 
     return created_articles
 

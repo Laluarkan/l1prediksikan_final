@@ -283,7 +283,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     if 'Season' in df.columns:
         df['Season'] = df['Season'].astype(str)
 
-    season_order = {'2122': 1,'2223': 2,'2324': 3,'2425': 4,'2526': 5}
+    season_order = {'2122': 1,'2223': 2,'2324': 3,'2425': 4,'2526': 5,'2627': 6}
     df['season_num'] = df.get('Season', pd.Series(dtype=str)).map(season_order).fillna(0).astype(int)
 
     return df,

@@ -30,9 +30,20 @@ def build_standings_features(df: pd.DataFrame) -> pd.DataFrame:
     standings: dict = {}
     last_match_date: dict = {}
     match_dates: dict = {}
+    team_latest_div: dict = {}
+    team_latest_key: dict = {}
+
+    def resolve_key(div, team, season):
+        key = (div, season)
+        if key in standings and team in standings[key]:
+            return key
+        eff_div = team_latest_div.get(team, div)
+        if (eff_div, season) in standings and team in standings[(eff_div, season)]:
+            return (eff_div, season)
+        return team_latest_key.get(team, (eff_div, season))
 
     def get_standing(div, team, season):
-        key = (div, season)
+        key = resolve_key(div, team, season)
         if key not in standings:
             return {'pts': 0, 'gd': 0, 'gs': 0, 'gc': 0, 'mp': 0,
                     'hw': 0, 'hd': 0, 'hl': 0, 'aw': 0, 'ad': 0, 'al': 0,
@@ -44,7 +55,7 @@ def build_standings_features(df: pd.DataFrame) -> pd.DataFrame:
         })
 
     def get_rank(div, season, team):
-        key = (div, season)
+        key = resolve_key(div, team, season)
         if key not in standings:
             return np.nan
         table = standings[key]
@@ -75,12 +86,18 @@ def build_standings_features(df: pd.DataFrame) -> pd.DataFrame:
     def days_rest(div, team, current_date):
         last = last_match_date.get((div, team))
         if last is None:
+            eff_div = team_latest_div.get(team, div)
+            last = last_match_date.get((eff_div, team))
+        if last is None:
             return np.nan
         delta = (current_date - last).days
         return float(delta)
 
     def matches_in_last_n_days(div, team, current_date, n=14):
-        dates = match_dates.get((div, team), [])
+        dates = match_dates.get((div, team))
+        if not dates:
+            eff_div = team_latest_div.get(team, div)
+            dates = match_dates.get((eff_div, team), [])
         cutoff = current_date - pd.Timedelta(days=n)
         return sum(1 for d in dates if cutoff <= d < current_date)
 
@@ -200,6 +217,9 @@ def build_standings_features(df: pd.DataFrame) -> pd.DataFrame:
 
             if pd.notna(date):
                 for team in [home, away]:
+                    if div != 'UCL':
+                        team_latest_div[team] = div
+                        team_latest_key[team] = (div, season)
                     last_match_date[(div, team)] = date
                     if (div, team) not in match_dates:
                         match_dates[(div, team)] = []

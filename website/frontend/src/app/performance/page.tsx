@@ -27,11 +27,69 @@ interface MetricData {
   unit_stake: number;
 }
 
+interface ParlayMetricData extends MetricData {
+  by_tier?: Record<string, MetricData>;
+}
+
 interface PerformanceMetrics {
   ftr: MetricData;
   ou: MetricData;
-  parlay: MetricData;
+  parlay: ParlayMetricData;
+  parlay_by_tier?: Record<string, MetricData>;
 }
+
+const PARLAY_TIER_CONFIGS = [
+  {
+    key: '2',
+    title: 'Parlay 2 Laga (Double)',
+    subtitle: 'Safe Anchor • Risiko Rendah',
+    badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+    dotClass: 'bg-emerald-400 shadow-emerald-400/50',
+    barClass: 'from-emerald-600 to-emerald-400',
+    textClass: 'text-emerald-400',
+    hoverBorder: 'hover:border-emerald-500/50',
+  },
+  {
+    key: '4',
+    title: 'Parlay 4 Laga (Classic)',
+    subtitle: 'Value Optimal • Risiko Seimbang',
+    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+    dotClass: 'bg-amber-400 shadow-amber-400/50',
+    barClass: 'from-amber-600 to-amber-400',
+    textClass: 'text-amber-400',
+    hoverBorder: 'hover:border-amber-500/50',
+  },
+  {
+    key: '6',
+    title: 'Parlay 6 Laga (Multiplier)',
+    subtitle: 'Akumulator • Pengali Tinggi',
+    badgeClass: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/25',
+    dotClass: 'bg-cyan-400 shadow-cyan-400/50',
+    barClass: 'from-cyan-600 to-cyan-400',
+    textClass: 'text-cyan-400',
+    hoverBorder: 'hover:border-cyan-500/50',
+  },
+  {
+    key: '8',
+    title: 'Parlay 8 Laga (Super)',
+    subtitle: 'Kupon Panjang • Return Besar',
+    badgeClass: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25',
+    dotClass: 'bg-indigo-400 shadow-indigo-400/50',
+    barClass: 'from-indigo-600 to-indigo-400',
+    textClass: 'text-indigo-400',
+    hoverBorder: 'hover:border-indigo-500/50',
+  },
+  {
+    key: '10',
+    title: 'Parlay 10 Laga (Monster)',
+    subtitle: 'Jackpot Parlay • Spekulatif',
+    badgeClass: 'bg-rose-500/15 text-rose-300 border-rose-500/25',
+    dotClass: 'bg-rose-400 shadow-rose-400/50',
+    barClass: 'from-rose-600 to-rose-400',
+    textClass: 'text-rose-400',
+    hoverBorder: 'hover:border-rose-500/50',
+  },
+];
 
 export default function PerformancePage() {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
@@ -125,10 +183,42 @@ export default function PerformancePage() {
     const overallROI = totalTurnover > 0 ? (totalProfit / totalTurnover) * 100 : 0;
     const totalUnitProfit = metrics.ftr.unit_profit + metrics.ou.unit_profit + metrics.parlay.unit_profit;
 
+    const rawByTier = metrics.parlay.by_tier || metrics.parlay_by_tier || {};
+    const parlayTiers = PARLAY_TIER_CONFIGS.map((cfg) => {
+      const tData: MetricData = rawByTier[cfg.key] || {
+        wins: cfg.key === '4' ? metrics.parlay.wins : 0,
+        losses: cfg.key === '4' ? metrics.parlay.losses : 0,
+        unit_profit: cfg.key === '4' ? metrics.parlay.unit_profit : 0,
+        unit_stake: cfg.key === '4' ? metrics.parlay.unit_stake : 0,
+      };
+      const wins = tData.wins || 0;
+      const losses = tData.losses || 0;
+      const total = wins + losses;
+      const winRate = total > 0 ? (wins / total) * 100 : 0;
+      const unitProfit = tData.unit_profit || 0;
+      const unitStake = tData.unit_stake || 0;
+      const profit = unitProfit * ticketStake;
+      const totalStake = unitStake * ticketStake;
+      const roi = totalStake > 0 ? (profit / totalStake) * 100 : 0;
+      return {
+        ...cfg,
+        wins,
+        losses,
+        total,
+        winRate,
+        unitProfit,
+        unitStake,
+        profit,
+        totalStake,
+        roi,
+      };
+    });
+
     return {
       ftrProfit, ftrTotalStake, ftrROI, ftrTotal, ftrWinRate,
       ouProfit, ouTotalStake, ouROI, ouTotal, ouWinRate,
       parlayProfit, parlayTotalStake, parlayROI, parlayTotal, parlayWinRate,
+      parlayTiers,
       totalWins, totalLosses, totalBets, overallWinRate,
       totalProfit, totalTurnover, overallROI, totalUnitProfit
     };
@@ -431,7 +521,7 @@ export default function PerformancePage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
 
                   {/* CARD 1: Full Time Result (1X2 / FTR) */}
                   <div className="group rounded-3xl bg-slate-900/80 border border-slate-800/90 hover:border-blue-500/50 p-5 sm:p-6 shadow-lg transition-all duration-300 flex flex-col justify-between">
@@ -581,80 +671,110 @@ export default function PerformancePage() {
                     </div>
                   </div>
 
-                  {/* CARD 3: Parlay Combos */}
-                  <div className="group rounded-3xl bg-slate-900/80 border border-slate-800/90 hover:border-amber-500/50 p-5 sm:p-6 shadow-lg transition-all duration-300 flex flex-col justify-between">
-                    <div>
-                      {/* Card Header */}
-                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/60">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
-                          <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                            Tiket Parlay Kombinasi
-                          </h3>
-                        </div>
-                        <span className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-300 border border-amber-500/25 px-2 py-0.5 rounded-md">
-                          {stats.parlayTotal} Tiket
-                        </span>
-                      </div>
+                </div>
+              </div>
 
-                      {/* Win Rate Bar */}
-                      <div className="space-y-1.5 mb-5">
-                        <div className="flex justify-between text-xs font-semibold">
-                          <span className="text-slate-400">Win Rate Tiket</span>
-                          <span className="font-mono text-amber-400 font-bold">{stats.parlayWinRate.toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80">
-                          <div 
-                            className="bg-gradient-to-r from-amber-600 to-amber-400 h-full rounded-full transition-all duration-500" 
-                            style={{ width: `${Math.min(stats.parlayWinRate, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* 2x2 Metric Matrix */}
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Rekor Tiket</span>
-                          <span className="text-sm font-bold font-mono text-white mt-0.5 block">
-                            {metrics.parlay.wins}W - {metrics.parlay.losses}L
-                          </span>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">ROI Parlay</span>
-                          <span className={`text-sm font-bold font-mono mt-0.5 block ${
-                            stats.parlayROI >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>
-                            {stats.parlayROI >= 0 ? '+' : ''}{stats.parlayROI.toFixed(1)}%
-                          </span>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Unit Profit</span>
-                          <span className={`text-sm font-bold font-mono mt-0.5 block ${
-                            metrics.parlay.unit_profit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>
-                            {metrics.parlay.unit_profit >= 0 ? '+' : ''}{metrics.parlay.unit_profit.toFixed(2)} U
-                          </span>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
-                          <span className="block text-[10px] text-slate-400 uppercase font-semibold">Estimasi Net Profit</span>
-                          <span className={`text-sm font-bold font-mono mt-0.5 block truncate ${
-                            stats.parlayProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}>
-                            {stats.parlayProfit >= 0 ? '+' : ''}{formatCurrency(stats.parlayProfit)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-800/60 text-[11px] text-slate-400 flex items-center justify-between">
-                      <span>Format: 2-3 Leg Filtered</span>
-                      <span className="text-amber-400 font-semibold">Pengganda Tinggi</span>
-                    </div>
+              {/* 5B. PARLAY BREAKDOWN BY COMBINATION TIER (2, 4, 6, 8, 10 LAGA) */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Layers size={18} className="text-amber-400" />
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      Rincian Kinerja Tiket Parlay per Kombinasi
+                    </h2>
                   </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 font-mono">
+                      Total: <strong className="text-white">{stats.parlayTotal} Tiket</strong> ({metrics.parlay.wins}W - {metrics.parlay.losses}L)
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-lg border font-mono font-bold ${
+                      stats.parlayProfit >= 0
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    }`}>
+                      {stats.parlayProfit >= 0 ? '+' : ''}{formatCurrency(stats.parlayProfit)}
+                    </span>
+                  </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {stats.parlayTiers.map((tier) => (
+                    <div
+                      key={tier.key}
+                      className={`group rounded-3xl bg-slate-900/80 border border-slate-800/90 ${tier.hoverBorder} p-5 sm:p-6 shadow-lg transition-all duration-300 flex flex-col justify-between`}
+                    >
+                      <div>
+                        {/* Card Header */}
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/60">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full shadow-sm ${tier.dotClass}`} />
+                            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                              {tier.title}
+                            </h3>
+                          </div>
+                          <span className={`text-[10px] font-mono font-bold border px-2 py-0.5 rounded-md ${tier.badgeClass}`}>
+                            {tier.total} Tiket
+                          </span>
+                        </div>
+
+                        {/* Win Rate Bar */}
+                        <div className="space-y-1.5 mb-5">
+                          <div className="flex justify-between text-xs font-semibold">
+                            <span className="text-slate-400">Win Rate Tiket</span>
+                            <span className={`font-mono font-bold ${tier.textClass}`}>{tier.winRate.toFixed(1)}%</span>
+                          </div>
+                          <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800/80">
+                            <div
+                              className={`bg-gradient-to-r ${tier.barClass} h-full rounded-full transition-all duration-500`}
+                              style={{ width: `${Math.min(tier.winRate, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 2x2 Metric Matrix */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
+                            <span className="block text-[10px] text-slate-400 uppercase font-semibold">Rekor Tiket</span>
+                            <span className="text-sm font-bold font-mono text-white mt-0.5 block">
+                              {tier.wins}W - {tier.losses}L
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
+                            <span className="block text-[10px] text-slate-400 uppercase font-semibold">ROI Kombinasi</span>
+                            <span className={`text-sm font-bold font-mono mt-0.5 block ${
+                              tier.roi >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {tier.roi >= 0 ? '+' : ''}{tier.roi.toFixed(1)}%
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
+                            <span className="block text-[10px] text-slate-400 uppercase font-semibold">Unit Profit</span>
+                            <span className={`text-sm font-bold font-mono mt-0.5 block ${
+                              tier.unitProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {tier.unitProfit >= 0 ? '+' : ''}{tier.unitProfit.toFixed(2)} U
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/50">
+                            <span className="block text-[10px] text-slate-400 uppercase font-semibold">Estimasi Net Profit</span>
+                            <span className={`text-sm font-bold font-mono mt-0.5 block truncate ${
+                              tier.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {tier.profit >= 0 ? '+' : ''}{formatCurrency(tier.profit)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800/60 text-[11px] text-slate-400 flex items-center justify-between">
+                        <span>Format: {tier.key} Laga Unik</span>
+                        <span className={`${tier.textClass} font-semibold`}>{tier.subtitle}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

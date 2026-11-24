@@ -99,7 +99,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("[4/4] Mengirim data ke Pipeline AI (Fitur Cuaca, Prediksi Model, & Simpan DB)..."))
             self.stdout.write(self.style.WARNING("      (Perhatikan log [DEBUG] selanjutnya di bawah ini untuk pantauan cuaca)"))
             
+            from django.core.management import call_command
             hist_count, _ = process_and_append_fetched_data(combined_df, upload_type='history')
+            try:
+                call_command('update_parlay')
+            except Exception as e:
+                self.stdout.write(self.style.WARNING(f"  [Info] Sinkronisasi evaluasi tiket parlay: {e}"))
 
             if hist_count == 0:
                 self.stdout.write(self.style.SUCCESS("\n[SELESAI] Sinkronisasi tuntas! Seluruh data historis di database sudah mutakhir."))

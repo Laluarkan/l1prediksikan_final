@@ -23,8 +23,16 @@ def _harmonize(df: pd.DataFrame, div: str, season: str) -> pd.DataFrame:
     df.columns = df.columns.str.strip()
     if 'Div' not in df.columns or df['Div'].isna().all():
         df['Div'] = div
-    if 'Season' not in df.columns:
-        df['Season'] = season
+    if 'Season' not in df.columns or (season == 'MIXED' and (df['Season'] == 'MIXED').all()):
+        if 'Date' in df.columns:
+            dt_col = pd.to_datetime(df['Date'], errors='coerce')
+            years = dt_col.dt.year.fillna(2025).astype(int)
+            months = dt_col.dt.month.fillna(8).astype(int)
+            start_years = np.where(months >= 7, years, years - 1)
+            end_years = start_years + 1
+            df['Season'] = [f"{str(sy)[-2:]}{str(ey)[-2:]}" for sy, ey in zip(start_years, end_years)]
+        else:
+            df['Season'] = season
 
     for col in ALL_EXPECTED:
         if col not in df.columns:

@@ -324,7 +324,14 @@ class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
         if legs_param and str(legs_param).upper() != 'ALL':
             try:
                 target_len = int(legs_param)
-                queryset = queryset.filter(ticket_id__icontains=f"PRLY-{target_len}-")
+                if target_len == 4:
+                    queryset = queryset.filter(
+                        Q(ticket_id__icontains="PRLY-4-") |
+                        Q(ticket_id__startswith="PRLY-H-") |
+                        Q(ticket_id__startswith="PRLY-F-")
+                    )
+                else:
+                    queryset = queryset.filter(ticket_id__icontains=f"PRLY-{target_len}-")
             except ValueError:
                 pass
 
@@ -412,7 +419,7 @@ class PerformanceMetricsAPIView(APIView):
     @extend_schema(exclude=True)
     def get(self, request):
         season = request.query_params.get('season', 'ALL')
-        cache_key = f"perf_metrics_{season}"
+        cache_key = f"perf_metrics_v2_{season}"
         cached_result = cache.get(cache_key)
         if cached_result is not None:
             resp = Response(cached_result)
@@ -491,12 +498,40 @@ class PerformanceMetricsAPIView(APIView):
             output_field=FloatField()
         )
 
-        parlay_agg = parlay_qs.aggregate(
-            parlay_wins=Count('id', filter=Q(is_won=True)),
-            parlay_losses=Count('id', filter=Q(is_won=False)),
-            parlay_stake=Count('id'),
-            parlay_profit=Coalesce(Sum(parlay_profit_case), Value(0.0), output_field=FloatField())
-        )
+        tier_filters = {
+            "2": Q(ticket_id__icontains="PRLY-2-"),
+            "4": Q(ticket_id__icontains="PRLY-4-") | Q(ticket_id__startswith="PRLY-H-") | Q(ticket_id__startswith="PRLY-F-"),
+            "6": Q(ticket_id__icontains="PRLY-6-"),
+            "8": Q(ticket_id__icontains="PRLY-8-"),
+            "10": Q(ticket_id__icontains="PRLY-10-"),
+        }
+
+        agg_kwargs = {
+            "parlay_wins": Count('id', filter=Q(is_won=True)),
+            "parlay_losses": Count('id', filter=Q(is_won=False)),
+            "parlay_stake": Count('id', filter=Q(is_won__isnull=False)),
+            "parlay_profit": Coalesce(Sum(parlay_profit_case, filter=Q(is_won__isnull=False)), Value(0.0), output_field=FloatField()),
+        }
+        for t_key, t_q in tier_filters.items():
+            agg_kwargs[f"t{t_key}_wins"] = Count('id', filter=t_q & Q(is_won=True))
+            agg_kwargs[f"t{t_key}_losses"] = Count('id', filter=t_q & Q(is_won=False))
+            agg_kwargs[f"t{t_key}_stake"] = Count('id', filter=t_q & Q(is_won__isnull=False))
+            agg_kwargs[f"t{t_key}_profit"] = Coalesce(
+                Sum(parlay_profit_case, filter=t_q & Q(is_won__isnull=False)),
+                Value(0.0),
+                output_field=FloatField()
+            )
+
+        parlay_agg = parlay_qs.aggregate(**agg_kwargs)
+
+        parlay_by_tier = {}
+        for t_key in ["2", "4", "6", "8", "10"]:
+            parlay_by_tier[t_key] = {
+                "wins": parlay_agg[f"t{t_key}_wins"],
+                "losses": parlay_agg[f"t{t_key}_losses"],
+                "unit_profit": parlay_agg[f"t{t_key}_profit"],
+                "unit_stake": float(parlay_agg[f"t{t_key}_stake"]),
+            }
 
         result = {
             "ftr": {
@@ -515,8 +550,10 @@ class PerformanceMetricsAPIView(APIView):
                 "wins": parlay_agg['parlay_wins'],
                 "losses": parlay_agg['parlay_losses'],
                 "unit_profit": parlay_agg['parlay_profit'],
-                "unit_stake": float(parlay_agg['parlay_stake'])
-            }
+                "unit_stake": float(parlay_agg['parlay_stake']),
+                "by_tier": parlay_by_tier,
+            },
+            "parlay_by_tier": parlay_by_tier,
         }
         cache.set(cache_key, result, timeout=60 * 60 * 24)
         resp = Response(result)
