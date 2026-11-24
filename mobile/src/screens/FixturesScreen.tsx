@@ -58,9 +58,10 @@ export const isTop5League = (leagueCode?: string, leagueName?: string): boolean 
   );
 };
 
-// Prioritas Urutan Murni Liga Top 5 Eropa
+// Prioritas Urutan Murni Liga Top 5 Eropa & Kompetisi Elit UEFA Champions League
 const getLeaguePriority = (leagueName: string, leagueCode?: string): { priority: number; label: string } => {
   const code = (leagueCode || '').toUpperCase();
+  if (code === 'UCL' || (!code && (leagueName.toLowerCase().includes('champions league') || leagueName.toLowerCase().includes('ucl')))) return { priority: 0, label: 'UEFA Champions League' };
   if (code === 'D1' || (!code && leagueName.toLowerCase().includes('bundes'))) return { priority: 1, label: 'Bundesliga' };
   if (code === 'E0' || (!code && !leagueName.toLowerCase().includes('scottish') && (leagueName.toLowerCase().includes('premier') || leagueName.toLowerCase().includes('epl')))) return { priority: 2, label: 'Premier League' };
   if (code === 'SP1' || (!code && (leagueName.toLowerCase().includes('la liga') || leagueName.toLowerCase().includes('laliga')))) return { priority: 3, label: 'La Liga' };

@@ -37,6 +37,10 @@ jobs:
       working-directory: ./website/backend
       run: python manage.py fetch_fixture
 
+    - name: Eksekusi Fetch UCL Fixtures (Liga Champions Eropa)
+      working-directory: ./website/backend
+      run: python manage.py fetch_ucl_fixtures --days 10 || echo "UCL fetch selesai"
+
     - name: Eksekusi Fetch History (Sinkronisasi Masa Lalu)
       working-directory: ./website/backend
       run: python manage.py fetch_history

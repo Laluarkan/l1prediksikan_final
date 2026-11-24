@@ -39,6 +39,7 @@ LEAGUE_NAMES = {
     "F1": "Ligue 1", "N1": "Eredivisie", "B1": "Jupiler Pro League",
     "P1": "Primeira Liga", "T1": "Süper Lig", "G1": "Super League",
     "SC0": "Scottish Premiership",
+    "UCL": "UEFA Champions League",
 }
 
 def make_aware_dt(dt_val):

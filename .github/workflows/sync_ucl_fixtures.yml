@@ -1,0 +1,63 @@
+name: Sync UEFA Champions League (UCL) Fixtures & Predictions
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Rentang hari ke depan untuk menarik jadwal UCL (default: 10)'
+        required: false
+        default: '10'
+  schedule:
+    # Berjalan otomatis setiap hari pukul 08:00 UTC (15:00 WIB / 16:00 WITA)
+    # Memastikan jadwal UCL hingga 10 hari ke depan selalu ter-update beberapa hari sebelum matchday
+    - cron: '0 8 * * *'
+
+jobs:
+  sync_ucl:
+    name: Fetch UCL Fixtures, Predict AI & Generate News
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      PYTHONPATH: ${{ github.workspace }}/website/backend
+      PYTHONUNBUFFERED: "1"
+
+    defaults:
+      run:
+        working-directory: website/backend
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Tarik Jadwal Fixture UCL & Jalankan Prediksi AI
+        run: |
+          DAYS="${{ github.event.inputs.days }}"
+          if [ -z "$DAYS" ]; then
+            DAYS="10"
+          fi
+          echo "Menjalankan sinkronisasi fixture UCL untuk $DAYS hari ke depan..."
+          python manage.py fetch_ucl_fixtures --days "$DAYS"
+
+      - name: Generate Berita & Ulasan Match AI (SEO Engine)
+        run: |
+          python manage.py generate_articles || echo "Generate articles completed"
+
+      - name: Bersihkan Cache Redis di Server Render
+        if: always()
+        run: |
+          curl -s -X POST https://l1prediksi-api.onrender.com/api/clear-cache/ \
+            -H "X-Sync-Secret: ${{ secrets.SYNC_SECRET_KEY }}" || echo "Cache webhook selesai"
