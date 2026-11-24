@@ -86,6 +86,12 @@ class UpcomingFixtureSerializer(serializers.ModelSerializer):
 
 class ParlayTicketSerializer(serializers.ModelSerializer):
     legs_details = serializers.SerializerMethodField()
+    legs_count = serializers.SerializerMethodField()
+
+    def get_legs_count(self, obj):
+        if obj.legs_details and isinstance(obj.legs_details, list):
+            return len(obj.legs_details)
+        return 0
 
     def get_legs_details(self, obj):
         if not obj.legs_details or not isinstance(obj.legs_details, list):

@@ -325,19 +325,18 @@ Pantau terus pergerakan odds dan statistik mendalam melalui platform analitik Pr
     return content.strip()
 
 
-def generate_parlay_review_article() -> Article:
+def generate_parlay_review_articles() -> list:
     """
-    Menghasilkan 1 artikel komprehensif ulasan paket tiket parlay aktif untuk pekan pertandingan berjalan.
-    Aturan Ketat:
-    1. Hanya mengambil tiket parlay aktif pada pekan/ronde pertandingan terbaru (bukan tiket usang).
-    2. Hanya dibuat SEKALI per pekan (ISO calendar week). Jika artikel parlay untuk pekan tersebut sudah ada,
-       proses dilewati (skip) agar tidak digenerate ulang oleh GitHub Action yang berjalan 2x sehari.
+    Menghasilkan artikel ulasan paket tiket parlay aktif untuk pekan pertandingan berjalan,
+    DIBEDAKAN SPESIFIK per kombinasi parlay (2, 4, 6, 8, dan 10 laga).
+    Setiap kombinasi mendapatkan artikel tersendiri yang mengupas strategi, manajemen risiko,
+    dan rincian tiket unik di tier tersebut.
     """
     # 1. Cari tiket parlay aktif terbaru di database
     latest_ticket = ParlayTicket.objects.filter(is_historical=False).order_by('-date').first()
     if not latest_ticket or not latest_ticket.date:
         logger.info("Tidak ada tiket parlay aktif untuk dibuatkan ulasan.")
-        return None
+        return []
 
     target_date = latest_ticket.date
 
@@ -356,108 +355,155 @@ def generate_parlay_review_article() -> Article:
             is_historical=False,
             date__gte=start_week_date,
             date__lte=end_week_date
-        ).order_by('-total_prob', '-date')[:10]
+        ).order_by('-total_prob', '-date')
     )
 
     if not active_parlays:
         logger.info(f"Tidak ada tiket parlay aktif dalam rentang pekan {start_week_date} s/d {end_week_date}.")
-        return None
+        return []
 
     # 4. Tentukan identifier pekan berdasarkan ISO Calendar (Tahun & Pekan ke-W)
     iso_year, iso_week, _ = target_date.isocalendar()
-    slug = f"analisis-semua-tiket-parlay-ai-{iso_year}-w{iso_week:02d}"
 
-    # 5. Cek apakah artikel parlay untuk pekan ini SUDAH PERNAH DIBUAT
-    # Jika sudah pernah dibuat, LEWATI (skip) sepenuhnya agar tidak digenerate ulang oleh cron yang berjalan 2x sehari!
-    monday_of_week = target_date - datetime.timedelta(days=target_date.weekday())
-    sunday_of_week = monday_of_week + datetime.timedelta(days=6)
-
-    existing = Article.objects.filter(category='parlay').filter(
-        Q(slug=slug) |
-        Q(created_at__date__gte=monday_of_week, created_at__date__lte=sunday_of_week + datetime.timedelta(days=1))
-    ).first()
-
-    if existing:
-        logger.info(f"[PARLAY SKIP] Artikel ulasan parlay untuk pekan {iso_year}-W{iso_week:02d} ({existing.slug}) sudah ada. Melewati pembuatan karena action berjalan 2x sehari.")
-        return None
-
-    # 6. Susun konten ulasan artikel parlay
     MONTHS_ID = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
     date_label = f"{target_date.day} {MONTHS_ID[target_date.month]} {target_date.year}"
-    total_tickets = len(active_parlays)
-    title = f"Bedah Paket Tiket Parlay AI Rekomendasi Pekan Ini ({date_label}): Kupas Tuntas Analisis & Peluang Tiap Leg"
 
-    sections = []
+    TIER_SPECS = {
+        2: {
+            'label': '2 Laga (Double)',
+            'focus': 'Strategi Safe Anchor & Win Rate Tertinggi',
+            'desc': 'Kombinasi **Parlay 2 Laga (Double)** disusun secara khusus oleh model kecerdasan buatan sebagai strategi fondasi berakurasi tinggi (*Safe Anchor*). Setiap tiket memadukan 2 laga dengan probabilitas kemenangan paling solid dan tanpa pengulangan pertandingan antar tiket di kategori ini. Sangat direkomendasikan bagi pemain yang mengutamakan keamanan modal dan pertumbuhan portofolio secara konsisten.',
+            'stake_guide': '2% - 5% dari total bankroll (Fokus Low-Risk, High-Strike-Rate)',
+            'tags': ['Parlay 2 Laga', 'Double Parlay', 'Safe Anchor', 'Tips Taruhan', 'Prediksi AI']
+        },
+        4: {
+            'label': '4 Laga (Classic)',
+            'focus': 'Akumulator Seimbang & Value Edge Optimal',
+            'desc': 'Paket **Parlay 4 Laga (Classic)** menghadirkan titik temu ideal antara potensi pembayaran odds menarik (berkisar 5x - 12x) dengan keunggulan nilai matematis (*Value Edge*). Mengombinasikan 4 laga pilihan dari pasar 1X2 dan Over/Under 2.5 dengan kalkulasi probabilitas superior.',
+            'stake_guide': '1% - 2% dari total bankroll (Fokus Balanced Value & Risk)',
+            'tags': ['Parlay 4 Laga', 'Classic Parlay', 'Value Bet', 'Tips Taruhan', 'Prediksi AI']
+        },
+        6: {
+            'label': '6 Laga (Multiplier)',
+            'focus': 'Potensi Pengali Belasan Kali Lipat',
+            'desc': 'Paket **Parlay 6 Laga (Multiplier)** memadukan 6 pertandingan pilihan untuk menghasilkan pembayaran pengali tinggi (biasanya odds 15x - 40x). Setiap laga dipilih dari tim-tim dengan keunggulan statistik paling meyakinkan pekan ini.',
+            'stake_guide': '0.5% - 1% dari total bankroll (Fokus High-Multiplier Accumulator)',
+            'tags': ['Parlay 6 Laga', 'Multiplier Parlay', 'Akumulator', 'Prediksi AI']
+        },
+        8: {
+            'label': '8 Laga (Super Akumulator)',
+            'focus': 'Kupon Panjang Pilihan AI',
+            'desc': 'Paket **Parlay 8 Laga (Super Akumulator)** mengumpulkan 8 pertandingan teratas pekan ini menjadi satu kupon panjang dengan potensi pembayaran puluhan hingga ratusan kali lipat. Cocok untuk taruhan spekulatif terukur.',
+            'stake_guide': '0.25% - 0.5% dari total bankroll (Fokus Super Accumulator)',
+            'tags': ['Parlay 8 Laga', 'Super Parlay', 'High Odds', 'Prediksi AI']
+        },
+        10: {
+            'label': '10 Laga (Monster Jackpot)',
+            'focus': 'Peluang Emas Akumulator 10 Laga',
+            'desc': 'Paket **Parlay 10 Laga (Monster Jackpot)** adalah tiket akumulator pamungkas mingguan AI yang merangkum 10 pertandingan terbaik dari seluruh liga top Eropa. Memberikan potensi keuntungan masif dengan alokasi modal minimalis.',
+            'stake_guide': 'Micro-stake 0.1% - 0.25% dari total bankroll (Fokus Fun / Jackpot)',
+            'tags': ['Parlay 10 Laga', 'Monster Parlay', 'Jackpot', 'Prediksi AI']
+        },
+    }
 
-    intro = f"""Sistem Reinforcement Learning (RL Agent) Prediksi-Kan telah merilis sebanyak **{total_tickets} Paket Tiket Parlay Unggulan** untuk jadwal pertandingan pekan ini ({date_label}). 
+    created_articles = []
 
-Setiap tiket parlay disusun melalui seleksi ketat berdasarkan keunggulan nilai matematis (*Value Edge*), di mana probabilitas kalkulasi kecerdasan buatan melampaui harga odds yang ditawarkan oleh bandar. Berikut adalah bedah analisis komprehensif untuk {total_tickets} paket tiket parlay aktif pilihan yang dapat dijadikan referensi taruhan akumulator Anda:
+    for tier, spec in TIER_SPECS.items():
+        tier_tickets = [t for t in active_parlays if (t.legs_details and len(t.legs_details) == tier)]
+        if not tier_tickets:
+            continue
+
+        slug = f"analisis-parlay-{tier}-laga-ai-{iso_year}-w{iso_week:02d}"
+
+        # Cek apakah artikel parlay kategori ini untuk pekan berjalan sudah ada
+        if Article.objects.filter(category='parlay', slug=slug).exists():
+            logger.info(f"[PARLAY SKIP] Artikel ulasan {spec['label']} pekan {iso_year}-W{iso_week:02d} sudah ada.")
+            continue
+
+        total_t = len(tier_tickets)
+        title = f"Bedah Paket Parlay {spec['label']} AI Pekan Ini ({date_label}): {spec['focus']}"
+
+        sections = []
+        intro = f"""Sistem Reinforcement Learning (RL Agent) Prediksi-Kan telah merilis sebanyak **{total_t} Tiket Pilihan** untuk kategori **{spec['label']}** pada putaran jadwal pekan ini ({date_label}).
+
+{spec['desc']}
+
+Berikut adalah bedah analisis lengkap dan peluang matematis untuk setiap tiket {spec['label']} aktif yang tersedia:
 """
-    sections.append(intro)
+        sections.append(intro)
 
-    for idx, ticket in enumerate(active_parlays, 1):
-        odds = round(ticket.total_odds or 1.0, 2)
-        prob = round((ticket.total_prob or 0.0) * 100, 2)
-        legs = ticket.legs_details or []
+        for idx, ticket in enumerate(tier_tickets, 1):
+            odds = round(ticket.total_odds or 1.0, 2)
+            prob = round((ticket.total_prob or 0.0) * 100, 2)
+            legs = ticket.legs_details or []
 
-        ticket_sec = f"""## 🎫 Paket Parlay #{idx} (Kode Tiket: `{ticket.ticket_id}`)
+            ticket_sec = f"""## 🎫 Paket {spec['label']} #{idx} (Kode Tiket: `{ticket.ticket_id}`)
 - **Total Akumulator Odds**: `x{odds}`
 - **Estimasi Probabilitas Kumulatif AI**: `{prob}%`
-- **Jumlah Pertandingan**: `{len(legs)} Leg Pilihan`
+- **Jumlah Pertandingan**: `{len(legs)} Pertandingan Pilihan`
 
-### Rincian Laga dalam Tiket #{idx}:
+### Rincian Pertandingan dalam Tiket #{idx}:
 """
-        for l_idx, leg in enumerate(legs, 1):
-            match_name = leg.get('match', 'Pertandingan')
-            parts = re.split(r'\s+vs\s+', match_name, flags=re.IGNORECASE)
-            home_team = parts[0].strip() if len(parts) > 0 else match_name
-            away_team = parts[1].strip() if len(parts) > 1 else ""
-            home_slug = slugify(home_team)
-            away_slug = slugify(away_team)
-            
-            if away_team:
-                match_display = f"![{home_team}](/logos/teams/{home_slug}.png) **{home_team}** vs ![{away_team}](/logos/teams/{away_slug}.png) **{away_team}**"
-            else:
-                match_display = f"**{match_name}**"
+            for l_idx, leg in enumerate(legs, 1):
+                match_name = leg.get('match') or leg.get('match_name') or 'Pertandingan'
+                parts = re.split(r'\s+vs\s+', match_name, flags=re.IGNORECASE)
+                home_team = parts[0].strip() if len(parts) > 0 else match_name
+                away_team = parts[1].strip() if len(parts) > 1 else ""
+                home_slug = slugify(home_team)
+                away_slug = slugify(away_team)
+                
+                if away_team:
+                    match_display = f"![{home_team}](/logos/teams/{home_slug}.png) **{home_team}** vs ![{away_team}](/logos/teams/{away_slug}.png) **{away_team}**"
+                else:
+                    match_display = f"**{match_name}**"
 
-            pick = leg.get('pick', '-')
-            leg_odds = leg.get('odds', '-')
-            edge = round((leg.get('edge') or 0.0) * 100, 1)
-            tipe = "Hasil Akhir (1X2)" if leg.get('market') == 'FTR' else "Jumlah Gol (Over/Under 2.5)"
+                pick = leg.get('pick', '-')
+                leg_odds = leg.get('odds', '-')
+                edge = round((leg.get('edge') or 0.0) * 100, 1)
+                tipe = "Hasil Akhir (1X2)" if leg.get('market') == 'ftr' or leg.get('market_type') == '1X2 / FTR' else "Jumlah Gol (Over/Under 2.5)"
 
-            ticket_sec += f"""{l_idx}. {match_display}
+                ticket_sec += f"""{l_idx}. {match_display}
    - **Pasar**: {tipe}
    - **Rekomendasi AI**: `{pick}`
    - **Odds Pasar**: `{leg_odds}`
    - **Keunggulan Nilai (*Value Edge*)**: `+{edge}%`
 """
-        sections.append(ticket_sec)
+            sections.append(ticket_sec)
 
-    closing = """
+        closing = f"""
 ---
-### 💡 Panduan Manajemen Risiko Taruhan Parlay
-Taruhan parlay menawarkan potensi pembayaran berlipat ganda, namun membutuhkan akurasi sempurna di mana seluruh leg harus berhasil ditembus. Disarankan untuk menggunakan **stake terukur (1-2% dari total bankroll)** dan mengutamakan konsistensi jangka panjang dibandingkan ambisi sesaat.
+### 💡 Panduan Manajemen Modal & Risiko ({spec['label']})
+- **Rekomendasi Alokasi Stake**: `{spec['stake_guide']}`
+- **Karakter Strategi**: Setiap tiket dalam kategori {spec['label']} ini menggunakan pasangan pertandingan yang unik dan tidak tumpang tindih. Jika salah satu tiket mengalami kejutan (*upset*), tiket lainnya tetap mandiri dan tidak terpengaruh.
+- **Disiplin Portofolio**: Utamakan konsistensi jangka panjang dengan taruhan proporsional sesuai bankroll Anda.
 """
-    sections.append(closing)
+        sections.append(closing)
 
-    full_content = "\n\n".join(sections)
-    excerpt = f"Kupas tuntas {total_tickets} paket tiket parlay rekomendasi AI Prediksi-Kan pekan ini. Bedah analisis leg pilihan, total odds akumulator, dan probabilitas matematis tiap paket."
+        full_content = "\n\n".join(sections)
+        excerpt = f"Ulasan lengkap {total_t} paket tiket Parlay {spec['label']} rekomendasi AI Prediksi-Kan pekan ini ({date_label}). Analisis mendalam peluang odds akumulator dan value edge tiap leg."
 
-    article = Article.objects.create(
-        title=title,
-        slug=slug,
-        excerpt=excerpt,
-        content=full_content,
-        category='parlay',
-        tags=['Parlay', 'Akumulator', 'Value Bet', 'Tips Taruhan', 'Prediksi AI'],
-        parlay_ticket=latest_ticket,
-        meta_title=f"Rekomendasi Paket Tiket Parlay AI Pekan Ini ({date_label}) | Prediksi-Kan",
-        meta_description=excerpt[:160],
-        reading_time=f"{max(3, total_tickets * 2)} menit",
-        is_published=True
-    )
-    logger.info(f"Berhasil menerbitkan artikel ulasan parlay: {article.title}")
-    return article
+        art = Article.objects.create(
+            title=title,
+            slug=slug,
+            excerpt=excerpt,
+            content=full_content,
+            category='parlay',
+            tags=spec['tags'],
+            parlay_ticket=tier_tickets[0],
+            meta_title=f"{title} | Prediksi-Kan",
+            meta_description=excerpt[:160],
+            reading_time=f"{max(3, len(tier_tickets) * 2)} menit",
+            is_published=True
+        )
+        created_articles.append(art)
+        logger.info(f"Berhasil menerbitkan artikel ulasan parlay: {art.title}")
+
+    return created_articles
+
+def generate_parlay_review_article():
+    """Alias kompatibilitas mundur."""
+    arts = generate_parlay_review_articles()
+    return arts[0] if arts else None
 
 
 def run_article_generation_pipeline():
@@ -492,11 +538,10 @@ def run_article_generation_pipeline():
     
     created_count = 0
 
-    # 1. GENERATE ARTIKEL PARLAY (Maksimal 10 paket tiket parlay unggulan)
+    # 1. GENERATE ARTIKEL PARLAY (Dibedakan per kombinasi: 2, 4, 6, 8, 10 laga)
     try:
-        parlay_art = generate_parlay_review_article()
-        if parlay_art:
-            created_count += 1
+        parlay_arts = generate_parlay_review_articles()
+        created_count += len(parlay_arts)
     except Exception as e:
         logger.error(f"Gagal generate artikel parlay: {e}")
 

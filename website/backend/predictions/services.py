@@ -10,6 +10,7 @@ import sys
 import time
 import warnings
 import uuid
+import itertools
 import pytz
 from pathlib import Path
 from django.conf import settings
@@ -124,127 +125,205 @@ def clean_json_dict(d):
     return sanitize_json_value(d)
 
 def build_and_save_parlays(df_history, df_fixture):
+    """
+    Menghasilkan tiket parlay multi-tier independen: 2, 4, 6, 8, dan 10 laga per tanggal/jadwal.
+    Pertandingan dengan probabilitas & confidence score tertinggi dijadikan anchor (fondasi)
+    yang masuk ke kombinasi 2 laga, dan sekaligus independen masuk ke kombinasi 4, 6, 8, dan 10 laga.
+    """
+    TIERS = [2, 4, 6, 8, 10]
+
     for is_hist, df_source in [(True, df_history), (False, df_fixture)]:
         if df_source is None or df_source.empty:
             continue
-        if 'part_of_parlay' not in df_source.columns:
-            continue
-        df_parlay_only = df_source[df_source['part_of_parlay'] == True].copy()
-        if df_parlay_only.empty:
+        if 'Date' not in df_source.columns:
             continue
 
-        for t_info, group in df_parlay_only.groupby('parlay_ticket_info'):
-            if not t_info or pd.isna(t_info):
+        p_tipe = "H" if is_hist else "F"
+        if 'part_of_parlay' not in df_source.columns:
+            df_source['part_of_parlay'] = False
+        if 'parlay_ticket_info' not in df_source.columns:
+            df_source['parlay_ticket_info'] = None
+
+        # Kelompokkan pertandingan per tanggal laga
+        for date_val, day_group in df_source.groupby(df_source['Date'].dt.date):
+            if date_val is None or pd.isna(date_val):
                 continue
-            legs_odds, legs_prob, legs_won, legs_details = [], [], [], []
-            for _, r in group.iterrows():
+
+            candidates = []
+            for idx, r in day_group.iterrows():
                 odds = extract_odds(r)
                 date_str = r['Date'].strftime('%Y-%m-%dT%H:%M:%S') if pd.notnull(r.get('Date')) else None
-                
-                pick_ftr = r.get('rl_pick_ftr')
-                if pd.isna(pick_ftr) or not pick_ftr or str(pick_ftr).lower() == 'nan':
-                    pick_ftr = None
 
-                pick_ou = r.get('rl_pick_ou')
-                if pd.isna(pick_ou) or not pick_ou or str(pick_ou).lower() == 'nan':
-                    pick_ou = None
+                prob_h = float(r.get('prob_FTR_H') or 0.0)
+                prob_a = float(r.get('prob_FTR_A') or 0.0)
+                prob_o25 = float(r.get('prob_OU25_Yes') or 0.5)
+                prob_u25 = 1.0 - prob_o25 if prob_o25 > 0 else 0.5
 
-                try:
-                    edge_ftr = float(r.get('edge_ftr') or 0.0)
-                    if math.isnan(edge_ftr): edge_ftr = 0.0
-                except Exception:
-                    edge_ftr = 0.0
+                odds_h = float(odds.get('H') or 1.0)
+                odds_a = float(odds.get('A') or 1.0)
+                odds_o25 = float(odds.get('O25') or 1.0)
+                odds_u25 = float(odds.get('U25') or 1.0)
 
-                try:
-                    edge_ou = float(r.get('edge_ou') or 0.0)
-                    if math.isnan(edge_ou): edge_ou = 0.0
-                except Exception:
-                    edge_ou = 0.0
+                # Kumpulkan opsi pick dengan probabilitas tinggi (Hindari opsi Draw untuk akumulator parlay)
+                picks = []
+                if prob_h >= 0.52 and 1.20 <= odds_h <= 2.60:
+                    edge = float(r.get('edge_ftr') or (prob_h - (1.0 / odds_h)))
+                    picks.append({
+                        'market': 'ftr', 'pick': 'H', 'odds': odds_h, 'prob': prob_h, 'edge': edge,
+                        'is_won': bool(r['is_won_ftr']) if pd.notnull(r.get('is_won_ftr')) else None
+                    })
+                if prob_a >= 0.52 and 1.20 <= odds_a <= 2.60:
+                    edge = float(r.get('edge_ftr') or (prob_a - (1.0 / odds_a)))
+                    picks.append({
+                        'market': 'ftr', 'pick': 'A', 'odds': odds_a, 'prob': prob_a, 'edge': edge,
+                        'is_won': bool(r['is_won_ftr']) if pd.notnull(r.get('is_won_ftr')) else None
+                    })
+                if prob_o25 >= 0.55 and 1.25 <= odds_o25 <= 2.30:
+                    edge = float(r.get('edge_ou') or (prob_o25 - (1.0 / odds_o25)))
+                    picks.append({
+                        'market': 'ou', 'pick': 'Over 2.5', 'odds': odds_o25, 'prob': prob_o25, 'edge': edge,
+                        'is_won': bool(r['is_won_ou']) if pd.notnull(r.get('is_won_ou')) else None
+                    })
+                if prob_u25 >= 0.55 and 1.25 <= odds_u25 <= 2.30:
+                    edge = float(r.get('edge_ou') or (prob_u25 - (1.0 / odds_u25)))
+                    picks.append({
+                        'market': 'ou', 'pick': 'Under 2.5', 'odds': odds_u25, 'prob': prob_u25, 'edge': edge,
+                        'is_won': bool(r['is_won_ou']) if pd.notnull(r.get('is_won_ou')) else None
+                    })
 
-                if pick_ftr and pick_ou:
-                    market_type = 'ftr' if edge_ftr >= edge_ou else 'ou'
-                    pick = pick_ftr if edge_ftr >= edge_ou else pick_ou
-                elif pick_ftr:
-                    market_type = 'ftr'
-                    pick = pick_ftr
-                elif pick_ou:
-                    market_type = 'ou'
-                    pick = pick_ou
-                else:
-                    # Fallback ke prediksi ML murni jika RL pick belum ada/Skip
-                    if edge_ftr >= edge_ou:
-                        market_type = 'ftr'
-                        m_probs = [float(r.get('prob_FTR_H') or 0.0), float(r.get('prob_FTR_D') or 0.0), float(r.get('prob_FTR_A') or 0.0)]
-                        pick = ['H', 'D', 'A'][int(np.argmax(m_probs))] if sum(m_probs) > 0 else 'H'
+                # Fallback jika threshold ketat belum terpenuhi: ambil prediksi utama match
+                if not picks:
+                    m_ftr = 'H' if prob_h >= prob_a else 'A'
+                    p_ftr = max(prob_h, prob_a)
+                    o_ftr = odds_h if m_ftr == 'H' else odds_a
+
+                    m_ou = 'Over 2.5' if prob_o25 >= 0.5 else 'Under 2.5'
+                    p_ou = max(prob_o25, prob_u25)
+                    o_ou = odds_o25 if m_ou == 'Over 2.5' else odds_u25
+
+                    if p_ftr >= p_ou and o_ftr >= 1.15:
+                        picks.append({
+                            'market': 'ftr', 'pick': m_ftr, 'odds': o_ftr, 'prob': p_ftr, 'edge': p_ftr - (1/o_ftr),
+                            'is_won': bool(r['is_won_ftr']) if pd.notnull(r.get('is_won_ftr')) else None
+                        })
+                    elif o_ou >= 1.15:
+                        picks.append({
+                            'market': 'ou', 'pick': m_ou, 'odds': o_ou, 'prob': p_ou, 'edge': p_ou - (1/o_ou),
+                            'is_won': bool(r['is_won_ou']) if pd.notnull(r.get('is_won_ou')) else None
+                        })
+
+                if picks:
+                    # Ranking berdasarkan skor komposit: (Win Prob * 75%) + (Edge Positif * 25%)
+                    best_opt = max(picks, key=lambda x: (x['prob'] * 0.75 + max(0.0, x['edge']) * 0.25))
+                    score = best_opt['prob'] * 0.75 + max(0.0, best_opt['edge']) * 0.25
+
+                    candidates.append({
+                        'idx': idx,
+                        'match': f"{r['HomeTeam']} vs {r['AwayTeam']}",
+                        'match_name': f"{r['HomeTeam']} vs {r['AwayTeam']}",
+                        'home_team': r['HomeTeam'],
+                        'away_team': r['AwayTeam'],
+                        'pick': best_opt['pick'],
+                        'odds': round(best_opt['odds'], 2),
+                        'prob': round(best_opt['prob'], 4),
+                        'date': date_str,
+                        'is_won': best_opt['is_won'],
+                        'score': score
+                    })
+
+            if len(candidates) < 2:
+                continue
+
+            # Urutkan seluruh kandidat match hari itu dari confidence score tertinggi ke terendah
+            candidates.sort(key=lambda x: x['score'], reverse=True)
+
+            # Bersihkan tiket lama untuk tanggal tersebut jika fixture masa depan agar tidak menumpuk duplikat
+            if not is_hist:
+                ParlayTicket.objects.filter(is_historical=False, date=date_val).delete()
+
+            created_ticket_records = []
+            n_c = len(candidates)
+
+            # Konfigurasi kuota tiket per tier:
+            # Sesuai aturan: Di dalam SATU tier yang sama (misal 2 Laga), setiap match bersifat UNIK
+            # (tidak boleh ada match yang sama berulang di tiket lain di tier yang sama).
+            # Namun match terbaik (kandidat 0, 1, dst.) TETAP dapat digunakan kembali di tier lainnya (4, 6, 8, 10 laga).
+            tier_max_tickets = {
+                2: 4,   # maksimal 4 tiket (membutuhkan hingga 8 match teratas)
+                4: 2,   # maksimal 2 tiket (membutuhkan hingga 8 match teratas)
+                6: 2,   # maksimal 2 tiket (membutuhkan hingga 12 match teratas)
+                8: 1,   # maksimal 1 tiket (membutuhkan 8 match teratas)
+                10: 1,  # maksimal 1 tiket (membutuhkan 10 match teratas)
+            }
+
+            for tier in TIERS:
+                max_t = tier_max_tickets.get(tier, 1)
+                if n_c < tier:
+                    continue
+
+                tier_tickets = []
+                # Ambil chunk berurutan tanpa tumpang tindih (disjoint) di dalam tier yang sama
+                for i in range(0, n_c, tier):
+                    chunk = candidates[i : i + tier]
+                    if len(chunk) == tier:
+                        tier_tickets.append(chunk)
+                        if len(tier_tickets) >= max_t:
+                            break
                     else:
-                        market_type = 'ou'
-                        pick = 'Over 2.5' if float(r.get('prob_OU25_Yes') or 0.5) >= 0.5 else 'Under 2.5'
+                        break
 
-                if not pick or pd.isna(pick) or str(pick).lower() == 'nan':
-                    pick = 'H'
+                for tier_legs in tier_tickets:
+                    legs_odds = [l['odds'] for l in tier_legs]
+                    legs_prob = [l['prob'] for l in tier_legs]
+                    legs_won = [l['is_won'] for l in tier_legs]
 
-                if market_type == 'ftr':
-                    leg_odd = odds.get(pick) if odds.get(pick) else (odds.get('H') or 1.5)
-                    prob_val = r.get('prob_FTR_H') if pick == 'H' else (r.get('prob_FTR_D') if pick == 'D' else r.get('prob_FTR_A'))
-                    won_status = bool(r['is_won_ftr']) if pd.notnull(r.get('is_won_ftr')) else None
-                else:
-                    leg_odd = odds.get('O25') if pick == 'Over 2.5' else odds.get('U25')
-                    if not leg_odd or leg_odd <= 1.0:
-                        leg_odd = 1.85
-                    prob_val = r.get('prob_OU25_Yes') if pick == 'Over 2.5' else (1.0 - float(r.get('prob_OU25_Yes') or 0.5))
-                    won_status = bool(r['is_won_ou']) if pd.notnull(r.get('is_won_ou')) else None
+                    ticket_won = None
+                    if is_hist:
+                        if any(x is False for x in legs_won):
+                            ticket_won = False
+                        elif all(x is True for x in legs_won):
+                            ticket_won = True
 
-                try:
-                    leg_odd = float(leg_odd)
-                    if math.isnan(leg_odd) or math.isinf(leg_odd) or leg_odd <= 1.0:
-                        leg_odd = 1.5
-                except Exception:
-                    leg_odd = 1.5
+                    total_odds = float(np.prod(legs_odds)) if legs_odds else 1.0
+                    total_prob = float(np.prod(legs_prob)) if legs_prob else 0.5
 
-                try:
-                    prob_val = float(prob_val)
-                    if math.isnan(prob_val) or math.isinf(prob_val) or prob_val <= 0:
-                        prob_val = 0.5
-                except Exception:
-                    prob_val = 0.5
+                    clean_legs = []
+                    for l in tier_legs:
+                        clean_legs.append({
+                            "match": l['match'],
+                            "match_name": l['match'],
+                            "home_team": l['home_team'],
+                            "away_team": l['away_team'],
+                            "pick": l['pick'],
+                            "odds": l['odds'],
+                            "prob": l['prob'],
+                            "date": l['date'],
+                            "is_won": l['is_won']
+                        })
 
-                legs_odds.append(leg_odd)
-                legs_prob.append(prob_val)
-                legs_won.append(won_status)
+                    unique_hex = uuid.uuid4().hex[:6].upper()
+                    ticket_id = f"PRLY-{tier}-{p_tipe}-{date_val.strftime('%Y%m%d')}-{unique_hex}"
+                    created_ticket_records.append((ticket_id, tier_legs))
 
-                legs_details.append({
-                    "match": f"{r['HomeTeam']} vs {r['AwayTeam']}", 
-                    "pick": str(pick), 
-                    "odds": round(leg_odd, 2),
-                    "date": date_str,
-                    "is_won": won_status
-                })
+                    ParlayTicket.objects.update_or_create(
+                        ticket_id=ticket_id,
+                        defaults={
+                            'date': date_val,
+                            'total_odds': round(total_odds, 4),
+                            'total_prob': round(total_prob, 6),
+                            'is_won': ticket_won,
+                            'is_historical': is_hist,
+                            'legs_details': clean_legs
+                        }
+                    )
 
-            ticket_won = None
-            if is_hist:
-                if any(x is False for x in legs_won): ticket_won = False
-                elif all(x is True for x in legs_won): ticket_won = True
-
-            total_odds = float(np.prod(legs_odds)) if legs_odds else 1.0
-            if math.isnan(total_odds) or math.isinf(total_odds):
-                total_odds = 1.0
-
-            total_prob = float(np.prod(legs_prob)) if legs_prob else 0.5
-            if math.isnan(total_prob) or math.isinf(total_prob):
-                total_prob = 0.5
-
-            safe_details = sanitize_json_value(legs_details)
-
-            ParlayTicket.objects.filter(ticket_id=t_info).delete()
-            ParlayTicket.objects.create(
-                ticket_id=t_info, 
-                date=group['Date'].iloc[0].date() if pd.notnull(group['Date'].iloc[0]) else None, 
-                total_odds=round(total_odds, 4), 
-                total_prob=round(total_prob, 6), 
-                is_won=ticket_won, 
-                is_historical=is_hist, 
-                legs_details=safe_details
-            )
+            # Tandai part_of_parlay pada DataFrame untuk match yang terpilih di tiket parlay manapun
+            for tid, t_legs in created_ticket_records:
+                for l in t_legs:
+                    idx = l['idx']
+                    df_source.at[idx, 'part_of_parlay'] = True
+                    cur_info = df_source.at[idx, 'parlay_ticket_info']
+                    df_source.at[idx, 'parlay_ticket_info'] = tid if pd.isna(cur_info) or not cur_info else f"{cur_info},{tid}"
 
 def extract_odds(row):
     def safe_float(val):
@@ -440,23 +519,6 @@ def apply_ai_predictions(df: pd.DataFrame, lgbm_ftr, lgbm_ou, agent, is_hist=Fal
     df['part_of_parlay'] = False
     df['parlay_ticket_info'] = None
     df['best_edge'] = df[['edge_ftr', 'edge_ou']].max(axis=1)
-    
-    valid_bets_mask = (df['rl_stake_ftr'].fillna(0) > 0) | (df['rl_stake_ou'].fillna(0) > 0)
-    df_valid = df[valid_bets_mask].copy()
-    
-    p_tipe = "H" if is_hist else "F"
-    for date_val, group in df_valid.groupby(df_valid['Date'].dt.date):
-        group_sorted = group.sort_values('best_edge', ascending=False)
-        
-        while len(group_sorted) >= 4:
-            top4_indices = group_sorted.head(4).index
-            unique_hex = uuid.uuid4().hex[:6].upper()
-            ticket_id = f"PRLY-{p_tipe}-{date_val.strftime('%Y%m%d')}-{unique_hex}"
-            
-            df.loc[top4_indices, 'part_of_parlay'] = True
-            df.loc[top4_indices, 'parlay_ticket_info'] = ticket_id
-            
-            group_sorted = group_sorted.iloc[4:]
     return df
 
 def run_ml_predictions_for_preview(df_history, df_fixture):
@@ -653,9 +715,15 @@ def commit_uploaded_data(upload_type):
         for _, row in df_history.iterrows():
             UpcomingFixture.objects.filter(date__date=row['Date'].date(), home_team__name=row['HomeTeam'], away_team__name=row['AwayTeam']).delete()
             t_info = row.get('parlay_ticket_info')
-            if pd.notna(t_info) and isinstance(t_info, str) and 'PRLY-H-' in t_info:
-                old_t = t_info.replace('PRLY-H-', 'PRLY-F-')
-                ParlayTicket.objects.filter(ticket_id=old_t).delete()
+            if pd.notna(t_info) and isinstance(t_info, str):
+                for tid in t_info.split(','):
+                    tid = tid.strip()
+                    if '-H-' in tid:
+                        old_t = tid.replace('-H-', '-F-')
+                        ParlayTicket.objects.filter(ticket_id=old_t).delete()
+                    elif 'PRLY-H-' in tid:
+                        old_t = tid.replace('PRLY-H-', 'PRLY-F-')
+                        ParlayTicket.objects.filter(ticket_id=old_t).delete()
                 
     build_and_save_parlays(df_history, df_fixture)
             

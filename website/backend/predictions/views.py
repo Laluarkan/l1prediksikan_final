@@ -320,6 +320,14 @@ class ParlayTicketViewSet(viewsets.ReadOnlyModelViewSet):
         elif filter_result in ['LOST', 'LOSE']:
             queryset = queryset.filter(is_won=False)
 
+        legs_param = self.request.query_params.get('legs') or self.request.query_params.get('legs_count')
+        if legs_param and str(legs_param).upper() != 'ALL':
+            try:
+                target_len = int(legs_param)
+                queryset = queryset.filter(ticket_id__icontains=f"PRLY-{target_len}-")
+            except ValueError:
+                pass
+
         search = self.request.query_params.get('search')
         if search:
             search_str = search.strip()
