@@ -97,7 +97,7 @@ export default function DownloadCtaBanner() {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
                   <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end">
                     <span className="text-[11px] font-bold text-white uppercase tracking-wider bg-emerald-600/90 px-2.5 py-1 rounded-md backdrop-blur-sm">
-                      Versi Terbaru v1.4.0
+                      Versi Terbaru v1.5.0
                     </span>
                     <span className="text-[10px] font-mono text-slate-300 bg-slate-900/80 px-2 py-1 rounded">
                       48.2 MB

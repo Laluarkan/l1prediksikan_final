@@ -20,6 +20,8 @@ import {
   fetchPerformanceMetrics,
   fetchStandings,
   getCurrentSeason,
+  getSavedMatchIds,
+  toggleFavoriteMatch,
 } from '../services/api';
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
@@ -44,6 +46,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const { colors, isDark } = useTheme();
 
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [savedMatchIds, setSavedMatchIds] = useState<number[]>([]);
   const [standingsMap, setStandingsMap] = useState<Record<string, number>>({});
   const [performance, setPerformance] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +84,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
 
       syncDynamicNotifications(fixturesData).catch((e) => console.warn('Sync notif dynamic error:', e));
       fetchRemoteBroadcasts().catch((e) => console.warn('Fetch broadcasts error:', e));
+      getSavedMatchIds().then(setSavedMatchIds).catch(() => {});
     } catch (err) {
       console.error('Failed to load home data:', err);
     } finally {
@@ -96,6 +100,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const handleToggleFavorite = async (fixture: Fixture) => {
+    const res = await toggleFavoriteMatch(fixture, savedMatchIds);
+    setSavedMatchIds(res.updatedIds);
   };
 
   // Tombol Hapus Cache di Beranda
@@ -411,6 +420,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
                   key={fixture.id}
                   fixture={fixture}
                   onPress={() => setSelectedFixture(fixture)}
+                  isFavorite={savedMatchIds.includes(fixture.id)}
+                  onToggleFavorite={() => handleToggleFavorite(fixture)}
                 />
               ))}
             </View>
@@ -423,6 +434,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         visible={!!selectedFixture}
         fixture={selectedFixture}
         onClose={() => setSelectedFixture(null)}
+        isFavorite={selectedFixture ? savedMatchIds.includes(selectedFixture.id) : false}
+        onToggleFavorite={() => selectedFixture && handleToggleFavorite(selectedFixture)}
       />
     </>
   );

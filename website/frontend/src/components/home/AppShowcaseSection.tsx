@@ -177,7 +177,7 @@ export default function AppShowcaseSection() {
           >
             <Download size={18} className="group-hover:translate-y-0.5 transition-transform" />
             <span>Unduh APK Langsung</span>
-            <span className="text-[11px] font-mono bg-emerald-900/40 px-2 py-0.5 rounded text-emerald-200">v1.3.0</span>
+            <span className="text-[11px] font-mono bg-emerald-900/40 px-2 py-0.5 rounded text-emerald-200">v1.5.0</span>
           </a>
 
           <a

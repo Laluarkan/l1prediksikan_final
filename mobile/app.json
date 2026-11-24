@@ -3,18 +3,18 @@
     "name": "Prediksikan",
     "slug": "L1prediksikan",
     "scheme": "l1prediksikan",
-    "version": "1.4.1",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "id.prediksikan.app",
-      "buildNumber": "8"
+      "buildNumber": "9"
     },
     "android": {
       "package": "id.prediksikan.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/logo.png",

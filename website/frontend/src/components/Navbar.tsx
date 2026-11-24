@@ -550,7 +550,7 @@ export default function Navbar() {
                 <Download size={16} className="text-emerald-400" />
                 <span>Unduh Aplikasi Android (APK)</span>
               </div>
-              <span className="text-[10px] font-mono bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">v1.4.0</span>
+              <span className="text-[10px] font-mono bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">v1.5.0</span>
             </a>
 
             <button

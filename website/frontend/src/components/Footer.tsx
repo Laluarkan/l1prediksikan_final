@@ -59,7 +59,7 @@ export default function Footer() {
                   className="hover:text-emerald-400 transition-colors flex items-center gap-1.5 font-medium text-slate-300"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <span>Unduh APK (v1.3.0)</span>
+                  <span>Unduh APK (v1.5.0)</span>
                 </a>
               </li>
               <li>

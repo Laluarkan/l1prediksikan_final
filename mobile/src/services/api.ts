@@ -2,6 +2,7 @@ export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://l1prediksi-a
 export const APP_CLIENT_KEY = process.env.EXPO_PUBLIC_CLIENT_KEY || process.env.EXPO_PUBLIC_SYNC_SECRET || '';
 
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserSession, saveUserSession } from './auth';
 
 /**
@@ -417,6 +418,7 @@ export interface ParlayTicket {
   is_won: boolean | null;
   is_historical: boolean;
   legs_details?: ParlayLeg[];
+  legs_count?: number;
 }
 
 export const fetchParlayTickets = async (params?: {
@@ -425,6 +427,7 @@ export const fetchParlayTickets = async (params?: {
   season?: string;
   filter_result?: string;
   page_size?: number;
+  legs?: number;
 }): Promise<ParlayTicket[]> => {
   const query = new URLSearchParams();
   query.append('ordering', '-date');
@@ -436,6 +439,9 @@ export const fetchParlayTickets = async (params?: {
   if (params?.season && params.season !== 'ALL') query.append('season', params.season);
   if (params?.filter_result && params.filter_result !== 'ALL') {
     query.append('filter_result', params.filter_result);
+  }
+  if (params?.legs) {
+    query.append('legs', String(params.legs));
   }
 
   const url = `${BASE_URL}/parlays/?${query.toString()}`;
@@ -521,6 +527,68 @@ export const fetchSavedMatchIds = async (): Promise<number[]> => {
   } catch {
     return [];
   }
+};
+
+export const LOCAL_SAVED_FIXTURES_KEY = '@prediksikan_local_saved_fixtures';
+
+/**
+ * Mengambil daftar ID fixture tersimpan, baik dari server maupun dari AsyncStorage lokal
+ */
+export const getSavedMatchIds = async (): Promise<number[]> => {
+  try {
+    // 1. Coba baca dari remote API terlebih dahulu
+    const remoteIds = await fetchSavedMatchIds();
+    if (remoteIds && remoteIds.length > 0) {
+      return remoteIds;
+    }
+  } catch {}
+
+  try {
+    // 2. Fallback ke local storage
+    const localRaw = await AsyncStorage.getItem(LOCAL_SAVED_FIXTURES_KEY);
+    if (localRaw) {
+      const parsed: Fixture[] = JSON.parse(localRaw);
+      return parsed.map((item) => item.id).filter(Boolean);
+    }
+  } catch {}
+
+  return [];
+};
+
+/**
+ * Toggle status simpan match favorit ke lokal (AsyncStorage) dan remote API sekaligus.
+ */
+export const toggleFavoriteMatch = async (
+  fixture: Fixture,
+  currentIds: number[]
+): Promise<{ isSaved: boolean; updatedIds: number[] }> => {
+  const isAlreadySaved = currentIds.includes(fixture.id);
+  const updatedIds = isAlreadySaved
+    ? currentIds.filter((id) => id !== fixture.id)
+    : [...currentIds, fixture.id];
+
+  // 1. Update AsyncStorage lokal terlebih dahulu
+  try {
+    const localRaw = await AsyncStorage.getItem(LOCAL_SAVED_FIXTURES_KEY);
+    let list: Fixture[] = localRaw ? JSON.parse(localRaw) : [];
+    if (isAlreadySaved) {
+      list = list.filter((f) => f.id !== fixture.id);
+    } else {
+      list = [fixture, ...list.filter((f) => f.id !== fixture.id)];
+    }
+    await AsyncStorage.setItem(LOCAL_SAVED_FIXTURES_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.warn('Gagal sinkron lokal saved fixtures:', err);
+  }
+
+  // 2. Sinkron ke server di background
+  try {
+    await toggleSavedMatch(fixture.id);
+  } catch (err) {
+    // User offline atau guest
+  }
+
+  return { isSaved: !isAlreadySaved, updatedIds };
 };
 
 // ================= FEATURE SUGGESTIONS & ROADMAP =================

@@ -60,7 +60,7 @@ export default function Home() {
                 >
                   <Download size={18} className="group-hover:translate-y-0.5 transition-transform" />
                   <span>Unduh Aplikasi APK</span>
-                  <span className="text-[10px] font-mono bg-emerald-950/40 px-2 py-0.5 rounded text-emerald-200">v1.4.0</span>
+                  <span className="text-[10px] font-mono bg-emerald-950/40 px-2 py-0.5 rounded text-emerald-200">v1.5.0</span>
                 </a>
 
                 {/* Web Fixtures Link */}

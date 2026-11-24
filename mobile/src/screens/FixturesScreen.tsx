@@ -20,7 +20,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
 import { getLeagueLogoUrl } from '../utils/logo';
-import { Fixture, fetchUpcomingFixtures } from '../services/api';
+import {
+  Fixture,
+  fetchUpcomingFixtures,
+  getSavedMatchIds,
+  toggleFavoriteMatch,
+} from '../services/api';
 import { CompactMatchCard } from '../components/CompactMatchCard';
 import { MatchDetailModal } from '../components/modals/MatchDetailModal';
 import { HistoryScreen } from './HistoryScreen';
@@ -80,6 +85,36 @@ const shiftWitaDate = (currentKey: string, days: number): string => {
   return currentKey;
 };
 
+// Helper warna kontras tinggi label tanggal (Hari Ini, Besok, Kemarin)
+const getRelativePillColors = (label: string, isDarkTheme: boolean) => {
+  if (label === 'Hari Ini') {
+    return {
+      bg: isDarkTheme ? '#064E3B' : '#DCFCE7',
+      border: isDarkTheme ? '#059669' : '#86EFAC',
+      text: isDarkTheme ? '#34D399' : '#15803D',
+    };
+  }
+  if (label === 'Besok') {
+    return {
+      bg: isDarkTheme ? '#0C4A6E' : '#E0F2FE',
+      border: isDarkTheme ? '#0284C7' : '#7DD3FC',
+      text: isDarkTheme ? '#38BDF8' : '#0369A1',
+    };
+  }
+  if (label === 'Kemarin') {
+    return {
+      bg: isDarkTheme ? '#78350F' : '#FEF3C7',
+      border: isDarkTheme ? '#D97706' : '#FCD34D',
+      text: isDarkTheme ? '#FBBF24' : '#B45309',
+    };
+  }
+  return {
+    bg: isDarkTheme ? '#1E293B' : '#F1F5F9',
+    border: isDarkTheme ? '#334155' : '#CBD5E1',
+    text: isDarkTheme ? '#94A3B8' : '#475569',
+  };
+};
+
 interface FilterState {
   league: string; // 'ALL' | 'TOP5' | specific league name
   valueOnly: boolean;
@@ -110,6 +145,7 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
     }
   }, [initialTab]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [savedMatchIds, setSavedMatchIds] = useState<number[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState<string>(() =>
     getWitaDateKey(getTodayWitaDate())
   );
@@ -133,8 +169,12 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
 
   const loadData = useCallback(async () => {
     try {
-      const fixturesData = await fetchUpcomingFixtures();
+      const [fixturesData, savedIds] = await Promise.all([
+        fetchUpcomingFixtures(),
+        getSavedMatchIds(),
+      ]);
       setFixtures(fixturesData);
+      setSavedMatchIds(savedIds);
 
       // Pastikan tanggal default mencerminkan hari ini di WITA
       const todayKey = getWitaDateKey(getTodayWitaDate());
@@ -163,6 +203,11 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const handleToggleFavorite = async (fixture: Fixture) => {
+    const res = await toggleFavoriteMatch(fixture, savedMatchIds);
+    setSavedMatchIds(res.updatedIds);
   };
 
   // Transisi animasi halus saat tanggal berubah
@@ -516,9 +561,24 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                   <Ionicons name="calendar" size={13} color={colors.primary} />
                   <Text style={[styles.dateCenterText, { color: colors.textPrimary }]}>{formatWitaShortDate(selectedDateKey)}</Text>
                   {relativeLabel ? (
-                    <View style={styles.relativePill}>
-                      <Text style={styles.relativePillText}>{relativeLabel}</Text>
-                    </View>
+                    (() => {
+                      const pillStyle = getRelativePillColors(relativeLabel, isDark);
+                      return (
+                        <View
+                          style={[
+                            styles.relativePill,
+                            {
+                              backgroundColor: pillStyle.bg,
+                              borderColor: pillStyle.border,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.relativePillText, { color: pillStyle.text }]}>
+                            {relativeLabel}
+                          </Text>
+                        </View>
+                      );
+                    })()
                   ) : null}
                 </TouchableOpacity>
 
@@ -767,6 +827,8 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                                 fixture={fixture}
                                 onPress={() => setSelectedFixture(fixture)}
                                 showLeagueBadge={false}
+                                isFavorite={savedMatchIds.includes(fixture.id)}
+                                onToggleFavorite={() => handleToggleFavorite(fixture)}
                               />
                             ))}
                           </View>
@@ -1037,6 +1099,8 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
         visible={!!selectedFixture}
         fixture={selectedFixture}
         onClose={() => setSelectedFixture(null)}
+        isFavorite={selectedFixture ? savedMatchIds.includes(selectedFixture.id) : false}
+        onToggleFavorite={() => selectedFixture && handleToggleFavorite(selectedFixture)}
       />
     </View>
   );

@@ -830,6 +830,8 @@ export const UserScreen: React.FC<UserScreenProps> = ({
         visible={!!selectedFixture}
         fixture={selectedFixture}
         onClose={() => setSelectedFixture(null)}
+        isFavorite={selectedFixture ? savedMatches.some((m) => m.id === selectedFixture.id) : false}
+        onToggleFavorite={() => selectedFixture && handleRemoveFavorite(selectedFixture.id)}
       />
     </View>
   );

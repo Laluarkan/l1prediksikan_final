@@ -22,12 +22,16 @@ interface MatchDetailModalProps {
   visible: boolean;
   fixture: Fixture | MatchHistory | null;
   onClose: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   visible,
   fixture,
   onClose,
+  isFavorite = false,
+  onToggleFavorite,
 }) => {
   const { colors, isDark } = useTheme();
   const shareCardRef = useRef<any>(null);
@@ -146,9 +150,24 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 {fixture.league_name}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
+            <View style={styles.headerRightActions}>
+              {onToggleFavorite && (
+                <TouchableOpacity
+                  onPress={onToggleFavorite}
+                  style={styles.favoriteHeaderBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name={isFavorite ? 'star' : 'star-outline'}
+                    size={21}
+                    color={isFavorite ? '#F59E0B' : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -509,6 +528,14 @@ const styles = StyleSheet.create({
     gap: 8,
     flex: 1,
     marginRight: 8,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  favoriteHeaderBtn: {
+    padding: 3,
   },
   leagueLogoWrapper: {
     width: 28,

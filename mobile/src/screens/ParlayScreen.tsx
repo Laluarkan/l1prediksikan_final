@@ -41,6 +41,15 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const PRESET_STAKES = [10000, 25000, 50000, 100000];
 
+const PARLAY_TIERS: { label: string; value: 'ALL' | 2 | 4 | 6 | 8 | 10; badge: string }[] = [
+  { label: 'Semua', value: 'ALL', badge: 'Semua Paket' },
+  { label: '2 Laga', value: 2, badge: 'Double' },
+  { label: '4 Laga', value: 4, badge: 'Classic' },
+  { label: '6 Laga', value: 6, badge: 'Multiplier' },
+  { label: '8 Laga', value: 8, badge: 'Super' },
+  { label: '10 Laga', value: 10, badge: 'Monster' },
+];
+
 export const ParlayScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const defaultSeason = getCurrentSeason(); // Musim saat ini (misal '26/27')
@@ -50,6 +59,7 @@ export const ParlayScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedLegs, setSelectedLegs] = useState<'ALL' | 2 | 4 | 6 | 8 | 10>('ALL');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [stake, setStake] = useState<number>(10000);
   const [ticketToShare, setTicketToShare] = useState<ParlayTicket | null>(null);
@@ -196,9 +206,15 @@ export const ParlayScreen: React.FC = () => {
     }
   };
 
-  // Filter client-side untuk status hasil (Menang/Kalah), fold count, dan musim
+  // Filter client-side untuk status hasil (Menang/Kalah), fold count, musim, dan tier legs
   const displayedTickets = useMemo(() => {
     return tickets.filter((ticket) => {
+      // Filter Multi-Tier Legs (2, 4, 6, 8, 10)
+      if (selectedLegs !== 'ALL') {
+        const count = ticket.legs_count || (ticket.legs_details || []).length;
+        if (count !== Number(selectedLegs)) return false;
+      }
+
       if (activeTab === 'history') {
         // 1. Filter Status Hasil (Menang / Kalah)
         if (filterResult === 'WON' && ticket.is_won !== true) return false;
@@ -227,7 +243,7 @@ export const ParlayScreen: React.FC = () => {
       }
       return true;
     });
-  }, [tickets, activeTab, filterResult, filterFold, selectedSeason]);
+  }, [tickets, activeTab, filterResult, filterFold, selectedSeason, selectedLegs]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -389,6 +405,65 @@ export const ParlayScreen: React.FC = () => {
               <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Tier Combination Filter (2, 4, 6, 8, 10 Laga) */}
+        <View style={styles.tierScrollWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tierScrollContent}
+          >
+            {PARLAY_TIERS.map((tier) => {
+              const isSelected = selectedLegs === tier.value;
+              return (
+                <TouchableOpacity
+                  key={String(tier.value)}
+                  style={[
+                    styles.tierPill,
+                    {
+                      backgroundColor: isSelected
+                        ? (isDark ? '#064E3B' : '#DCFCE7')
+                        : (isDark ? '#1E293B' : '#F1F5F9'),
+                      borderColor: isSelected
+                        ? (isDark ? '#10B981' : '#10B981')
+                        : (isDark ? '#334155' : '#E2E8F0'),
+                    },
+                  ]}
+                  onPress={() => setSelectedLegs(tier.value)}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.tierPillLabel,
+                      {
+                        color: isSelected
+                          ? (isDark ? '#34D399' : '#15803D')
+                          : (isDark ? '#94A3B8' : '#475569'),
+                        fontWeight: isSelected ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    {tier.label}
+                  </Text>
+                  {tier.badge ? (
+                    <Text
+                      style={[
+                        styles.tierPillBadge,
+                        {
+                          color: isSelected
+                            ? (isDark ? '#6EE7B7' : '#166534')
+                            : (isDark ? '#64748B' : '#94A3B8'),
+                        },
+                      ]}
+                    >
+                      {tier.badge}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       </View>
 
@@ -671,12 +746,28 @@ export const ParlayScreen: React.FC = () => {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCardWrapper}>
+          <View
+            style={[
+              styles.modalCardWrapper,
+              {
+                backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                borderColor: isDark ? '#334155' : '#E2E8F0',
+              },
+            ]}
+          >
             {/* Action Bar Above Preview */}
-            <View style={styles.modalTopBar}>
+            <View
+              style={[
+                styles.modalTopBar,
+                {
+                  backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                  borderBottomColor: isDark ? '#1E293B' : '#E2E8F0',
+                },
+              ]}
+            >
               <View style={styles.modalTopBarLeft}>
-                <Ionicons name="image" size={18} color={colors.primaryLight} />
-                <Text style={styles.modalTitle}>Preview Gambar Tiket</Text>
+                <Ionicons name="image" size={18} color={colors.primary} />
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Preview Gambar Tiket</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setTicketToShare(null)}
@@ -697,17 +788,23 @@ export const ParlayScreen: React.FC = () => {
                 <View
                   ref={shareCardRef}
                   collapsable={false}
-                  style={styles.slipCard}
+                  style={[
+                    styles.slipCard,
+                    {
+                      backgroundColor: isDark ? '#090D1A' : '#F8FAFC',
+                      borderColor: isDark ? '#10B98140' : '#10B98180',
+                    },
+                  ]}
                 >
                   {/* Slip Header with Logo & Brand */}
-                  <View style={styles.slipHeader}>
+                  <View style={[styles.slipHeader, { borderBottomColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
                     <Image
                       source={require('../../assets/logo.png')}
                       style={styles.slipLogo}
                       resizeMode="contain"
                     />
                     <View style={styles.slipBrandCol}>
-                      <Text style={styles.slipBrandTitle}>PREDIKSIKAN</Text>
+                      <Text style={[styles.slipBrandTitle, { color: colors.textPrimary }]}>PREDIKSIKAN</Text>
                       <Text style={styles.slipBrandSubtitle}>AI PARLAY RECOMMENDATION SLIP</Text>
                     </View>
                     <View
@@ -739,37 +836,53 @@ export const ParlayScreen: React.FC = () => {
                     </View>
                   </View>
 
-                  {/* Slip Ticket Meta (Tanpa badge 4-Fold agar tidak menimpa ID tiket) */}
-                  <View style={styles.slipMetaRow}>
+                  {/* Slip Ticket Meta */}
+                  <View
+                    style={[
+                      styles.slipMetaRow,
+                      {
+                        backgroundColor: isDark ? '#131D33' : '#FFFFFF',
+                        borderColor: isDark ? '#1E293B' : '#E2E8F0',
+                      },
+                    ]}
+                  >
                     <View style={styles.slipMetaLeft}>
-                      <Ionicons name="ticket" size={14} color={colors.primaryLight} />
-                      <Text style={styles.slipTicketId} numberOfLines={1} ellipsizeMode="tail">
+                      <Ionicons name="ticket" size={14} color={colors.primary} />
+                      <Text style={[styles.slipTicketId, { color: colors.primary }]} numberOfLines={1} ellipsizeMode="tail">
                         #{ticketToShare.ticket_id || `PARLAY-${ticketToShare.id}`}
                       </Text>
                     </View>
                     <View style={styles.slipMetaRight}>
-                      <Text style={styles.slipDateText}>{formatDate(ticketToShare.date)}</Text>
+                      <Text style={[styles.slipDateText, { color: colors.textSecondary }]}>{formatDate(ticketToShare.date)}</Text>
                     </View>
                   </View>
 
                   {/* Slip Metrics Box (Probabilitas AI Rapi & Seimbang) */}
-                  <View style={styles.slipMetricsBox}>
+                  <View
+                    style={[
+                      styles.slipMetricsBox,
+                      {
+                        backgroundColor: isDark ? '#1E293B40' : '#FFFFFF',
+                        borderColor: isDark ? '#1E293B' : '#E2E8F0',
+                      },
+                    ]}
+                  >
                     <View style={styles.slipMetricItem}>
-                      <Text style={styles.slipMetricLabel} numberOfLines={1}>TOTAL ODDS</Text>
+                      <Text style={[styles.slipMetricLabel, { color: colors.textMuted }]} numberOfLines={1}>TOTAL ODDS</Text>
                       <Text style={styles.slipMetricOdds}>
                         @{Number(ticketToShare.total_odds || 0).toFixed(2)}
                       </Text>
                     </View>
-                    <View style={styles.slipMetricDivider} />
+                    <View style={[styles.slipMetricDivider, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]} />
                     <View style={styles.slipMetricItemMiddle}>
-                      <Text style={styles.slipMetricLabel} numberOfLines={1}>PROBABILITAS AI</Text>
+                      <Text style={[styles.slipMetricLabel, { color: colors.textMuted }]} numberOfLines={1}>PROBABILITAS AI</Text>
                       <Text style={styles.slipMetricProb}>
                         {((Number(ticketToShare.total_prob) || 0) * 100).toFixed(1)}%
                       </Text>
                     </View>
-                    <View style={styles.slipMetricDivider} />
+                    <View style={[styles.slipMetricDivider, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]} />
                     <View style={styles.slipMetricItem}>
-                      <Text style={styles.slipMetricLabel} numberOfLines={1}>TOTAL LAGA</Text>
+                      <Text style={[styles.slipMetricLabel, { color: colors.textMuted }]} numberOfLines={1}>TOTAL LAGA</Text>
                       <Text style={styles.slipMetricLegs}>
                         {(ticketToShare.legs_details || []).length} Match
                       </Text>
@@ -778,20 +891,34 @@ export const ParlayScreen: React.FC = () => {
 
                   {/* Slip Matches List dengan Jam Bermain */}
                   <View style={styles.slipLegsContainer}>
-                    <Text style={styles.slipLegsTitle}>DETAIL KOMBINASI PERTANDINGAN</Text>
+                    <Text style={[styles.slipLegsTitle, { color: colors.textMuted }]}>DETAIL KOMBINASI PERTANDINGAN</Text>
                     {(ticketToShare.legs_details || []).map((leg, idx) => {
                       const { homeTeam, awayTeam, homeLogo, awayLogo, leagueLogo } = parseLegMatch(leg);
                       return (
-                        <View key={idx} style={styles.slipLegRow}>
-                          <View style={styles.slipLegIndex}>
-                            <Text style={styles.slipLegIndexText}>{idx + 1}</Text>
+                        <View
+                          key={idx}
+                          style={[
+                            styles.slipLegRow,
+                            {
+                              backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                              borderColor: isDark ? '#1E293B' : '#E2E8F0',
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.slipLegIndex,
+                              { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' },
+                            ]}
+                          >
+                            <Text style={[styles.slipLegIndexText, { color: colors.textSecondary }]}>{idx + 1}</Text>
                           </View>
 
                           {/* Logo Liga di sebelah kiri */}
                           <Image source={{ uri: leagueLogo }} style={styles.legLeagueLogo} resizeMode="contain" />
 
                           {/* Batas pemisah vertikal */}
-                          <View style={[styles.legVerticalDivider, { backgroundColor: '#334155' }]} />
+                          <View style={[styles.legVerticalDivider, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]} />
 
                           <View style={styles.slipLegMain}>
                             <View style={styles.legTeamsRow}>
@@ -799,12 +926,12 @@ export const ParlayScreen: React.FC = () => {
                                 <View style={[styles.teamMiniLogoBox, { backgroundColor: colors.logoBackdrop, borderColor: colors.logoBorder }]}>
                                   <Image source={{ uri: homeLogo }} style={styles.teamMiniLogo} resizeMode="contain" />
                                 </View>
-                                <Text style={styles.slipLegMatch} numberOfLines={1}>
+                                <Text style={[styles.slipLegMatch, { color: colors.textPrimary }]} numberOfLines={1}>
                                   {homeTeam}
                                 </Text>
                               </View>
 
-                              <Text style={styles.vsMiniText}>vs</Text>
+                              <Text style={[styles.vsMiniText, { color: colors.textMuted }]}>vs</Text>
 
                               <View style={styles.teamMiniItem}>
                                 {awayLogo && (
@@ -812,7 +939,7 @@ export const ParlayScreen: React.FC = () => {
                                     <Image source={{ uri: awayLogo }} style={styles.teamMiniLogo} resizeMode="contain" />
                                   </View>
                                 )}
-                                <Text style={styles.slipLegMatch} numberOfLines={1}>
+                                <Text style={[styles.slipLegMatch, { color: colors.textPrimary }]} numberOfLines={1}>
                                   {awayTeam}
                                 </Text>
                               </View>
@@ -825,9 +952,14 @@ export const ParlayScreen: React.FC = () => {
                                 </Text>
                               </View>
                               <Text style={styles.slipOddsText}>@{Number(leg.odds).toFixed(2)}</Text>
-                              <View style={styles.slipTimeBadge}>
-                                <Ionicons name="time-outline" size={10} color={colors.primaryLight} />
-                                <Text style={styles.slipTimeText}>
+                              <View
+                                style={[
+                                  styles.slipTimeBadge,
+                                  { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' },
+                                ]}
+                              >
+                                <Ionicons name="time-outline" size={10} color={colors.primary} />
+                                <Text style={[styles.slipTimeText, { color: colors.primary }]}>
                                   {formatLegKickoff(leg.date, ticketToShare.date)}
                                 </Text>
                               </View>
@@ -849,19 +981,27 @@ export const ParlayScreen: React.FC = () => {
                   </View>
 
                   {/* Slip Watermark Footer */}
-                  <View style={styles.slipFooter}>
+                  <View style={[styles.slipFooter, { borderTopColor: isDark ? '#1E293B' : '#E2E8F0' }]}>
                     <View style={styles.slipFooterLeft}>
                       <Ionicons name="shield-checkmark" size={12} color="#10B981" />
-                      <Text style={styles.slipFooterBrand}>Dianalisis oleh AI Prediksikan</Text>
+                      <Text style={[styles.slipFooterBrand, { color: colors.textSecondary }]}>Dianalisis oleh AI Prediksikan</Text>
                     </View>
-                    <Text style={styles.slipFooterUrl}>prediksikan.my.id</Text>
+                    <Text style={[styles.slipFooterUrl, { color: colors.primary }]}>prediksikan.my.id</Text>
                   </View>
                 </View>
               )}
             </ScrollView>
 
             {/* Modal Bottom Action Buttons */}
-            <View style={styles.modalBottomBar}>
+            <View
+              style={[
+                styles.modalBottomBar,
+                {
+                  backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+                  borderTopColor: isDark ? '#1E293B' : '#E2E8F0',
+                },
+              ]}
+            >
               <TouchableOpacity
                 style={[styles.modalShareBtn, isCapturing && styles.modalShareBtnDisabled]}
                 onPress={captureAndShare}
@@ -882,12 +1022,18 @@ export const ParlayScreen: React.FC = () => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.modalCancelBtn}
+                style={[
+                  styles.modalCancelBtn,
+                  {
+                    backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                    borderColor: isDark ? '#334155' : '#CBD5E1',
+                  },
+                ]}
                 onPress={() => setTicketToShare(null)}
                 disabled={isCapturing}
                 activeOpacity={0.7}
               >
-                <Text style={styles.modalCancelBtnText}>Tutup</Text>
+                <Text style={[styles.modalCancelBtnText, { color: colors.textSecondary }]}>Tutup</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1607,10 +1753,8 @@ const styles = StyleSheet.create({
   modalCardWrapper: {
     width: '100%',
     maxHeight: '92%',
-    backgroundColor: '#0F172A',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
     overflow: 'hidden',
   },
   modalTopBar: {
@@ -1620,8 +1764,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-    backgroundColor: '#0F172A',
   },
   modalTopBarLeft: {
     flexDirection: 'row',
@@ -1631,7 +1773,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
   },
   modalCloseIconBtn: {
     padding: 4,
@@ -1645,10 +1786,8 @@ const styles = StyleSheet.create({
   },
   slipCard: {
     width: '100%',
-    backgroundColor: '#090D1A',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#10B98140',
     padding: 16,
     gap: 12,
   },
@@ -1658,7 +1797,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
   },
   slipLogo: {
     width: 38,
@@ -1672,7 +1810,6 @@ const styles = StyleSheet.create({
   slipBrandTitle: {
     fontSize: 15,
     fontWeight: '900',
-    color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   slipBrandSubtitle: {
@@ -1718,12 +1855,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#131D33',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   slipMetaLeft: {
     flexDirection: 'row',
@@ -1735,7 +1870,6 @@ const styles = StyleSheet.create({
   slipTicketId: {
     fontSize: 12,
     fontWeight: '800',
-    color: colors.primaryLight,
   },
   slipMetaRight: {
     flexDirection: 'row',
@@ -1745,18 +1879,15 @@ const styles = StyleSheet.create({
   slipDateText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
   },
   slipMetricsBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1E293B40',
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1E293B',
   },
   slipMetricItem: {
     flex: 1,
@@ -1773,12 +1904,10 @@ const styles = StyleSheet.create({
   slipMetricDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#334155',
   },
   slipMetricLabel: {
     fontSize: 8.5,
     fontWeight: '700',
-    color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 4,
   },
@@ -1803,17 +1932,14 @@ const styles = StyleSheet.create({
   slipLegsTitle: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.textMuted,
     letterSpacing: 0.8,
   },
   slipLegRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1E293B',
     gap: 8,
   },
   slipLegIndex: {
@@ -1912,8 +2038,6 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    backgroundColor: '#0F172A',
   },
   modalShareBtn: {
     flex: 2,
@@ -1937,15 +2061,39 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E293B',
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   modalCancelBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.textSecondary,
+  },
+
+  // STYLES TIER FILTER KOMBINASI PARLAY
+  tierScrollWrapper: {
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  tierScrollContent: {
+    gap: 8,
+    paddingRight: 10,
+  },
+  tierPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tierPillLabel: {
+    fontSize: 12,
+    letterSpacing: 0.2,
+  },
+  tierPillBadge: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    marginTop: 2,
   },
 });
