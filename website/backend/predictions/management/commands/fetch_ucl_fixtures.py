@@ -411,52 +411,66 @@ def extract_espn_event_row(ev, comp_code, db_home_team, db_away_team, is_finishe
         except Exception:
             fthg, ftag, ftr = np.nan, np.nan, np.nan
 
-    odds_list = comp.get('odds', [])
+    def _d(val):
+        return val if isinstance(val, dict) else {}
+
+    odds_list = [o for o in (comp.get('odds') or []) if isinstance(o, dict)]
     avg_h, avg_d, avg_a = None, None, None
     open_h, open_d, open_a = None, None, None
     avg_over_25, avg_under_25 = None, None
     ah_line, ah_h, ah_a = None, None, None
 
     if odds_list:
-        main_odds = odds_list[0]
-        ml = main_odds.get('moneyline', {})
-        h_close = ml.get('home', {}).get('close', {}).get('odds')
-        h_open = ml.get('home', {}).get('open', {}).get('odds')
-        d_close = ml.get('draw', {}).get('close', {}).get('odds')
-        d_open = ml.get('draw', {}).get('open', {}).get('odds')
-        a_close = ml.get('away', {}).get('close', {}).get('odds')
-        a_open = ml.get('away', {}).get('open', {}).get('odds')
-
-        if not d_close and not d_open:
-            d_close = main_odds.get('drawOdds', {}).get('moneyLine')
-
-        avg_h = american_to_decimal_odds(h_close or h_open)
-        avg_d = american_to_decimal_odds(d_close or d_open)
-        avg_a = american_to_decimal_odds(a_close or a_open)
-        open_h = american_to_decimal_odds(h_open or h_close)
-        open_d = american_to_decimal_odds(d_open or d_close)
-        open_a = american_to_decimal_odds(a_open or a_close)
-
-        ou_line = main_odds.get('overUnder', 2.5)
-        totals = main_odds.get('total', {})
-        over_info = totals.get('over', {})
-        under_info = totals.get('under', {})
-        o_ml = over_info.get('close', {}).get('odds') or over_info.get('open', {}).get('odds')
-        u_ml = under_info.get('close', {}).get('odds') or under_info.get('open', {}).get('odds')
-
-        raw_over = american_to_decimal_odds(o_ml)
-        raw_under = american_to_decimal_odds(u_ml)
-        avg_over_25, avg_under_25 = convert_ou_line_to_25(raw_over, raw_under, ou_line)
-
-        ps = main_odds.get('pointSpread', {})
-        h_spread_str = ps.get('home', {}).get('close', {}).get('line') or ps.get('home', {}).get('open', {}).get('line')
         try:
-            if h_spread_str is not None:
-                ah_line = float(str(h_spread_str).replace('+', '').strip())
+            main_odds = _d(odds_list[0])
+            ml = _d(main_odds.get('moneyline'))
+            ml_home = _d(ml.get('home'))
+            ml_draw = _d(ml.get('draw'))
+            ml_away = _d(ml.get('away'))
+
+            h_close = _d(ml_home.get('close')).get('odds')
+            h_open = _d(ml_home.get('open')).get('odds')
+            d_close = _d(ml_draw.get('close')).get('odds')
+            d_open = _d(ml_draw.get('open')).get('odds')
+            a_close = _d(ml_away.get('close')).get('odds')
+            a_open = _d(ml_away.get('open')).get('odds')
+
+            if not d_close and not d_open:
+                d_close = _d(main_odds.get('drawOdds')).get('moneyLine')
+
+            avg_h = american_to_decimal_odds(h_close or h_open)
+            avg_d = american_to_decimal_odds(d_close or d_open)
+            avg_a = american_to_decimal_odds(a_close or a_open)
+            open_h = american_to_decimal_odds(h_open or h_close)
+            open_d = american_to_decimal_odds(d_open or d_close)
+            open_a = american_to_decimal_odds(a_open or a_close)
+
+            ou_line = main_odds.get('overUnder')
+            if ou_line is None:
+                ou_line = 2.5
+            totals = _d(main_odds.get('total'))
+            over_info = _d(totals.get('over'))
+            under_info = _d(totals.get('under'))
+            o_ml = _d(over_info.get('close')).get('odds') or _d(over_info.get('open')).get('odds')
+            u_ml = _d(under_info.get('close')).get('odds') or _d(under_info.get('open')).get('odds')
+
+            raw_over = american_to_decimal_odds(o_ml)
+            raw_under = american_to_decimal_odds(u_ml)
+            avg_over_25, avg_under_25 = convert_ou_line_to_25(raw_over, raw_under, ou_line)
+
+            ps = _d(main_odds.get('pointSpread'))
+            ps_home = _d(ps.get('home'))
+            ps_away = _d(ps.get('away'))
+            h_spread_str = _d(ps_home.get('close')).get('line') or _d(ps_home.get('open')).get('line')
+            try:
+                if h_spread_str is not None:
+                    ah_line = float(str(h_spread_str).replace('+', '').strip())
+            except Exception:
+                ah_line = None
+            ah_h = american_to_decimal_odds(_d(ps_home.get('close')).get('odds') or _d(ps_home.get('open')).get('odds'))
+            ah_a = american_to_decimal_odds(_d(ps_away.get('close')).get('odds') or _d(ps_away.get('open')).get('odds'))
         except Exception:
-            ah_line = None
-        ah_h = american_to_decimal_odds(ps.get('home', {}).get('close', {}).get('odds') or ps.get('home', {}).get('open', {}).get('odds'))
-        ah_a = american_to_decimal_odds(ps.get('away', {}).get('close', {}).get('odds') or ps.get('away', {}).get('open', {}).get('odds'))
+            pass
 
     if not avg_h or not avg_d or not avg_a or avg_h <= 1.0 or avg_d <= 1.0 or avg_a <= 1.0:
         avg_h, avg_d, avg_a = 2.10, 3.35, 3.20
@@ -746,8 +760,15 @@ class Command(BaseCommand):
         season_start_year = today.year if today.month >= 7 else today.year - 1
         season_start_date = datetime.date(season_start_year, 9, 1)
 
-        existing_uefa_hist_count = MatchHistory.objects.filter(league__code__in=['UCL', 'UEL', 'UECL']).count()
-        need_full_backfill = force_full_season or (existing_uefa_hist_count < 15)
+        ucl_hist_cnt = MatchHistory.objects.filter(league__code='UCL').count()
+        uel_hist_cnt = MatchHistory.objects.filter(league__code='UEL').count()
+        uecl_hist_cnt = MatchHistory.objects.filter(league__code='UECL').count()
+        need_full_backfill = (
+            force_full_season
+            or (ucl_hist_cnt < 15)
+            or (uel_hist_cnt < 10)
+            or (uecl_hist_cnt < 5)
+        )
 
         if need_full_backfill:
             self.stdout.write(self.style.WARNING(
@@ -850,10 +871,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Tidak ada data pertandingan baru untuk diproses."))
             return
 
-        # 4. Ambil Riwayat Domestik dari Database untuk Feature Engineering (140 Fitur)
+        # 4. Ambil Riwayat Domestik (2 Musim Terakhir) dari Database untuk Feature Engineering (140 Fitur)
         leagues_involved = {t.league.code for t in team_obj_lookup.values() if t and t.league}
+        cutoff_hist_dt = timezone.now() - datetime.timedelta(days=750)
         hist_qs = MatchHistory.objects.filter(
-            league__code__in=leagues_involved
+            league__code__in=leagues_involved,
+            date__gte=cutoff_hist_dt,
         ).values(
             'league__code', 'date', 'home_team__name', 'away_team__name',
             'fthg', 'ftag', 'ftr',
@@ -876,31 +899,69 @@ class Command(BaseCommand):
                 'Avg>2.5': r['avg_over_25'],
                 'Avg<2.5': r['avg_under_25'],
                 '_source': 'db',
+                '_is_uefa_fix': False,
             })
         df_db = pd.DataFrame(db_records)
         if not df_db.empty:
             df_db['Date'] = pd.to_datetime(df_db['Date'], utc=True)
+
+        # Jalankan Feature Engineering 140 Fitur dalam SATU pass gabungan (History + Upcoming Fixtures)
+        self.stdout.write(self.style.WARNING(
+            f"\nMenjalankan pipeline 140 fitur (Single-Pass) untuk {len(history_rows)} riwayat & {len(fixture_rows)} jadwal UCL/UEL/UECL..."
+        ))
+        all_parts = []
+        if not df_db.empty:
+            all_parts.append(df_db)
+        if history_rows:
+            df_uefa_hist_raw = pd.DataFrame(history_rows)
+            df_uefa_hist_raw['_source'] = 'csv'
+            df_uefa_hist_raw['_is_uefa_fix'] = False
+            all_parts.append(df_uefa_hist_raw)
+        if fixture_rows:
+            df_uefa_fix_raw = pd.DataFrame(fixture_rows)
+            df_uefa_fix_raw['_source'] = 'csv'
+            df_uefa_fix_raw['_is_uefa_fix'] = True
+            all_parts.append(df_uefa_fix_raw)
+
+        df_comb_all = pd.concat(all_parts, ignore_index=True).drop_duplicates(
+            subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last'
+        ).reset_index(drop=True)
+
+        df_uefa_fe, _ = run_feature_engineering_pipeline(df_comb_all, upload_type='history', skip_weather=True)
+        df_uefa_fe = df_uefa_fe[df_uefa_fe['Div'].isin(list(UEFA_COMPETITIONS.keys()))].copy().reset_index(drop=True)
+
+        df_hist_pred = df_uefa_fe[df_uefa_fe['_is_uefa_fix'] == False].copy().reset_index(drop=True) if not df_uefa_fe.empty else pd.DataFrame()
+        df_predicted = df_uefa_fe[df_uefa_fe['_is_uefa_fix'] == True].copy().reset_index(drop=True) if not df_uefa_fe.empty else pd.DataFrame()
+
+        if '_is_uefa_fix' in df_hist_pred.columns:
+            df_hist_pred.drop(columns=['_is_uefa_fix'], inplace=True)
+        if '_is_uefa_fix' in df_predicted.columns:
+            df_predicted.drop(columns=['_is_uefa_fix'], inplace=True)
+            for col_hide in ['FTR', 'FTHG', 'FTAG', 'HTHG', 'HTAG', 'HTR']:
+                if col_hide in df_predicted.columns:
+                    df_predicted[col_hide] = np.nan
 
         # =========================================================================
         # 5A. PROSES & SIMPAN RIWAYAT PERTANDINGAN (MATCH HISTORY UCL/UEL/UECL)
         # =========================================================================
         hist_created = 0
         hist_updated = 0
-        if history_rows:
-            self.stdout.write(self.style.WARNING(f"\nMemproses {len(history_rows)} riwayat pertandingan UCL/UEL/UECL ke MatchHistory..."))
-            df_uefa_hist_raw = pd.DataFrame(history_rows)
-            if not df_db.empty:
-                df_comb_hist = pd.concat([df_db, df_uefa_hist_raw]).drop_duplicates(
-                    subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last'
-                ).reset_index(drop=True)
-            else:
-                df_comb_hist = df_uefa_hist_raw.copy()
-
-            df_hist_pred, _ = run_feature_engineering_pipeline(df_comb_hist, upload_type='history', skip_weather=True)
+        if not df_hist_pred.empty:
+            self.stdout.write(self.style.WARNING(f"Memproses {len(df_hist_pred)} riwayat pertandingan UCL/UEL/UECL ke MatchHistory..."))
             df_hist_pred, _ = run_ml_predictions_for_preview(df_hist_pred, pd.DataFrame())
 
-            # Bangun tiket parlay historis untuk tanggal-tanggal riwayat Eropa yang belum punya parlay
-            build_and_save_parlays(df_hist_pred, pd.DataFrame())
+            # Bangun tiket parlay historis HANYA untuk tanggal-tanggal riwayat Eropa yang belum punya parlay sama sekali
+            if not df_hist_pred.empty:
+                hist_dates_unique = sorted(df_hist_pred['Date'].dt.date.unique())
+                existing_parlay_dates = set(
+                    ParlayTicket.objects.filter(date__in=hist_dates_unique).values_list('date', flat=True)
+                )
+                df_hist_no_parlay = df_hist_pred[~df_hist_pred['Date'].dt.date.isin(existing_parlay_dates)].copy()
+                if not df_hist_no_parlay.empty:
+                    build_and_save_parlays(df_hist_no_parlay, pd.DataFrame())
+                    for idx_p in df_hist_no_parlay.index:
+                        df_hist_pred.at[idx_p, 'part_of_parlay'] = df_hist_no_parlay.at[idx_p, 'part_of_parlay']
+                        df_hist_pred.at[idx_p, 'parlay_ticket_info'] = df_hist_no_parlay.at[idx_p, 'parlay_ticket_info']
 
             for _, row in df_hist_pred.iterrows():
                 comp_code = str(row.get('Div') or 'UCL')
@@ -1027,19 +1088,9 @@ class Command(BaseCommand):
         # =========================================================================
         fix_created = 0
         fix_updated = 0
-        if fixture_rows:
-            self.stdout.write(self.style.WARNING(f"\nMenghitung 140 fitur & memprediksi {len(fixture_rows)} jadwal mendatang UCL/UEL/UECL..."))
-            df_uefa_fix_raw = pd.DataFrame(fixture_rows)
-            if not df_db.empty:
-                df_comb_fix = pd.concat([df_db, df_uefa_fix_raw]).drop_duplicates(
-                    subset=['Date', 'HomeTeam', 'AwayTeam'], keep='last'
-                ).reset_index(drop=True)
-            else:
-                df_comb_fix = df_uefa_fix_raw.copy()
-
-            _, df_predicted = run_feature_engineering_pipeline(df_comb_fix, upload_type='fixture', skip_weather=True)
-            if not df_predicted.empty:
-                df_predicted = build_weather_features(df_predicted, delay=0.1)
+        if not df_predicted.empty:
+            self.stdout.write(self.style.WARNING(f"\nMemprediksi {len(df_predicted)} jadwal mendatang UCL/UEL/UECL..."))
+            df_predicted = build_weather_features(df_predicted, delay=0.1)
             _, df_predicted = run_ml_predictions_for_preview(pd.DataFrame(), df_predicted)
 
             self.stdout.write(self.style.WARNING("Menyusun kombinasi Tiket Parlay AI (2, 4, 6, 8, 10 Laga) untuk jadwal Eropa..."))
