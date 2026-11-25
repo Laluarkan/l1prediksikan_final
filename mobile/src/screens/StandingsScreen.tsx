@@ -165,22 +165,70 @@ export const StandingsScreen: React.FC = () => {
     ];
 
     const qfPairs = [
-      { id: 'QF-1', label: 'Perempat Final 1', side: 'Jalur Kiri Atas', teamA: byRank[1], teamB: byRank[8], descA: 'Unggulan #1', descB: 'Unggulan #8' },
-      { id: 'QF-2', label: 'Perempat Final 2', side: 'Jalur Kiri Bawah', teamA: byRank[4], teamB: byRank[5], descA: 'Unggulan #4', descB: 'Unggulan #5' },
-      { id: 'QF-3', label: 'Perempat Final 3', side: 'Jalur Kanan Atas', teamA: byRank[2], teamB: byRank[7], descA: 'Unggulan #2', descB: 'Unggulan #7' },
-      { id: 'QF-4', label: 'Perempat Final 4', side: 'Jalur Kanan Bawah', teamA: byRank[3], teamB: byRank[6], descA: 'Unggulan #3', descB: 'Unggulan #6' },
+      {
+        id: 'QF-1',
+        label: 'Perempat Final 1',
+        side: 'Jalur Kiri Atas',
+        challengerA: 'Pemenang 16 Besar 1',
+        descA: 'Jalur Unggulan #1 / PO-8',
+        challengerB: 'Pemenang 16 Besar 2',
+        descB: 'Jalur Unggulan #8 / PO-1',
+      },
+      {
+        id: 'QF-2',
+        label: 'Perempat Final 2',
+        side: 'Jalur Kiri Bawah',
+        challengerA: 'Pemenang 16 Besar 3',
+        descA: 'Jalur Unggulan #4 / PO-5',
+        challengerB: 'Pemenang 16 Besar 4',
+        descB: 'Jalur Unggulan #5 / PO-4',
+      },
+      {
+        id: 'QF-3',
+        label: 'Perempat Final 3',
+        side: 'Jalur Kanan Atas',
+        challengerA: 'Pemenang 16 Besar 5',
+        descA: 'Jalur Unggulan #2 / PO-7',
+        challengerB: 'Pemenang 16 Besar 6',
+        descB: 'Jalur Unggulan #7 / PO-2',
+      },
+      {
+        id: 'QF-4',
+        label: 'Perempat Final 4',
+        side: 'Jalur Kanan Bawah',
+        challengerA: 'Pemenang 16 Besar 7',
+        descA: 'Jalur Unggulan #3 / PO-6',
+        challengerB: 'Pemenang 16 Besar 8',
+        descB: 'Jalur Unggulan #6 / PO-3',
+      },
     ];
 
     const sfPairs = [
-      { id: 'SF-1', label: 'Semifinal 1 (Blok Kiri)', teamA: byRank[1], teamB: byRank[4], descA: 'Pemenang QF-1', descB: 'Pemenang QF-2' },
-      { id: 'SF-2', label: 'Semifinal 2 (Blok Kanan)', teamA: byRank[2], teamB: byRank[3], descA: 'Pemenang QF-3', descB: 'Pemenang QF-4' },
+      {
+        id: 'SF-1',
+        label: 'Semifinal 1 (Blok Kiri)',
+        challengerA: 'Pemenang QF-1',
+        descA: 'Pemenang Perempat Final 1',
+        challengerB: 'Pemenang QF-2',
+        descB: 'Pemenang Perempat Final 2',
+      },
+      {
+        id: 'SF-2',
+        label: 'Semifinal 2 (Blok Kanan)',
+        challengerA: 'Pemenang QF-3',
+        descA: 'Pemenang Perempat Final 3',
+        challengerB: 'Pemenang QF-4',
+        descB: 'Pemenang Perempat Final 4',
+      },
     ];
 
     const finalMatch = {
       id: 'FINAL',
       label: `Grand Final ${selectedLeague?.name || 'UEFA'}`,
-      teamA: byRank[1],
-      teamB: byRank[2],
+      challengerA: 'Pemenang Semifinal 1',
+      descA: 'Juara Jalur Kiri (SF-1)',
+      challengerB: 'Pemenang Semifinal 2',
+      descB: 'Juara Jalur Kanan (SF-2)',
     };
 
     return { playoffPairs, r16Pairs, qfPairs, sfPairs, finalMatch };
@@ -603,10 +651,10 @@ export const StandingsScreen: React.FC = () => {
               <View style={styles.bracketHeaderLeft}>
                 <Ionicons name="flame-outline" size={15} color="#F59E0B" />
                 <Text style={[styles.bracketSectionTitle, { color: colors.textPrimary }]}>
-                  Proyeksi Perempat Final & Semifinal
+                  Perempat Final (Quarter-Finals)
                 </Text>
               </View>
-              <Text style={[styles.bracketSubInfo, { color: colors.textMuted }]}>8 Besar & 4 Besar</Text>
+              <Text style={[styles.bracketSubInfo, { color: colors.textMuted }]}>8 Besar</Text>
             </View>
 
             <View style={styles.bracketGrid}>
@@ -626,26 +674,46 @@ export const StandingsScreen: React.FC = () => {
                     <Text style={[styles.matchupSeedInfo, { color: colors.textMuted }]}>{qf.side}</Text>
                   </View>
                   {[
-                    { t: qf.teamA, desc: qf.descA },
-                    { t: qf.teamB, desc: qf.descB },
+                    { name: qf.challengerA, desc: qf.descA },
+                    { name: qf.challengerB, desc: qf.descB },
                   ].map((item, idx) => (
                     <View key={idx} style={styles.matchupTeamRow}>
                       <View style={styles.matchupTeamLeft}>
-                        <Image
-                          source={{ uri: getTeamLogoUrl(item.t?.team, item.t?.logo) }}
-                          style={styles.matchupLogo}
-                          resizeMode="contain"
-                        />
-                        <Text style={[styles.matchupTeamName, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {item.t?.team}
-                        </Text>
+                        <View style={[styles.seedMiniBadge, { backgroundColor: '#F59E0B20' }]}>
+                          <Text style={[styles.seedMiniText, { color: '#D97706' }]}>R16</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.matchupTeamName, { color: colors.textPrimary }]} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={{ fontSize: 9, color: colors.textMuted }} numberOfLines={1}>
+                            {item.desc}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={[styles.matchupPtsText, { color: colors.textMuted }]}>{item.desc}</Text>
+                      <View style={{ backgroundColor: isDark ? '#1E293B' : '#E2E8F0', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 9, color: colors.textMuted, fontWeight: '600' }}>Menunggu 16 Besar</Text>
+                      </View>
                     </View>
                   ))}
                 </View>
               ))}
+            </View>
+          </View>
 
+          {/* 5. SEMIFINAL & GRAND FINAL */}
+          <View style={[styles.bracketSectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.bracketSectionHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.bracketHeaderLeft}>
+                <Ionicons name="trophy-outline" size={15} color="#A855F7" />
+                <Text style={[styles.bracketSectionTitle, { color: colors.textPrimary }]}>
+                  Semifinal & Grand Final
+                </Text>
+              </View>
+              <Text style={[styles.bracketSubInfo, { color: colors.textMuted }]}>4 Besar & Final</Text>
+            </View>
+
+            <View style={styles.bracketGrid}>
               {knockoutBracket.sfPairs.map((sf) => (
                 <View
                   key={sf.id}
@@ -653,33 +721,81 @@ export const StandingsScreen: React.FC = () => {
                     styles.matchupCard,
                     {
                       backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
-                      borderColor: colors.primary,
+                      borderColor: colors.border,
                     },
                   ]}
                 >
                   <View style={[styles.matchupCardHeader, { borderBottomColor: colors.borderLight }]}>
-                    <Text style={[styles.matchupLabel, { color: colors.primary }]}>{sf.label}</Text>
+                    <Text style={[styles.matchupLabel, { color: '#A855F7' }]}>{sf.label}</Text>
+                    <Text style={[styles.matchupSeedInfo, { color: colors.textMuted }]}>Format 2 Leg</Text>
                   </View>
                   {[
-                    { t: sf.teamA, desc: sf.descA },
-                    { t: sf.teamB, desc: sf.descB },
+                    { name: sf.challengerA, desc: sf.descA },
+                    { name: sf.challengerB, desc: sf.descB },
                   ].map((item, idx) => (
                     <View key={idx} style={styles.matchupTeamRow}>
                       <View style={styles.matchupTeamLeft}>
-                        <Image
-                          source={{ uri: getTeamLogoUrl(item.t?.team, item.t?.logo) }}
-                          style={styles.matchupLogo}
-                          resizeMode="contain"
-                        />
-                        <Text style={[styles.matchupTeamName, { color: colors.textPrimary }]} numberOfLines={1}>
-                          {item.t?.team}
-                        </Text>
+                        <View style={[styles.seedMiniBadge, { backgroundColor: '#A855F720' }]}>
+                          <Text style={[styles.seedMiniText, { color: '#9333EA' }]}>QF</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.matchupTeamName, { color: colors.textPrimary }]} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={{ fontSize: 9, color: colors.textMuted }} numberOfLines={1}>
+                            {item.desc}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={[styles.matchupPtsText, { color: colors.textMuted }]}>{item.desc}</Text>
+                      <View style={{ backgroundColor: isDark ? '#1E293B' : '#E2E8F0', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 9, color: colors.textMuted, fontWeight: '600' }}>Menunggu QF</Text>
+                      </View>
                     </View>
                   ))}
                 </View>
               ))}
+
+              {/* Grand Final Card */}
+              <View
+                style={[
+                  styles.matchupCard,
+                  {
+                    backgroundColor: isDark ? '#064E3B20' : '#ECFDF5',
+                    borderColor: '#10B98180',
+                  },
+                ]}
+              >
+                <View style={[styles.matchupCardHeader, { borderBottomColor: colors.borderLight }]}>
+                  <Text style={[styles.matchupLabel, { color: '#059669', fontWeight: '800' }]}>
+                    {knockoutBracket.finalMatch.label}
+                  </Text>
+                  <Text style={[styles.matchupSeedInfo, { color: '#059669' }]}>Stadion Netral</Text>
+                </View>
+
+                {[
+                  { name: knockoutBracket.finalMatch.challengerA, desc: knockoutBracket.finalMatch.descA },
+                  { name: knockoutBracket.finalMatch.challengerB, desc: knockoutBracket.finalMatch.descB },
+                ].map((item, idx) => (
+                  <View key={idx} style={styles.matchupTeamRow}>
+                    <View style={styles.matchupTeamLeft}>
+                      <View style={[styles.seedMiniBadge, { backgroundColor: '#10B98125' }]}>
+                        <Text style={[styles.seedMiniText, { color: '#059669' }]}>SF</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.matchupTeamName, { color: colors.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={{ fontSize: 9, color: colors.textMuted }} numberOfLines={1}>
+                          {item.desc}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: '#10B98120', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 9, color: '#059669', fontWeight: '700' }}>Menunggu SF</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
         </ScrollView>

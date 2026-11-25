@@ -214,24 +214,70 @@ export default function StandingsPage() {
     ];
 
     const qfPairs = [
-      { id: 'QF-1', label: 'Perempat Final 1', side: 'Jalur Kiri Atas', teamA: byRank[1], teamB: byRank[8], descA: 'Unggulan #1 / R16-1', descB: 'Unggulan #8 / R16-2' },
-      { id: 'QF-2', label: 'Perempat Final 2', side: 'Jalur Kiri Bawah', teamA: byRank[4], teamB: byRank[5], descA: 'Unggulan #4 / R16-3', descB: 'Unggulan #5 / R16-4' },
-      { id: 'QF-3', label: 'Perempat Final 3', side: 'Jalur Kanan Atas', teamA: byRank[2], teamB: byRank[7], descA: 'Unggulan #2 / R16-5', descB: 'Unggulan #7 / R16-6' },
-      { id: 'QF-4', label: 'Perempat Final 4', side: 'Jalur Kanan Bawah', teamA: byRank[3], teamB: byRank[6], descA: 'Unggulan #3 / R16-7', descB: 'Unggulan #6 / R16-8' },
+      {
+        id: 'QF-1',
+        label: 'Perempat Final 1',
+        side: 'Jalur Kiri Atas',
+        challengerA: 'Pemenang 16 Besar 1',
+        descA: 'Jalur Unggulan #1 / PO-8',
+        challengerB: 'Pemenang 16 Besar 2',
+        descB: 'Jalur Unggulan #8 / PO-1',
+      },
+      {
+        id: 'QF-2',
+        label: 'Perempat Final 2',
+        side: 'Jalur Kiri Bawah',
+        challengerA: 'Pemenang 16 Besar 3',
+        descA: 'Jalur Unggulan #4 / PO-5',
+        challengerB: 'Pemenang 16 Besar 4',
+        descB: 'Jalur Unggulan #5 / PO-4',
+      },
+      {
+        id: 'QF-3',
+        label: 'Perempat Final 3',
+        side: 'Jalur Kanan Atas',
+        challengerA: 'Pemenang 16 Besar 5',
+        descA: 'Jalur Unggulan #2 / PO-7',
+        challengerB: 'Pemenang 16 Besar 6',
+        descB: 'Jalur Unggulan #7 / PO-2',
+      },
+      {
+        id: 'QF-4',
+        label: 'Perempat Final 4',
+        side: 'Jalur Kanan Bawah',
+        challengerA: 'Pemenang 16 Besar 7',
+        descA: 'Jalur Unggulan #3 / PO-6',
+        challengerB: 'Pemenang 16 Besar 8',
+        descB: 'Jalur Unggulan #6 / PO-3',
+      },
     ];
 
     const sfPairs = [
-      { id: 'SF-1', label: 'Semifinal 1 (Blok Kiri)', teamA: byRank[1], teamB: byRank[4], descA: 'Pemenang QF-1 (#1/#8)', descB: 'Pemenang QF-2 (#4/#5)' },
-      { id: 'SF-2', label: 'Semifinal 2 (Blok Kanan)', teamA: byRank[2], teamB: byRank[3], descA: 'Pemenang QF-3 (#2/#7)', descB: 'Pemenang QF-4 (#3/#6)' },
+      {
+        id: 'SF-1',
+        label: 'Semifinal 1 (Blok Kiri)',
+        challengerA: 'Pemenang QF-1',
+        descA: 'Pemenang Perempat Final 1',
+        challengerB: 'Pemenang QF-2',
+        descB: 'Pemenang Perempat Final 2',
+      },
+      {
+        id: 'SF-2',
+        label: 'Semifinal 2 (Blok Kanan)',
+        challengerA: 'Pemenang QF-3',
+        descA: 'Pemenang Perempat Final 3',
+        challengerB: 'Pemenang QF-4',
+        descB: 'Pemenang Perempat Final 4',
+      },
     ];
 
     const finalMatch = {
       id: 'FINAL',
       label: 'Grand Final UEFA',
-      teamA: byRank[1],
-      teamB: byRank[2],
-      descA: 'Juara Bagan Kiri (SF-1)',
-      descB: 'Juara Bagan Kanan (SF-2)',
+      challengerA: 'Pemenang Semifinal 1',
+      descA: 'Juara Jalur Kiri (SF-1)',
+      challengerB: 'Pemenang Semifinal 2',
+      descB: 'Juara Jalur Kanan (SF-2)',
     };
 
     return { playoffPairs, r16Pairs, qfPairs, sfPairs, finalMatch };
@@ -484,35 +530,42 @@ export default function StandingsPage() {
             </div>
           </div>
 
-          {/* 3. Perempat Final, Semifinal & Grand Final */}
+          {/* 3. Perempat Final, Semifinal & Grand Final (Placeholder Resmi Jalur Turnamen) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Perempat Final */}
             <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-5 shadow-xl space-y-3">
-              <div className="pb-3 border-b border-slate-800">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Tahap 3</span>
-                <h3 className="text-base font-extrabold text-white">Perempat Final (Quarter-Finals)</h3>
+              <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Tahap 3</span>
+                  <h3 className="text-base font-extrabold text-white">Perempat Final (Quarter-Finals)</h3>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold">
+                  8 Besar
+                </span>
               </div>
               {knockoutBracket.qfPairs.map((qf) => (
                 <div key={qf.id} className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 space-y-2">
                   <div className="flex justify-between text-[10px] font-mono text-amber-400">
                     <span className="font-bold">{qf.label}</span>
-                    <span className="text-slate-400">{qf.side}</span>
+                    <span className="text-slate-500 font-semibold">{qf.side}</span>
                   </div>
                   {[
-                    { t: qf.teamA, desc: qf.descA },
-                    { t: qf.teamB, desc: qf.descB },
+                    { name: qf.challengerA, desc: qf.descA },
+                    { name: qf.challengerB, desc: qf.descB },
                   ].map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-2">
+                    <div key={idx} className="flex items-center justify-between gap-2 py-0.5">
                       <div className="flex items-center gap-2 min-w-0">
-                        <img
-                          src={getTeamLogoUrl(item.t?.team, item.t?.logo)}
-                          alt=""
-                          className="w-4 h-4 object-contain shrink-0"
-                          onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
-                        />
-                        <span className="text-xs font-bold text-white truncate">{item.t?.team}</span>
+                        <span className="w-5 h-5 rounded text-[9px] font-mono font-bold flex items-center justify-center shrink-0 bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                          R16
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-slate-200 block truncate">{item.name}</span>
+                          <span className="text-[10px] text-slate-500 block truncate font-mono">{item.desc}</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono shrink-0">{item.desc}</span>
+                      <span className="text-[9px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0 font-medium">
+                        Menunggu 16 Besar
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -522,37 +575,45 @@ export default function StandingsPage() {
             {/* Semifinal */}
             <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-5 shadow-xl space-y-3 flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="pb-3 border-b border-slate-800">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400">Tahap 4</span>
-                  <h3 className="text-base font-extrabold text-white">Semifinal (Semi-Finals)</h3>
+                <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400">Tahap 4</span>
+                    <h3 className="text-base font-extrabold text-white">Semifinal (Semi-Finals)</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold">
+                    4 Besar
+                  </span>
                 </div>
                 {knockoutBracket.sfPairs.map((sf) => (
                   <div key={sf.id} className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2.5">
-                    <div className="text-[10px] font-mono font-bold text-purple-400 border-b border-slate-800 pb-1.5">
-                      {sf.label}
+                    <div className="text-[10px] font-mono font-bold text-purple-400 border-b border-slate-800 pb-1.5 flex justify-between">
+                      <span>{sf.label}</span>
+                      <span className="text-slate-500 text-[9px]">Format 2 Leg</span>
                     </div>
                     {[
-                      { t: sf.teamA, desc: sf.descA },
-                      { t: sf.teamB, desc: sf.descB },
+                      { name: sf.challengerA, desc: sf.descA },
+                      { name: sf.challengerB, desc: sf.descB },
                     ].map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-2">
+                      <div key={idx} className="flex items-center justify-between gap-2 py-1">
                         <div className="flex items-center gap-2 min-w-0">
-                          <img
-                            src={getTeamLogoUrl(item.t?.team, item.t?.logo)}
-                            alt=""
-                            className="w-5 h-5 object-contain shrink-0"
-                            onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
-                          />
-                          <span className="text-xs font-bold text-white truncate">{item.t?.team}</span>
+                          <span className="w-5 h-5 rounded text-[9px] font-mono font-bold flex items-center justify-center shrink-0 bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                            QF
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-xs font-semibold text-slate-200 block truncate">{item.name}</span>
+                            <span className="text-[10px] text-slate-500 block truncate font-mono">{item.desc}</span>
+                          </div>
                         </div>
-                        <span className="text-[10px] text-slate-400 font-mono shrink-0">{item.desc}</span>
+                        <span className="text-[9px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0 font-medium">
+                          Menunggu QF
+                        </span>
                       </div>
                     ))}
                   </div>
                 ))}
               </div>
               <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/70 text-[11px] text-slate-400">
-                Format 2 Leg (Kandang &amp; Tandang). Unggulan teratas diproyeksikan dari peringkat klasemen Fase Liga saat ini.
+                Format 2 Leg (Kandang &amp; Tandang). Tim resmi yang melaju akan ditentukan otomatis dari pemenang babak perempat final.
               </div>
             </div>
 
@@ -568,23 +629,20 @@ export default function StandingsPage() {
                 </div>
 
                 <div className="bg-slate-950/90 border border-emerald-500/30 rounded-2xl p-5 space-y-4 text-center">
-                  <span className="inline-block px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
-                    Proyeksi Finalis Unggulan Teratas
+                  <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                    Jalur Juara Bagan Gugur Resmi
                   </span>
 
                   <div className="flex items-center justify-around gap-3 py-2">
                     <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
-                      <img
-                        src={getTeamLogoUrl(knockoutBracket.finalMatch.teamA?.team, knockoutBracket.finalMatch.teamA?.logo)}
-                        alt=""
-                        className="w-12 h-12 object-contain"
-                        onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
-                      />
-                      <span className="text-xs sm:text-sm font-extrabold text-white truncate max-w-full">
-                        {knockoutBracket.finalMatch.teamA?.team}
+                      <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 text-xs font-bold font-mono">
+                        SF-1
+                      </div>
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-200 truncate max-w-full">
+                        {knockoutBracket.finalMatch.challengerA}
                       </span>
                       <span className="text-[10px] text-emerald-400 font-mono">
-                        Unggulan #{knockoutBracket.finalMatch.teamA?.rank} ({knockoutBracket.finalMatch.teamA?.pts} pts)
+                        {knockoutBracket.finalMatch.descA}
                       </span>
                     </div>
 
@@ -593,17 +651,14 @@ export default function StandingsPage() {
                     </div>
 
                     <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
-                      <img
-                        src={getTeamLogoUrl(knockoutBracket.finalMatch.teamB?.team, knockoutBracket.finalMatch.teamB?.logo)}
-                        alt=""
-                        className="w-12 h-12 object-contain"
-                        onError={(e) => { e.currentTarget.src = '/default-logo.svg'; }}
-                      />
-                      <span className="text-xs sm:text-sm font-extrabold text-white truncate max-w-full">
-                        {knockoutBracket.finalMatch.teamB?.team}
+                      <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 text-xs font-bold font-mono">
+                        SF-2
+                      </div>
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-200 truncate max-w-full">
+                        {knockoutBracket.finalMatch.challengerB}
                       </span>
                       <span className="text-[10px] text-emerald-400 font-mono">
-                        Unggulan #{knockoutBracket.finalMatch.teamB?.rank} ({knockoutBracket.finalMatch.teamB?.pts} pts)
+                        {knockoutBracket.finalMatch.descB}
                       </span>
                     </div>
                   </div>
@@ -611,8 +666,8 @@ export default function StandingsPage() {
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between">
-                <span>Sistem Seeding: Swiss Model UEFA</span>
-                <span className="text-emerald-400 font-bold">Real-Time Projection</span>
+                <span>Stadion Netral UEFA • 1 Pertandingan</span>
+                <span className="text-emerald-400 font-bold">Menunggu Laga Semifinal</span>
               </div>
             </div>
           </div>
