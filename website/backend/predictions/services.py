@@ -40,6 +40,8 @@ LEAGUE_NAMES = {
     "P1": "Primeira Liga", "T1": "Süper Lig", "G1": "Super League",
     "SC0": "Scottish Premiership",
     "UCL": "UEFA Champions League",
+    "UEL": "UEFA Europa League",
+    "UECL": "UEFA Conference League",
 }
 
 def make_aware_dt(dt_val):

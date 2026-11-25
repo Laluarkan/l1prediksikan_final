@@ -217,7 +217,7 @@ def build_standings_features(df: pd.DataFrame) -> pd.DataFrame:
 
             if pd.notna(date):
                 for team in [home, away]:
-                    if div != 'UCL':
+                    if div not in ('UCL', 'UEL', 'UECL'):
                         team_latest_div[team] = div
                         team_latest_key[team] = (div, season)
                     last_match_date[(div, team)] = date

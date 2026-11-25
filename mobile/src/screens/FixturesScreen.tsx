@@ -58,15 +58,18 @@ export const isTop5League = (leagueCode?: string, leagueName?: string): boolean 
   );
 };
 
-// Prioritas Urutan Murni Liga Top 5 Eropa & Kompetisi Elit UEFA Champions League
+// Prioritas Urutan Murni Liga Top 5 Eropa & Kompetisi Elit UEFA (UCL, UEL, UECL)
 const getLeaguePriority = (leagueName: string, leagueCode?: string): { priority: number; label: string } => {
   const code = (leagueCode || '').toUpperCase();
-  if (code === 'UCL' || (!code && (leagueName.toLowerCase().includes('champions league') || leagueName.toLowerCase().includes('ucl')))) return { priority: 0, label: 'UEFA Champions League' };
-  if (code === 'D1' || (!code && leagueName.toLowerCase().includes('bundes'))) return { priority: 1, label: 'Bundesliga' };
-  if (code === 'E0' || (!code && !leagueName.toLowerCase().includes('scottish') && (leagueName.toLowerCase().includes('premier') || leagueName.toLowerCase().includes('epl')))) return { priority: 2, label: 'Premier League' };
-  if (code === 'SP1' || (!code && (leagueName.toLowerCase().includes('la liga') || leagueName.toLowerCase().includes('laliga')))) return { priority: 3, label: 'La Liga' };
-  if (code === 'F1' || (!code && leagueName.toLowerCase().includes('ligue 1'))) return { priority: 4, label: 'Ligue 1' };
-  if (code === 'I1' || (!code && leagueName.toLowerCase().includes('serie a'))) return { priority: 5, label: 'Serie A' };
+  const l = leagueName.toLowerCase();
+  if (code === 'UCL' || (!code && (l.includes('champions league') || l.includes('ucl')))) return { priority: 0, label: 'UEFA Champions League' };
+  if (code === 'UEL' || (!code && (l.includes('europa league') || l.includes('uel')))) return { priority: 0, label: 'UEFA Europa League' };
+  if (code === 'UECL' || (!code && (l.includes('conference league') || l.includes('uecl')))) return { priority: 0, label: 'UEFA Conference League' };
+  if (code === 'D1' || (!code && l.includes('bundes'))) return { priority: 1, label: 'Bundesliga' };
+  if (code === 'E0' || (!code && !l.includes('scottish') && (l.includes('premier') || l.includes('epl')))) return { priority: 2, label: 'Premier League' };
+  if (code === 'SP1' || (!code && (l.includes('la liga') || l.includes('laliga')))) return { priority: 3, label: 'La Liga' };
+  if (code === 'F1' || (!code && l.includes('ligue 1'))) return { priority: 4, label: 'Ligue 1' };
+  if (code === 'I1' || (!code && l.includes('serie a'))) return { priority: 5, label: 'Serie A' };
   return { priority: 99, label: leagueName };
 };
 
@@ -852,12 +855,27 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
         onRequestClose={() => setFilterModalVisible(false)}
       >
         <View style={styles.filterModalOverlay}>
-          <View style={styles.filterModalCard}>
+          <View
+            style={[
+              styles.filterModalCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             {/* Header Modal */}
-            <View style={styles.filterModalHeader}>
+            <View
+              style={[
+                styles.filterModalHeader,
+                { borderBottomColor: colors.border },
+              ]}
+            >
               <View style={styles.filterModalHeaderLeft}>
                 <Ionicons name="options" size={18} color="#10B981" />
-                <Text style={styles.filterModalTitle}>Filter Jadwal Pertandingan</Text>
+                <Text style={[styles.filterModalTitle, { color: colors.textPrimary }]}>
+                  Filter Jadwal Pertandingan
+                </Text>
               </View>
               <TouchableOpacity
                 onPress={() => setFilterModalVisible(false)}
@@ -874,19 +892,45 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
             >
               {/* 1. Filter Liga */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>PILIH LIGA</Text>
+                <Text style={[styles.filterSectionTitle, { color: colors.textMuted }]}>PILIH LIGA</Text>
                 <View style={styles.chipRowWrap}>
                   <TouchableOpacity
-                    style={[styles.filterChip, filters.league === 'ALL' && styles.filterChipSelected]}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                        borderColor: colors.border,
+                      },
+                      filters.league === 'ALL' && [
+                        styles.filterChipSelected,
+                        { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ],
+                    ]}
                     onPress={() => setFilters((p) => ({ ...p, league: 'ALL' }))}
                   >
-                    <Text style={[styles.filterChipText, filters.league === 'ALL' && styles.filterChipTextSelected]}>
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: colors.textSecondary },
+                        filters.league === 'ALL' && styles.filterChipTextSelected,
+                      ]}
+                    >
                       Semua Liga
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.filterChip, filters.league === 'TOP5' && styles.filterChipSelected]}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                        borderColor: colors.border,
+                      },
+                      filters.league === 'TOP5' && [
+                        styles.filterChipSelected,
+                        { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ],
+                    ]}
                     onPress={() => setFilters((p) => ({ ...p, league: 'TOP5' }))}
                   >
                     <Ionicons
@@ -894,7 +938,13 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                       size={11}
                       color={filters.league === 'TOP5' ? '#FFFFFF' : '#F59E0B'}
                     />
-                    <Text style={[styles.filterChipText, filters.league === 'TOP5' && styles.filterChipTextSelected]}>
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: colors.textSecondary },
+                        filters.league === 'TOP5' && styles.filterChipTextSelected,
+                      ]}
+                    >
                       Top 5 Eropa
                     </Text>
                   </TouchableOpacity>
@@ -902,10 +952,26 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                   {availableLeagues.map((lg) => (
                     <TouchableOpacity
                       key={lg}
-                      style={[styles.filterChip, filters.league === lg && styles.filterChipSelected]}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                          borderColor: colors.border,
+                        },
+                        filters.league === lg && [
+                          styles.filterChipSelected,
+                          { backgroundColor: colors.primary, borderColor: colors.primary },
+                        ],
+                      ]}
                       onPress={() => setFilters((p) => ({ ...p, league: lg }))}
                     >
-                      <Text style={[styles.filterChipText, filters.league === lg && styles.filterChipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          { color: colors.textSecondary },
+                          filters.league === lg && styles.filterChipTextSelected,
+                        ]}
+                      >
                         {lg}
                       </Text>
                     </TouchableOpacity>
@@ -915,9 +981,22 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
 
               {/* 2. Filter Rekomendasi Value Bet */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>VALUE BET (MARKET EDGE)</Text>
+                <Text style={[styles.filterSectionTitle, { color: colors.textMuted }]}>VALUE BET (MARKET EDGE)</Text>
                 <TouchableOpacity
-                  style={[styles.valueToggleCard, filters.valueOnly && styles.valueToggleCardActive]}
+                  style={[
+                    styles.valueToggleCard,
+                    {
+                      backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+                      borderColor: colors.border,
+                    },
+                    filters.valueOnly && [
+                      styles.valueToggleCardActive,
+                      {
+                        backgroundColor: isDark ? '#064E3B30' : '#DCFCE7',
+                        borderColor: '#10B981',
+                      },
+                    ],
+                  ]}
                   onPress={() => setFilters((p) => ({ ...p, valueOnly: !p.valueOnly }))}
                   activeOpacity={0.8}
                 >
@@ -925,18 +1004,21 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                     <View
                       style={[
                         styles.valueToggleIconBox,
+                        { backgroundColor: isDark ? '#064E3B' : '#D1FAE5' },
                         filters.valueOnly && { backgroundColor: '#10B981' },
                       ]}
                     >
                       <Ionicons
                         name="sparkles"
                         size={15}
-                        color={filters.valueOnly ? '#FFFFFF' : '#34D399'}
+                        color={filters.valueOnly ? '#FFFFFF' : (isDark ? '#34D399' : '#059669')}
                       />
                     </View>
                     <View style={styles.valueToggleTextCol}>
-                      <Text style={styles.valueToggleTitle}>Hanya Tampilkan Value Bet</Text>
-                      <Text style={styles.valueToggleSubtitle}>
+                      <Text style={[styles.valueToggleTitle, { color: colors.textPrimary }]}>
+                        Hanya Tampilkan Value Bet
+                      </Text>
+                      <Text style={[styles.valueToggleSubtitle, { color: colors.textMuted }]}>
                         Laga dengan keunggulan matematis atas odds pasar
                       </Text>
                     </View>
@@ -951,19 +1033,45 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
 
               {/* 3. Filter Pasaran Over / Under 2.5 */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>REKOMENDASI PASARAN O/U 2.5</Text>
+                <Text style={[styles.filterSectionTitle, { color: colors.textMuted }]}>REKOMENDASI PASARAN O/U 2.5</Text>
                 <View style={styles.chipRowWrap}>
                   <TouchableOpacity
-                    style={[styles.filterChip, filters.ouPick === 'ALL' && styles.filterChipSelected]}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                        borderColor: colors.border,
+                      },
+                      filters.ouPick === 'ALL' && [
+                        styles.filterChipSelected,
+                        { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ],
+                    ]}
                     onPress={() => setFilters((p) => ({ ...p, ouPick: 'ALL' }))}
                   >
-                    <Text style={[styles.filterChipText, filters.ouPick === 'ALL' && styles.filterChipTextSelected]}>
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: colors.textSecondary },
+                        filters.ouPick === 'ALL' && styles.filterChipTextSelected,
+                      ]}
+                    >
                       Semua O/U
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.filterChip, filters.ouPick === 'OVER' && styles.filterChipSelected]}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                        borderColor: colors.border,
+                      },
+                      filters.ouPick === 'OVER' && [
+                        styles.filterChipSelected,
+                        { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ],
+                    ]}
                     onPress={() => setFilters((p) => ({ ...p, ouPick: 'OVER' }))}
                   >
                     <Ionicons
@@ -971,13 +1079,29 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                       size={12}
                       color={filters.ouPick === 'OVER' ? '#FFFFFF' : '#10B981'}
                     />
-                    <Text style={[styles.filterChipText, filters.ouPick === 'OVER' && styles.filterChipTextSelected]}>
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: colors.textSecondary },
+                        filters.ouPick === 'OVER' && styles.filterChipTextSelected,
+                      ]}
+                    >
                       Bet Over 2.5
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.filterChip, filters.ouPick === 'UNDER' && styles.filterChipSelected]}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                        borderColor: colors.border,
+                      },
+                      filters.ouPick === 'UNDER' && [
+                        styles.filterChipSelected,
+                        { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ],
+                    ]}
                     onPress={() => setFilters((p) => ({ ...p, ouPick: 'UNDER' }))}
                   >
                     <Ionicons
@@ -985,7 +1109,13 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                       size={12}
                       color={filters.ouPick === 'UNDER' ? '#FFFFFF' : '#38BDF8'}
                     />
-                    <Text style={[styles.filterChipText, filters.ouPick === 'UNDER' && styles.filterChipTextSelected]}>
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: colors.textSecondary },
+                        filters.ouPick === 'UNDER' && styles.filterChipTextSelected,
+                      ]}
+                    >
                       Bet Under 2.5
                     </Text>
                   </TouchableOpacity>
@@ -994,51 +1124,65 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
 
               {/* 4. Filter Pasaran 1X2 */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>REKOMENDASI 1X2 (HASIL AKHIR)</Text>
+                <Text style={[styles.filterSectionTitle, { color: colors.textMuted }]}>REKOMENDASI 1X2 (HASIL AKHIR)</Text>
                 <View style={styles.chipRowWrap}>
-                  <TouchableOpacity
-                    style={[styles.filterChip, filters.ftrPick === 'ALL' && styles.filterChipSelected]}
-                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'ALL' }))}
-                  >
-                    <Text style={[styles.filterChipText, filters.ftrPick === 'ALL' && styles.filterChipTextSelected]}>
-                      Semua
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.filterChip, filters.ftrPick === 'H' && styles.filterChipSelected]}
-                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'H' }))}
-                  >
-                    <Text style={[styles.filterChipText, filters.ftrPick === 'H' && styles.filterChipTextSelected]}>
-                      Pick Home (1)
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.filterChip, filters.ftrPick === 'D' && styles.filterChipSelected]}
-                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'D' }))}
-                  >
-                    <Text style={[styles.filterChipText, filters.ftrPick === 'D' && styles.filterChipTextSelected]}>
-                      Pick Seri (X)
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.filterChip, filters.ftrPick === 'A' && styles.filterChipSelected]}
-                    onPress={() => setFilters((p) => ({ ...p, ftrPick: 'A' }))}
-                  >
-                    <Text style={[styles.filterChipText, filters.ftrPick === 'A' && styles.filterChipTextSelected]}>
-                      Pick Away (2)
-                    </Text>
-                  </TouchableOpacity>
+                  {(['ALL', 'H', 'D', 'A'] as const).map((pickOpt) => {
+                    const isSel = filters.ftrPick === pickOpt;
+                    const labelMap = {
+                      ALL: 'Semua',
+                      H: 'Pick Home (1)',
+                      D: 'Pick Seri (X)',
+                      A: 'Pick Away (2)',
+                    };
+                    return (
+                      <TouchableOpacity
+                        key={pickOpt}
+                        style={[
+                          styles.filterChip,
+                          {
+                            backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                            borderColor: colors.border,
+                          },
+                          isSel && [
+                            styles.filterChipSelected,
+                            { backgroundColor: colors.primary, borderColor: colors.primary },
+                          ],
+                        ]}
+                        onPress={() => setFilters((p) => ({ ...p, ftrPick: pickOpt }))}
+                      >
+                        <Text
+                          style={[
+                            styles.filterChipText,
+                            { color: colors.textSecondary },
+                            isSel && styles.filterChipTextSelected,
+                          ]}
+                        >
+                          {labelMap[pickOpt]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
               {/* 5. Filter Cerdas Tambahan: High Odds */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>FITUR CERDAS TAMBAHAN</Text>
+                <Text style={[styles.filterSectionTitle, { color: colors.textMuted }]}>FITUR CERDAS TAMBAHAN</Text>
                 <TouchableOpacity
-                  style={[styles.valueToggleCard, filters.highOddsOnly && styles.valueToggleCardActive]}
+                  style={[
+                    styles.valueToggleCard,
+                    {
+                      backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+                      borderColor: colors.border,
+                    },
+                    filters.highOddsOnly && [
+                      styles.valueToggleCardActive,
+                      {
+                        backgroundColor: isDark ? '#064E3B30' : '#FEF3C7',
+                        borderColor: '#F59E0B',
+                      },
+                    ],
+                  ]}
                   onPress={() => setFilters((p) => ({ ...p, highOddsOnly: !p.highOddsOnly }))}
                   activeOpacity={0.8}
                 >
@@ -1046,18 +1190,21 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
                     <View
                       style={[
                         styles.valueToggleIconBox,
+                        { backgroundColor: isDark ? '#78350F40' : '#FEF3C7' },
                         filters.highOddsOnly && { backgroundColor: '#F59E0B' },
                       ]}
                     >
                       <Ionicons
                         name="trending-up"
                         size={15}
-                        color={filters.highOddsOnly ? '#FFFFFF' : '#F59E0B'}
+                        color={filters.highOddsOnly ? '#FFFFFF' : '#D97706'}
                       />
                     </View>
                     <View style={styles.valueToggleTextCol}>
-                      <Text style={styles.valueToggleTitle}>Odds Menarik (Odds ≥ 2.00)</Text>
-                      <Text style={styles.valueToggleSubtitle}>
+                      <Text style={[styles.valueToggleTitle, { color: colors.textPrimary }]}>
+                        Odds Menarik (Odds ≥ 2.00)
+                      </Text>
+                      <Text style={[styles.valueToggleSubtitle, { color: colors.textMuted }]}>
                         Pilihan taruhan dengan imbalan return tinggi
                       </Text>
                     </View>
@@ -1072,13 +1219,27 @@ export const FixturesScreen: React.FC<FixturesScreenProps> = ({ initialTab = 'up
             </ScrollView>
 
             {/* Modal Bottom Actions */}
-            <View style={styles.filterModalFooter}>
+            <View
+              style={[
+                styles.filterModalFooter,
+                {
+                  backgroundColor: isDark ? '#090D1A' : colors.background,
+                  borderTopColor: colors.border,
+                },
+              ]}
+            >
               <TouchableOpacity
-                style={styles.filterResetBtn}
+                style={[
+                  styles.filterResetBtn,
+                  {
+                    backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                    borderColor: colors.border,
+                  },
+                ]}
                 onPress={() => setFilters(INITIAL_FILTERS)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.filterResetBtnText}>Reset</Text>
+                <Text style={[styles.filterResetBtnText, { color: colors.textSecondary }]}>Reset</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

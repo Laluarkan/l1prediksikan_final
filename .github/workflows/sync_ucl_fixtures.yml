@@ -1,20 +1,20 @@
-name: Sync UEFA Champions League (UCL) Fixtures & Predictions
+name: Sync UEFA Competitions (UCL, UEL, UECL) History, Fixtures & Predictions
 
 on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'Rentang hari ke depan untuk menarik jadwal UCL (default: 10)'
+        description: 'Rentang hari ke depan untuk menarik jadwal UCL, UEL & UECL (default: 10)'
         required: false
         default: '10'
   schedule:
     # Berjalan otomatis setiap hari pukul 08:00 UTC (15:00 WIB / 16:00 WITA)
-    # Memastikan jadwal UCL hingga 10 hari ke depan selalu ter-update beberapa hari sebelum matchday
+    # Memastikan jadwal & riwayat UCL, UEL, dan UECL selalu ter-update
     - cron: '0 8 * * *'
 
 jobs:
   sync_ucl:
-    name: Fetch UCL Fixtures, Predict AI & Generate News
+    name: Fetch UCL/UEL/UECL History & Fixtures, Predict AI & Generate News
     runs-on: ubuntu-latest
 
     env:

@@ -33,12 +33,21 @@ export const LEAGUE_LOGO_MAP: Record<string, string> = {
   'G1': `${CDN_BASE_URL}/logos/leagues/G1.png`,
   'SC0': `${CDN_BASE_URL}/logos/leagues/SC0.png`,
   'UCL': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
+  'UEL': 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png',
+  'UECL': 'https://a.espncdn.com/i/leaguelogos/soccer/500/20296.png',
 };
 
 export const LEAGUE_NAME_TO_CODE: Record<string, string> = {
   'uefa champions league': 'UCL',
   'champions league': 'UCL',
   'ucl': 'UCL',
+  'uefa europa league': 'UEL',
+  'europa league': 'UEL',
+  'uel': 'UEL',
+  'uefa conference league': 'UECL',
+  'uefa europa conference league': 'UECL',
+  'conference league': 'UECL',
+  'uecl': 'UECL',
   'premier league': 'E0',
   'epl': 'E0',
   'english premier league': 'E0',

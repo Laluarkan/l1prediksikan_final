@@ -561,20 +561,150 @@ class PerformanceMetricsAPIView(APIView):
         return resp
 
 class LeagueStandingsAPIView(APIView):
+    UEFA_ESPN_SLUGS = {
+        'UCL': 'uefa.champions',
+        'UEL': 'uefa.europa',
+        'UECL': 'uefa.europa.conf',
+    }
+
+    UEFA_CANONICAL_NAMES = {
+        'paris saint-germain': 'Paris SG',
+        'manchester city': 'Man City',
+        'manchester united': 'Man United',
+        'borussia dortmund': 'Dortmund',
+        'bayer leverkusen': 'Leverkusen',
+        'vfb stuttgart': 'Stuttgart',
+        'sc freiburg': 'Freiburg',
+        'tsg hoffenheim': 'Hoffenheim',
+        'eintracht frankfurt': 'Ein Frankfurt',
+        'internazionale': 'Inter',
+        'inter milan': 'Inter',
+        'ac milan': 'Milan',
+        'as roma': 'Roma',
+        'as monaco': 'Monaco',
+        'stade rennais': 'Rennes',
+        'losc lille': 'Lille',
+        'rc lens': 'Lens',
+        'ogc nice': 'Nice',
+        'olympique lyonnais': 'Lyon',
+        'stade brestois 29': 'Brest',
+        'atlético madrid': 'Ath Madrid',
+        'atletico madrid': 'Ath Madrid',
+        'athletic club': 'Ath Bilbao',
+        'real betis': 'Betis',
+        'real sociedad': 'Sociedad',
+        'celta vigo': 'Celta',
+        'afc bournemouth': 'Bournemouth',
+        'brighton & hove albion': 'Brighton',
+        'tottenham hotspur': 'Tottenham',
+        'newcastle united': 'Newcastle',
+        'nottingham forest': "Nott'm Forest",
+        'sporting cp': 'Sp Lisbon',
+        'sl benfica': 'Benfica',
+        'fc porto': 'Porto',
+        'braga': 'Sp Braga',
+        'sc braga': 'Sp Braga',
+        'feyenoord rotterdam': 'Feyenoord',
+        'ajax amsterdam': 'Ajax',
+        'fc twente': 'Twente',
+        'nec nijmegen': 'Nijmegen',
+        'kaa gent': 'Gent',
+        'union st.-gilloise': 'St. Gilloise',
+        'union saint-gilloise': 'St. Gilloise',
+        'sint-truidense': 'St Truiden',
+        'heart of midlothian': 'Hearts',
+        'aek athens': 'AEK',
+        'olympiacos': 'Olympiakos',
+    }
+
+    def _fetch_uefa_espn_standings(self, league_code):
+        import urllib.request
+        import json
+        slug = self.UEFA_ESPN_SLUGS.get(league_code)
+        if not slug:
+            return None
+        url = f"https://site.api.espn.com/apis/v2/sports/soccer/{slug}/standings"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as res:
+                data = json.loads(res.read().decode('utf-8'))
+            children = data.get('children', [])
+            if not children:
+                return None
+            entries = children[0].get('standings', {}).get('entries', [])
+            if not entries:
+                return None
+
+            standings_list = []
+            for idx, entry in enumerate(entries, 1):
+                team_info = entry.get('team', {})
+                raw_name = (team_info.get('displayName') or team_info.get('name') or '').strip()
+                canonical_name = self.UEFA_CANONICAL_NAMES.get(raw_name.lower(), raw_name)
+                logos = team_info.get('logos', [])
+                logo_url = logos[0].get('href') if logos else None
+
+                stats_map = {s.get('name'): s.get('value') for s in entry.get('stats', []) if s.get('name')}
+                rank = int(stats_map.get('rank') or idx)
+                p = int(stats_map.get('gamesPlayed') or 0)
+                w = int(stats_map.get('wins') or 0)
+                d = int(stats_map.get('ties') or 0)
+                l = int(stats_map.get('losses') or 0)
+                gf = int(stats_map.get('pointsFor') or 0)
+                ga = int(stats_map.get('pointsAgainst') or 0)
+                gd = int(stats_map.get('pointDifferential') if stats_map.get('pointDifferential') is not None else (gf - ga))
+                pts = int(stats_map.get('points') or 0)
+
+                if rank <= 8:
+                    honor = 'Lolos Otomatis 16 Besar'
+                elif rank <= 24:
+                    honor = 'Play-off Babak Gugur'
+                else:
+                    honor = 'Zona Eliminasi'
+
+                standings_list.append({
+                    'rank': rank,
+                    'team': canonical_name,
+                    'logo': logo_url,
+                    'p': p,
+                    'w': w,
+                    'd': d,
+                    'l': l,
+                    'gf': gf,
+                    'ga': ga,
+                    'gd': gd,
+                    'pts': pts,
+                    'honor': honor,
+                })
+
+            standings_list.sort(key=lambda x: x['rank'])
+            return standings_list
+        except Exception as e:
+            logger.warning(f"Gagal mengambil klasemen UEFA ({league_code}) dari ESPN: {e}")
+            return None
+
     @extend_schema(exclude=True)
     def get(self, request):
-        league_code = request.query_params.get('league')
+        league_code = (request.query_params.get('league') or '').upper()
         season = request.query_params.get('season')
 
         if not league_code or not season:
             return Response([])
 
-        cache_key = f"standings_{league_code}_{season}"
+        cache_key = f"standings_v2_{league_code}_{season}"
         cached_result = cache.get(cache_key)
         if cached_result is not None:
             resp = Response(cached_result)
             resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
             return resp
+
+        if league_code in self.UEFA_ESPN_SLUGS:
+            uefa_standings = self._fetch_uefa_espn_standings(league_code)
+            if uefa_standings:
+                cache.set(cache_key, uefa_standings, timeout=60 * 60 * 6)
+                resp = Response(uefa_standings)
+                resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                return resp
 
         try:
             if '/' in season:
@@ -909,10 +1039,10 @@ class AppVersionView(APIView):
     # KONFIGURASI VERSI RILIS TERBARU (HARDCODE)
     # Cukup ubah nilai di bawah ini jika nanti Anda merilis update baru ke APKPure.
     # =========================================================================
-    LATEST_VERSION = "1.4.1"
-    LATEST_BUILD = 8
+    LATEST_VERSION = "1.5.0"
+    LATEST_BUILD = 9
     UPDATE_URL = "https://apkpure.com/prediksikan-%E2%80%93-analitik-bola/id.prediksikan.app/download"
-    RELEASE_NOTES = "Pembaruan logo liga resmi, tampilan navigasi baru, dan pembersihan cache tuntas."
+    RELEASE_NOTES = "Dukungan jadwal & klasemen UCL/UEL/UECL + Bagan Gugur, Multi-Tier Parlay (2-10 Laga), Fitur Favorit Match, dan perbaikan tema terang."
     IS_CRITICAL = False
 
     def get(self, request):
